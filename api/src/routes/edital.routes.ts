@@ -8,8 +8,8 @@ import {
   atualizarEdital,
   excluirEdital,
   meusEditais,
-} from '../controllers/edital.controller.js'
-import { verificarJWT, verificarRole } from '../middlewares/auth.js'
+} from '../controllers/edital.controller'
+import { verificarJWT, verificarRole } from '../middlewares/auth'
 
 export async function editalRoutes(app: FastifyInstance) {
   // Rotas públicas (para candidatos verem editais disponíveis)

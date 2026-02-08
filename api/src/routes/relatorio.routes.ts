@@ -5,8 +5,8 @@ import {
   relatorioCandidaturas,
   estatisticasAssistente,
   estatisticasAdvogado,
-} from '../controllers/relatorio.controller.js'
-import { verificarRole } from '../middlewares/auth.js'
+} from '../controllers/relatorio.controller'
+import { verificarRole } from '../middlewares/auth'
 
 export async function relatorioRoutes(app: FastifyInstance) {
   // Dashboard Admin

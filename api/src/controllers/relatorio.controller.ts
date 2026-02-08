@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 
 // ===========================================
 // DASHBOARD GERAL (ADMIN)
@@ -96,7 +96,7 @@ export async function dashboardInstituicao(request: FastifyRequest, reply: Fasti
     prisma.edital.count({
       where: {
         instituicaoId: instituicao.id,
-        status: 'ABERTO',
+        ativo: true,
         dataFim: { gte: new Date() },
       },
     }),
@@ -105,7 +105,7 @@ export async function dashboardInstituicao(request: FastifyRequest, reply: Fasti
     }),
     prisma.edital.aggregate({
       where: { instituicaoId: instituicao.id },
-      _sum: { vagas: true },
+      _sum: { vagasDisponiveis: true },
     }),
     prisma.candidatura.groupBy({
       by: ['status'],
@@ -140,8 +140,8 @@ export async function dashboardInstituicao(request: FastifyRequest, reply: Fasti
       select: {
         id: true,
         titulo: true,
-        status: true,
-        vagas: true,
+        ativo: true,
+        vagasDisponiveis: true,
         dataInicio: true,
         dataFim: true,
         _count: { select: { candidaturas: true } },
@@ -154,7 +154,7 @@ export async function dashboardInstituicao(request: FastifyRequest, reply: Fasti
       totalEditais,
       editaisAtivos,
       totalCandidaturas,
-      totalVagas: totalVagas._sum.vagas || 0,
+      totalVagas: totalVagas._sum?.vagasDisponiveis || 0,
     },
     candidaturasPorStatus: candidaturasPorStatus.map((c) => ({
       status: c.status,

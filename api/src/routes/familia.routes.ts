@@ -6,8 +6,8 @@ import {
   atualizarMembro,
   excluirMembro,
   composicaoFamiliar,
-} from '../controllers/familia.controller.js'
-import { verificarRole, verificarJWT } from '../middlewares/auth.js'
+} from '../controllers/familia.controller'
+import { verificarRole, verificarJWT } from '../middlewares/auth'
 
 export async function familiaRoutes(app: FastifyInstance) {
   // Rotas do candidato

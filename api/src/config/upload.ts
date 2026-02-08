@@ -1,12 +1,8 @@
 import path from 'path'
-import { fileURLToPath } from 'url'
 import fs from 'fs'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
 // Diretório de uploads
-export const UPLOADS_DIR = path.resolve(__dirname, '../../uploads')
+export const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads')
 
 // Garantir que o diretório existe
 if (!fs.existsSync(UPLOADS_DIR)) {

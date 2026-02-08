@@ -6,8 +6,8 @@ import {
   atualizarCandidato,
   excluirCandidato,
   meuPerfil,
-} from '../controllers/candidato.controller.js'
-import { verificarJWT, verificarRole } from '../middlewares/auth.js'
+} from '../controllers/candidato.controller'
+import { verificarJWT, verificarRole } from '../middlewares/auth'
 
 export async function candidatoRoutes(app: FastifyInstance) {
   // Rotas para o próprio candidato

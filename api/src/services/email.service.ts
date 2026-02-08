@@ -1,11 +1,11 @@
 import nodemailer from 'nodemailer'
-import { env } from '../env/index.js'
+import { env } from '../env'
 
 // Configuração do transporter
 const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST || 'smtp.gmail.com',
   port: Number(env.SMTP_PORT) || 587,
-  secure: env.SMTP_SECURE === 'true',
+  secure: false,
   auth: {
     user: env.SMTP_USER,
     pass: env.SMTP_PASS,
@@ -514,6 +514,9 @@ export async function enviarEmailNovoEdital(
 // EXPORT DO SERVIÇO
 // ===========================================
 
+// Alias para compatibilidade
+export const sendEmail = enviarEmail
+
 export const emailService = {
   enviarEmailBoasVindas,
   enviarEmailRecuperacaoSenha,
@@ -522,4 +525,5 @@ export const emailService = {
   enviarEmailAgendamentoCriado,
   enviarEmailLembreteAgendamento,
   enviarEmailNovoEdital,
+  sendEmail: enviarEmail,
 }

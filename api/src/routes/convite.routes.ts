@@ -4,8 +4,8 @@ import {
   listarConvites,
   revogarConvite,
   validarConvite,
-} from '../controllers/convite.controller.js'
-import { verificarRole } from '../middlewares/auth.js'
+} from '../controllers/convite.controller'
+import { verificarRole } from '../middlewares/auth'
 
 export async function conviteRoutes(app: FastifyInstance) {
   // Rota pública para validar convite (usada na tela de registro)

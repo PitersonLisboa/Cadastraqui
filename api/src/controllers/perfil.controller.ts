@@ -1,8 +1,8 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { prisma } from '../lib/prisma.js'
-import { UsuarioNaoEncontradoError, CredenciaisInvalidasError } from '../errors/index.js'
+import { prisma } from '../lib/prisma'
+import { UsuarioNaoEncontradoError, CredenciaisInvalidasError } from '../errors/index'
 
 // ===========================================
 // SCHEMAS DE VALIDAÇÃO

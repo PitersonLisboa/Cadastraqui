@@ -1,12 +1,12 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 import { 
   exportarCandidaturasPDF, 
   exportarCandidaturasExcel,
   exportarEditaisExcel,
   exportarRelatorioPDF 
-} from '../services/export.service.js'
+} from '../services/export.service'
 
 // ===========================================
 // SCHEMAS
@@ -83,7 +83,7 @@ export async function exportarCandidaturas(request: FastifyRequest, reply: Fasti
     },
     edital: {
       titulo: c.edital.titulo,
-      anoLetivo: c.edital.anoLetivo,
+      anoLetivo: String(c.edital.anoLetivo),
     },
     status: c.status,
     dataInscricao: c.dataInscricao,
@@ -157,9 +157,9 @@ export async function exportarEditais(request: FastifyRequest, reply: FastifyRep
   const dados = editais.map(e => ({
     id: e.id,
     titulo: e.titulo,
-    anoLetivo: e.anoLetivo,
-    vagas: e.vagas,
-    status: e.status,
+    anoLetivo: String(e.anoLetivo),
+    vagas: e.vagasDisponiveis,
+    status: e.ativo ? 'ATIVO' : 'INATIVO',
     dataInicio: e.dataInicio,
     dataFim: e.dataFim,
     totalCandidaturas: e._count.candidaturas,
@@ -243,7 +243,7 @@ export async function exportarRelatorioDashboard(request: FastifyRequest, reply:
       prisma.candidatura.count({ where: { edital: { instituicaoId: instituicao.id } } }),
       prisma.edital.aggregate({
         where: { instituicaoId: instituicao.id },
-        _sum: { vagas: true },
+        _sum: { vagasDisponiveis: true },
       }),
       prisma.candidatura.groupBy({
         by: ['status'],
@@ -256,7 +256,7 @@ export async function exportarRelatorioDashboard(request: FastifyRequest, reply:
       resumo: {
         totalEditais,
         totalCandidaturas,
-        totalVagas: totalVagas._sum.vagas || 0,
+        totalVagas: totalVagas._sum?.vagasDisponiveis || 0,
       },
       candidaturasPorStatus: candidaturasPorStatus.map(c => ({
         status: c.status,

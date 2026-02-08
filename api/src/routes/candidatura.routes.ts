@@ -7,8 +7,8 @@ import {
   cancelarCandidatura,
   listarCandidaturas,
   atualizarStatusCandidatura,
-} from '../controllers/candidatura.controller.js'
-import { verificarJWT, verificarRole } from '../middlewares/auth.js'
+} from '../controllers/candidatura.controller'
+import { verificarJWT, verificarRole } from '../middlewares/auth'
 
 export async function candidaturaRoutes(app: FastifyInstance) {
   // Rotas do candidato

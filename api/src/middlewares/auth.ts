@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import jwt from 'jsonwebtoken'
-import { env } from '../env/index.js'
-import { TokenInvalidoError, NaoAutorizadoError } from '../errors/index.js'
+import { env } from '../env/index'
+import { TokenInvalidoError, NaoAutorizadoError } from '../errors/index'
 import { Role } from '@prisma/client'
 
 interface JwtPayload {
@@ -65,6 +65,6 @@ export function verificarRole(...rolesPermitidas: Role[]) {
 
 export function gerarToken(payload: { sub: string; email: string; role: Role }): string {
   return jwt.sign(payload, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN,
+    expiresIn: '7d',
   })
 }

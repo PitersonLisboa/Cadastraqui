@@ -8,8 +8,8 @@ import {
   marcarRealizado,
   listarAgendamentosCandidato,
   horariosDisponiveis,
-} from '../controllers/agendamento.controller.js'
-import { verificarRole, verificarJWT } from '../middlewares/auth.js'
+} from '../controllers/agendamento.controller'
+import { verificarRole, verificarJWT } from '../middlewares/auth'
 
 export async function agendamentoRoutes(app: FastifyInstance) {
   // Rotas do Assistente Social

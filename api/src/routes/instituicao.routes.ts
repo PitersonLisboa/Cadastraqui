@@ -12,8 +12,8 @@ import {
   listarDocumentosInstituicao,
   uploadDocumentoInstituicao,
   excluirDocumentoInstituicao,
-} from '../controllers/instituicao.controller.js'
-import { verificarJWT, verificarRole } from '../middlewares/auth.js'
+} from '../controllers/instituicao.controller'
+import { verificarJWT, verificarRole } from '../middlewares/auth'
 
 export async function instituicaoRoutes(app: FastifyInstance) {
   // Rotas para a própria instituição

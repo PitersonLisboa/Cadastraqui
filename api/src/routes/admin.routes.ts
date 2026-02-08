@@ -11,8 +11,8 @@ import {
   atualizarStatusInstituicao,
   listarLogs,
   estatisticasGerais,
-} from '../controllers/admin.controller.js'
-import { verificarRole } from '../middlewares/auth.js'
+} from '../controllers/admin.controller'
+import { verificarRole } from '../middlewares/auth'
 
 export async function adminRoutes(app: FastifyInstance) {
   // Todas as rotas requerem role ADMIN

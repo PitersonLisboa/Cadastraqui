@@ -1,5 +1,5 @@
-import { app } from './app.js'
-import { env } from './env/index.js'
+import { app } from './app'
+import { env } from './env'
 
 async function start() {
   try {

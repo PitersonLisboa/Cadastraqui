@@ -5,8 +5,8 @@ import {
   excluirDocumento,
   downloadDocumento,
   atualizarStatusDocumento,
-} from '../controllers/documento.controller.js'
-import { verificarRole, verificarJWT } from '../middlewares/auth.js'
+} from '../controllers/documento.controller'
+import { verificarRole, verificarJWT } from '../middlewares/auth'
 
 export async function documentoRoutes(app: FastifyInstance) {
   // Rotas do candidato

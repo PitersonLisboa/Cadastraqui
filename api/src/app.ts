@@ -5,14 +5,10 @@ import cookie from '@fastify/cookie'
 import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
 import path from 'path'
-import { fileURLToPath } from 'url'
-import { env } from './env/index.js'
-import { registerRoutes } from './routes/index.js'
-import { AppError } from './errors/index.js'
+import { env } from './env'
+import { registerRoutes } from './routes'
+import { AppError } from './errors'
 import { ZodError } from 'zod'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
 
 export const app = fastify({
   logger: env.NODE_ENV === 'development',
@@ -37,12 +33,6 @@ app.register(multipart, {
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
   },
-})
-
-// Servir arquivos estáticos (uploads)
-app.register(fastifyStatic, {
-  root: path.join(__dirname, '../uploads'),
-  prefix: '/uploads/',
 })
 
 // Registrar rotas

@@ -6,8 +6,8 @@ import {
   atualizarMembro,
   desativarMembro,
   reativarMembro,
-} from '../controllers/equipe.controller.js'
-import { verificarRole } from '../middlewares/auth.js'
+} from '../controllers/equipe.controller'
+import { verificarRole } from '../middlewares/auth'
 
 export async function equipeRoutes(app: FastifyInstance) {
   // Todas as rotas requerem role INSTITUICAO

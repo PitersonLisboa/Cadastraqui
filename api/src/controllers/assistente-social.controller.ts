@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-import { prisma } from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 
 export async function dashboardAssistenteSocial(request: FastifyRequest, reply: FastifyReply) {
   const assistenteSocial = await prisma.assistenteSocial.findUnique({

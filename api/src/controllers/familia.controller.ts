@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
-import { CandidatoNaoEncontradoError, RecursoNaoEncontradoError, NaoAutorizadoError } from '../errors/index.js'
+import { prisma } from '../lib/prisma'
+import { CandidatoNaoEncontradoError, RecursoNaoEncontradoError, NaoAutorizadoError } from '../errors/index'
 
 // ===========================================
 // SCHEMAS DE VALIDAÇÃO
@@ -162,7 +162,7 @@ export async function composicaoFamiliar(request: FastifyRequest, reply: Fastify
   // Calcular estatísticas
   const membros = candidato.membrosFamilia
   const rendaTotal = membros.reduce((acc, m) => acc + (m.renda?.toNumber() || 0), 0)
-  const rendaCandidato = candidato.renda?.toNumber() || 0
+  const rendaCandidato = 0 // Candidato não tem campo renda diretamente
   const rendaFamiliar = rendaTotal + rendaCandidato
   const totalPessoas = membros.length + 1
   const rendaPerCapita = rendaFamiliar / totalPessoas

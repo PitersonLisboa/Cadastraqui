@@ -1,11 +1,11 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 import { 
   CandidaturaNaoEncontradaError, 
   NaoAutorizadoError,
   RecursoNaoEncontradoError 
-} from '../errors/index.js'
+} from '../errors/index'
 
 // Emitir parecer social
 export async function emitirParecerSocial(request: FastifyRequest, reply: FastifyReply) {

@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
-import { dashboardAdvogado, meusPareceresJuridicos } from '../controllers/advogado.controller.js'
-import { verificarRole } from '../middlewares/auth.js'
+import { dashboardAdvogado, meusPareceresJuridicos } from '../controllers/advogado.controller'
+import { verificarRole } from '../middlewares/auth'
 
 export async function advogadoRoutes(app: FastifyInstance) {
   app.get('/advogado/dashboard', { 

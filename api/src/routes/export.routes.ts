@@ -3,8 +3,8 @@ import {
   exportarCandidaturas,
   exportarEditais,
   exportarRelatorioDashboard,
-} from '../controllers/export.controller.js'
-import { verificarRole } from '../middlewares/auth.js'
+} from '../controllers/export.controller'
+import { verificarRole } from '../middlewares/auth'
 
 export async function exportRoutes(app: FastifyInstance) {
   // Exportar candidaturas (PDF/Excel)

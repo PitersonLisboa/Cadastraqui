@@ -6,8 +6,8 @@ import {
   alterarSenha,
   alterarEmail,
   desativarConta,
-} from '../controllers/perfil.controller.js'
-import { verificarJWT, verificarRole } from '../middlewares/auth.js'
+} from '../controllers/perfil.controller'
+import { verificarJWT, verificarRole } from '../middlewares/auth'
 
 export async function perfilRoutes(app: FastifyInstance) {
   // Todas as rotas requerem autenticação

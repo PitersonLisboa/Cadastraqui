@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
-import { sendEmail } from '../services/email.service.js'
+import { prisma } from '../lib/prisma'
+import { sendEmail } from '../services/email.service'
 
 // ===========================================
 // SCHEMAS DE VALIDAÇÃO

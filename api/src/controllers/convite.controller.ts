@@ -1,12 +1,12 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import crypto from 'crypto'
-import { prisma } from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 import {
   InstituicaoNaoEncontradaError,
   NaoAutorizadoError,
   RecursoNaoEncontradoError,
-} from '../errors/index.js'
+} from '../errors/index'
 import { Role } from '@prisma/client'
 
 // ===========================================

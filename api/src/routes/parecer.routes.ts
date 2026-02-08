@@ -4,8 +4,8 @@ import {
   emitirParecerJuridico,
   listarMeusPareceresSociais,
   listarMeusPareceresJuridicos,
-} from '../controllers/parecer.controller.js'
-import { verificarRole } from '../middlewares/auth.js'
+} from '../controllers/parecer.controller'
+import { verificarRole } from '../middlewares/auth'
 
 export async function parecerRoutes(app: FastifyInstance) {
   // Rotas do Assistente Social

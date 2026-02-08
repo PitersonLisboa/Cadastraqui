@@ -5,8 +5,8 @@ import {
   marcarTodasComoLidas,
   excluirNotificacao,
   contarNaoLidas,
-} from '../controllers/notificacao.controller.js'
-import { verificarJWT } from '../middlewares/auth.js'
+} from '../controllers/notificacao.controller'
+import { verificarJWT } from '../middlewares/auth'
 
 export async function notificacaoRoutes(app: FastifyInstance) {
   // Todas as rotas requerem autenticação

@@ -1,11 +1,11 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 import {
   InstituicaoNaoEncontradaError,
   CnpjJaCadastradoError,
   NaoAutorizadoError,
-} from '../errors/index.js'
+} from '../errors/index'
 import { UF } from '@prisma/client'
 
 // ===========================================

@@ -1,12 +1,12 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 import { 
   CandidaturaNaoEncontradaError, 
   RecursoNaoEncontradoError, 
   NaoAutorizadoError 
-} from '../errors/index.js'
-import { enviarEmailAgendamentoCriado } from '../services/email.service.js'
+} from '../errors/index'
+import { enviarEmailAgendamentoCriado } from '../services/email.service'
 
 // ===========================================
 // SCHEMAS DE VALIDAÇÃO

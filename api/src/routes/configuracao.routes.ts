@@ -4,8 +4,8 @@ import {
   salvarConfiguracoes,
   testarEmail,
   obterEstatisticasSistema,
-} from '../controllers/configuracao.controller.js'
-import { verificarRole } from '../middlewares/auth.js'
+} from '../controllers/configuracao.controller'
+import { verificarRole } from '../middlewares/auth'
 
 export async function configuracaoRoutes(app: FastifyInstance) {
   const adminOnly = { preHandler: [verificarRole('ADMIN')] }

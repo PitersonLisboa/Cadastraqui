@@ -2,15 +2,15 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
-import { prisma } from '../lib/prisma.js'
-import { gerarToken } from '../middlewares/auth.js'
+import { prisma } from '../lib/prisma'
+import { gerarToken } from '../middlewares/auth'
 import {
   CredenciaisInvalidasError,
   EmailJaCadastradoError,
   UsuarioNaoEncontradoError,
-} from '../errors/index.js'
+} from '../errors/index'
 import { Role } from '@prisma/client'
-import { enviarEmailBoasVindas, enviarEmailRecuperacaoSenha } from '../services/email.service.js'
+import { enviarEmailBoasVindas, enviarEmailRecuperacaoSenha } from '../services/email.service'
 
 // ===========================================
 // SCHEMAS DE VALIDAÇÃO
@@ -220,6 +220,7 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
           data: {
             nome: nome || email.split('@')[0],
             oab: registro || '',
+            oabUf: 'SP',
             telefone: '',
             usuarioId: usuario.id,
             instituicaoId: convite.instituicaoId,

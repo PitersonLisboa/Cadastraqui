@@ -9,8 +9,8 @@ import {
   solicitarRecuperacaoSenha,
   validarTokenRecuperacao,
   redefinirSenha,
-} from '../controllers/auth.controller.js'
-import { verificarJWT } from '../middlewares/auth.js'
+} from '../controllers/auth.controller'
+import { verificarJWT } from '../middlewares/auth'
 
 export async function authRoutes(app: FastifyInstance) {
   // Rotas públicas

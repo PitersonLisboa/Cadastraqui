@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../lib/prisma.js'
-import { RecursoNaoEncontradoError, NaoAutorizadoError } from '../errors/index.js'
+import { prisma } from '../lib/prisma'
+import { RecursoNaoEncontradoError, NaoAutorizadoError } from '../errors/index'
 
 // ===========================================
 // SERVIÇO DE NOTIFICAÇÕES (para uso interno)

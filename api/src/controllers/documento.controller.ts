@@ -3,19 +3,19 @@ import { z } from 'zod'
 import fs from 'fs'
 import path from 'path'
 import { pipeline } from 'stream/promises'
-import { prisma } from '../lib/prisma.js'
+import { prisma } from '../lib/prisma'
 import { 
   CandidatoNaoEncontradoError, 
   RecursoNaoEncontradoError, 
   NaoAutorizadoError,
   ArquivoInvalidoError 
-} from '../errors/index.js'
+} from '../errors/index'
 import { 
   UPLOADS_DIR, 
   gerarNomeArquivo, 
   validarTipoArquivo,
   TIPOS_DOCUMENTO 
-} from '../config/upload.js'
+} from '../config/upload'
 
 // Listar documentos do candidato
 export async function listarDocumentos(request: FastifyRequest, reply: FastifyReply) {
