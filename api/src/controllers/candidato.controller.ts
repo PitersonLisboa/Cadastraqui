@@ -147,7 +147,7 @@ export async function criarCandidato(request: FastifyRequest, reply: FastifyRepl
     data: {
       ...dados,
       usuarioId: request.usuario.id,
-    },
+    } as any,
     include: {
       usuario: {
         select: {

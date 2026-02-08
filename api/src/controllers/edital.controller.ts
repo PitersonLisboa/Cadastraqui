@@ -156,7 +156,7 @@ export async function criarEdital(request: FastifyRequest, reply: FastifyReply) 
     data: {
       ...dados,
       instituicaoId: instituicao.id,
-    },
+    } as any,
     include: {
       instituicao: {
         select: {

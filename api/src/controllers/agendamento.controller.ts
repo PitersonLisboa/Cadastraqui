@@ -146,10 +146,15 @@ export async function criarAgendamento(request: FastifyRequest, reply: FastifyRe
 
   const agendamento = await prisma.agendamento.create({
     data: {
-      ...dados,
-      linkOnline: dados.linkOnline || null,
+      titulo: dados.titulo,
+      descricao: dados.descricao,
+      dataHora: dados.dataHora,
+      duracao: dados.duracao,
+      local: dados.local,
+      linkOnline: dados.linkOnline || '',
+      candidaturaId: dados.candidaturaId,
       assistenteId: assistente.id,
-    },
+    } as any,
     include: {
       candidatura: {
         include: {
@@ -172,15 +177,18 @@ export async function criarAgendamento(request: FastifyRequest, reply: FastifyRe
   })
 
   // Enviar email de confirmação do agendamento (async, não bloqueia)
-  enviarEmailAgendamentoCriado({
-    nomeCandidato: agendamento.candidatura.candidato.nome,
-    emailCandidato: agendamento.candidatura.candidato.usuario.email,
-    data: dados.dataHora,
-    horario: dados.dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    local: dados.local || dados.linkOnline || undefined,
-    tipo: 'ENTREVISTA',
-    observacoes: dados.descricao,
-  }).catch(console.error)
+  const cand = agendamento.candidatura as any
+  if (cand?.candidato) {
+    enviarEmailAgendamentoCriado({
+      nomeCandidato: cand.candidato.nome,
+      emailCandidato: cand.candidato.usuario?.email || '',
+      data: dados.dataHora,
+      horario: dados.dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      local: dados.local || dados.linkOnline || undefined,
+      tipo: 'ENTREVISTA',
+      observacoes: dados.descricao,
+    }).catch(console.error)
+  }
 
   return reply.status(201).send({ agendamento })
 }

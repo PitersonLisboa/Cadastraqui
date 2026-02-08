@@ -153,7 +153,7 @@ export async function criarInstituicao(request: FastifyRequest, reply: FastifyRe
     data: {
       ...dados,
       usuarioId: request.usuario.id,
-    },
+    } as any,
     include: {
       usuario: {
         select: {

@@ -67,7 +67,7 @@ export async function adicionarMembro(request: FastifyRequest, reply: FastifyRep
     data: {
       ...dados,
       candidatoId: candidato.id,
-    },
+    } as any,
   })
 
   return reply.status(201).send({ membro })
