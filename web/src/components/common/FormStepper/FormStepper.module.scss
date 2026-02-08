@@ -1,0 +1,145 @@
+.container {
+  width: 100%;
+}
+
+.stepsIndicator {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  position: relative;
+
+  &:last-child {
+    .stepLine {
+      display: none;
+    }
+  }
+}
+
+.stepCircle {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: var(--color-gray-200);
+  color: var(--color-gray-500);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: var(--transition);
+  flex-shrink: 0;
+
+  .current & {
+    background-color: var(--role-color, var(--color-info));
+    color: var(--color-white);
+    box-shadow: 0 0 0 4px var(--role-color-light, rgba(59, 130, 246, 0.2));
+  }
+
+  .completed & {
+    background-color: var(--color-success);
+    color: var(--color-white);
+  }
+}
+
+.stepInfo {
+  display: flex;
+  flex-direction: column;
+  margin-left: 0.75rem;
+  margin-right: 1rem;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+.stepTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-gray-500);
+  white-space: nowrap;
+
+  .current & {
+    color: var(--role-color, var(--color-info));
+  }
+
+  .completed & {
+    color: var(--color-success);
+  }
+}
+
+.stepDescription {
+  font-size: 0.75rem;
+  color: var(--color-gray-400);
+  white-space: nowrap;
+}
+
+.stepLine {
+  width: 60px;
+  height: 2px;
+  background-color: var(--color-gray-200);
+  margin: 0 0.5rem;
+
+  .completed & {
+    background-color: var(--color-success);
+  }
+
+  @media (max-width: 768px) {
+    width: 30px;
+  }
+}
+
+.content {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.formStep {
+  background-color: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+}
+
+.formStepHeader {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.formStepTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-gray-800);
+  margin-bottom: 0.25rem;
+}
+
+.formStepDescription {
+  font-size: 0.9375rem;
+  color: var(--color-gray-500);
+}
+
+.formStepContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

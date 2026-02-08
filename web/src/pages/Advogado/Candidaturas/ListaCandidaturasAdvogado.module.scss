@@ -1,0 +1,279 @@
+.container {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.header {
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--color-gray-900);
+    margin-bottom: 0.25rem;
+  }
+
+  p {
+    font-size: 1rem;
+    color: var(--color-gray-500);
+  }
+}
+
+.filters {
+  margin-bottom: 1.5rem;
+}
+
+.filtersRow {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.searchBox {
+  position: relative;
+  flex: 1;
+  max-width: 400px;
+
+  input {
+    padding-left: 2.5rem;
+  }
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-gray-400);
+  z-index: 1;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 1rem;
+
+  p {
+    color: var(--color-gray-500);
+  }
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-gray-200);
+  border-top-color: var(--role-color, #7c3aed);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem;
+  text-align: center;
+  color: var(--color-gray-400);
+
+  svg {
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-gray-700);
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    color: var(--color-gray-500);
+  }
+}
+
+.candidaturasTable {
+  background-color: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead {
+    background-color: var(--color-gray-50);
+
+    th {
+      padding: 1rem;
+      text-align: left;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--color-gray-600);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--color-gray-200);
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid var(--color-gray-100);
+      transition: var(--transition);
+
+      &:hover {
+        background-color: var(--color-gray-50);
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    td {
+      padding: 1rem;
+      vertical-align: middle;
+    }
+  }
+}
+
+.candidatoCell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: var(--role-color-light, #faf5ff);
+  color: var(--role-color, #7c3aed);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.nome {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-gray-800);
+}
+
+.email {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+}
+
+.editalCell {
+  display: flex;
+  flex-direction: column;
+}
+
+.editalTitulo {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-gray-800);
+}
+
+.instituicao {
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+}
+
+.pareceres {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  span {
+    font-size: 0.75rem;
+    font-weight: 500;
+
+    &.ok {
+      color: #16a34a;
+    }
+
+    &.pendente {
+      color: #d97706;
+    }
+  }
+}
+
+.status {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  &.pendente {
+    background-color: #fef3c7;
+    color: #d97706;
+  }
+
+  &.emAnalise {
+    background-color: #dbeafe;
+    color: #2563eb;
+  }
+
+  &.docPendente {
+    background-color: #fef3c7;
+    color: #d97706;
+  }
+
+  &.aprovado {
+    background-color: #dcfce7;
+    color: #16a34a;
+  }
+
+  &.reprovado {
+    background-color: #fee2e2;
+    color: #dc2626;
+  }
+
+  &.cancelado {
+    background-color: #f3f4f6;
+    color: #6b7280;
+  }
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+
+  span {
+    font-size: 0.875rem;
+    color: var(--color-gray-600);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,32 @@
+.layout {
+  min-height: 100vh;
+  background-color: var(--color-gray-50);
+}
+
+.main {
+  margin-left: var(--sidebar-width);
+  margin-top: var(--header-height);
+  min-height: calc(100vh - var(--header-height));
+  transition: margin-left 0.3s ease-in-out;
+
+  &.sidebarClosed {
+    margin-left: 0;
+  }
+}
+
+.content {
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .main {
+    margin-left: 0;
+  }
+
+  .content {
+    padding: 1rem;
+  }
+}

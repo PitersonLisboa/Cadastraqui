@@ -1,0 +1,423 @@
+.container {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  gap: 1rem;
+
+  p {
+    color: var(--color-gray-500);
+  }
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-gray-200);
+  border-top-color: var(--role-color, var(--color-success));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.statusCard {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1.5rem;
+
+  &.pendente {
+    background-color: #fef3c7;
+    border: 1px solid #fcd34d;
+  }
+
+  &.emAnalise {
+    background-color: #dbeafe;
+    border: 1px solid #93c5fd;
+  }
+
+  &.docPendente {
+    background-color: #fef3c7;
+    border: 1px solid #fcd34d;
+  }
+
+  &.aprovado {
+    background-color: #dcfce7;
+    border: 1px solid #86efac;
+  }
+
+  &.reprovado {
+    background-color: #fee2e2;
+    border: 1px solid #fca5a5;
+  }
+
+  &.cancelado {
+    background-color: #f3f4f6;
+    border: 1px solid #d1d5db;
+  }
+}
+
+.statusIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .pendente & {
+    color: #d97706;
+  }
+
+  .emAnalise & {
+    color: #2563eb;
+  }
+
+  .docPendente & {
+    color: #d97706;
+  }
+
+  .aprovado & {
+    color: #16a34a;
+  }
+
+  .reprovado & {
+    color: #dc2626;
+  }
+
+  .cancelado & {
+    color: #6b7280;
+  }
+}
+
+.statusInfo {
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+
+    .pendente & {
+      color: #92400e;
+    }
+
+    .emAnalise & {
+      color: #1e40af;
+    }
+
+    .docPendente & {
+      color: #92400e;
+    }
+
+    .aprovado & {
+      color: #166534;
+    }
+
+    .reprovado & {
+      color: #991b1b;
+    }
+
+    .cancelado & {
+      color: #374151;
+    }
+  }
+
+  p {
+    font-size: 0.9375rem;
+    
+    .pendente & {
+      color: #a16207;
+    }
+
+    .emAnalise & {
+      color: #1d4ed8;
+    }
+
+    .docPendente & {
+      color: #a16207;
+    }
+
+    .aprovado & {
+      color: #15803d;
+    }
+
+    .reprovado & {
+      color: #b91c1c;
+    }
+
+    .cancelado & {
+      color: #4b5563;
+    }
+  }
+}
+
+.content {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 1.5rem;
+  align-items: start;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mainColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  position: sticky;
+  top: 1.5rem;
+
+  @media (max-width: 1024px) {
+    position: static;
+  }
+}
+
+.editalInfo {
+  h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-gray-800);
+    margin-bottom: 0.375rem;
+  }
+}
+
+.instituicao {
+  font-size: 0.9375rem;
+  color: var(--role-color, #166534);
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.metaInfo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+
+  svg {
+    color: var(--color-gray-400);
+  }
+}
+
+.docsExigidos {
+  padding: 1rem;
+  background-color: var(--color-gray-50);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+
+  h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-gray-700);
+    margin-bottom: 0.5rem;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 1.25rem;
+
+    li {
+      font-size: 0.8125rem;
+      color: var(--color-gray-600);
+      margin-bottom: 0.25rem;
+    }
+  }
+}
+
+.documentosList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.documentoItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-gray-50);
+  border-radius: var(--radius);
+}
+
+.docInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  svg {
+    color: var(--role-color, #166534);
+  }
+}
+
+.docNome {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-gray-800);
+}
+
+.docData {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+}
+
+.docActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.docStatus {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+
+  &.pendente {
+    background-color: #fef3c7;
+    color: #d97706;
+  }
+
+  &.aprovado {
+    background-color: #dcfce7;
+    color: #16a34a;
+  }
+
+  &.rejeitado {
+    background-color: #fee2e2;
+    color: #dc2626;
+  }
+}
+
+.emptyDocs {
+  font-size: 0.9375rem;
+  color: var(--color-gray-500);
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.observacoes {
+  font-size: 0.9375rem;
+  color: var(--color-gray-700);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* Timeline */
+.timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.timelineItem {
+  display: flex;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  position: relative;
+
+  &:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 16px;
+    width: 2px;
+    height: calc(100% - 8px);
+    background-color: var(--color-gray-200);
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+}
+
+.timelineDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--role-color, #166534);
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.timelineContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.timelineTitle {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-gray-800);
+}
+
+.timelineObs {
+  font-size: 0.8125rem;
+  color: var(--color-gray-600);
+  margin-top: 0.25rem;
+}
+
+.timelineDate {
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+  margin-top: 0.25rem;
+}
+
+.actionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

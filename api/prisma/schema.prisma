@@ -1,0 +1,638 @@
+// ===========================================
+// CADASTRAQUI - Schema do Banco de Dados
+// ===========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================
+// ENUMS
+// ===========================================
+
+enum Role {
+  ADMIN
+  INSTITUICAO
+  CANDIDATO
+  ASSISTENTE_SOCIAL
+  ADVOGADO
+}
+
+enum UF {
+  AC
+  AL
+  AM
+  AP
+  BA
+  CE
+  DF
+  ES
+  GO
+  MA
+  MG
+  MS
+  MT
+  PA
+  PB
+  PE
+  PI
+  PR
+  RJ
+  RN
+  RO
+  RR
+  RS
+  SC
+  SE
+  SP
+  TO
+}
+
+enum StatusCandidatura {
+  PENDENTE
+  EM_ANALISE
+  DOCUMENTACAO_PENDENTE
+  APROVADO
+  REPROVADO
+  CANCELADO
+}
+
+enum StatusDocumento {
+  PENDENTE
+  ENVIADO
+  APROVADO
+  REJEITADO
+}
+
+// ===========================================
+// MODELOS PRINCIPAIS
+// ===========================================
+
+model Usuario {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  senha         String
+  nome          String?
+  role          Role      @default(CANDIDATO)
+  ativo         Boolean   @default(true)
+  primeiroAcesso Boolean  @default(true)
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+
+  // Relacionamentos
+  candidato         Candidato?
+  responsavelLegal  ResponsavelLegal?
+  instituicao       Instituicao?
+  assistenteSocial  AssistenteSocial?
+  advogado          Advogado?
+  sessoes           Sessao[]
+  logs              LogAtividade[]
+  historicosCandidatura HistoricoCandidatura[]
+  notificacoes      Notificacao[]
+  membroEquipe      MembroEquipe?
+  tokensRecuperacao TokenRecuperacaoSenha[]
+
+  @@map("usuarios")
+}
+
+model Sessao {
+  id           String   @id @default(uuid())
+  token        String   @unique
+  userAgent    String?
+  ip           String?
+  expiraEm     DateTime
+  criadoEm     DateTime @default(now())
+
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId    String
+
+  @@map("sessoes")
+}
+
+model TokenRecuperacaoSenha {
+  id           String   @id @default(uuid())
+  token        String   @unique
+  expiraEm     DateTime
+  usado        Boolean  @default(false)
+  criadoEm     DateTime @default(now())
+
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId    String
+
+  @@map("tokens_recuperacao_senha")
+}
+
+// ===========================================
+// CANDIDATO
+// ===========================================
+
+model Candidato {
+  id                String   @id @default(uuid())
+  nome              String
+  cpf               String   @unique
+  dataNascimento    DateTime
+  telefone          String
+  celular           String?
+  
+  // Endereço
+  cep               String
+  endereco          String
+  numero            String
+  complemento       String?
+  bairro            String
+  cidade            String
+  uf                UF
+
+  // Dados adicionais
+  estadoCivil       String?
+  profissao         String?
+  rendaFamiliar     Decimal?
+  
+  criadoEm          DateTime @default(now())
+  atualizadoEm      DateTime @updatedAt
+
+  // Relacionamentos
+  usuario           Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId         String   @unique
+  
+  responsavelLegal  ResponsavelLegal? @relation(fields: [responsavelId], references: [id])
+  responsavelId     String?
+  
+  documentos        Documento[]
+  candidaturas      Candidatura[]
+  membrosFamilia    MembroFamilia[]
+
+  @@map("candidatos")
+}
+
+model MembroFamilia {
+  id              String   @id @default(uuid())
+  nome            String
+  cpf             String
+  dataNascimento  DateTime
+  parentesco      String
+  renda           Decimal?
+  ocupacao        String?
+  
+  candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId     String
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("membros_familia")
+}
+
+// ===========================================
+// RESPONSÁVEL LEGAL (para menores)
+// ===========================================
+
+model ResponsavelLegal {
+  id              String   @id @default(uuid())
+  nome            String
+  cpf             String   @unique
+  dataNascimento  DateTime
+  telefone        String
+  
+  // Endereço
+  cep             String
+  endereco        String
+  numero          String
+  complemento     String?
+  bairro          String
+  cidade          String
+  uf              UF
+
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  // Relacionamentos
+  usuario         Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId       String   @unique
+  
+  dependentes     Candidato[]
+
+  @@map("responsaveis_legais")
+}
+
+// ===========================================
+// INSTITUIÇÃO
+// ===========================================
+
+model Instituicao {
+  id                      String   @id @default(uuid())
+  razaoSocial             String
+  nomeFantasia            String?
+  cnpj                    String   @unique
+  telefone                String
+  email                   String
+  status                  String   @default("PENDENTE") // PENDENTE, ATIVA, SUSPENSA, INATIVA
+  
+  // Endereço
+  cep                     String
+  endereco                String
+  numero                  String
+  complemento             String?
+  bairro                  String
+  cidade                  String
+  uf                      UF
+
+  // Dados institucionais
+  codigoMEC               String?
+  tipoInstituicao         String?
+  
+  criadoEm                DateTime @default(now())
+  atualizadoEm            DateTime @updatedAt
+
+  // Relacionamentos
+  usuario                 Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId               String   @unique
+  
+  assistentesSociais      AssistenteSocial[]
+  advogados               Advogado[]
+  editais                 Edital[]
+  unidades                UnidadeInstituicao[]
+  membrosEquipe           MembroEquipe[]
+  documentos              DocumentoInstituicao[]
+  convitesEquipe          ConviteEquipe[]
+
+  @@map("instituicoes")
+}
+
+model DocumentoInstituicao {
+  id              String   @id @default(uuid())
+  nome            String
+  tipo            String
+  categoria       String   @default("OUTRO") // INSTITUCIONAL, REGULAMENTO, MODELO, CONTRATO, RELATORIO, OUTRO
+  tamanho         Int
+  url             String
+  
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id], onDelete: Cascade)
+  instituicaoId   String
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("documentos_instituicao")
+}
+
+model UnidadeInstituicao {
+  id              String   @id @default(uuid())
+  nome            String
+  cnpj            String?
+  telefone        String?
+  
+  // Endereço
+  cep             String
+  endereco        String
+  numero          String
+  complemento     String?
+  bairro          String
+  cidade          String
+  uf              UF
+
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id], onDelete: Cascade)
+  instituicaoId   String
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("unidades_instituicao")
+}
+
+// ===========================================
+// ASSISTENTE SOCIAL
+// ===========================================
+
+model AssistenteSocial {
+  id              String   @id @default(uuid())
+  nome            String
+  cress           String   // Registro no Conselho
+  telefone        String?
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  // Relacionamentos
+  usuario         Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId       String      @unique
+  
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id])
+  instituicaoId   String
+  
+  pareceres       ParecerSocial[]
+  agendamentos    Agendamento[]
+
+  @@map("assistentes_sociais")
+}
+
+model ParecerSocial {
+  id                String   @id @default(uuid())
+  parecer           String   @db.Text
+  recomendacao      String?
+  dataEmissao       DateTime @default(now())
+  
+  assistenteSocial  AssistenteSocial @relation(fields: [assistenteId], references: [id])
+  assistenteId      String
+  
+  candidatura       Candidatura @relation(fields: [candidaturaId], references: [id])
+  candidaturaId     String      @unique
+  
+  criadoEm          DateTime @default(now())
+  atualizadoEm      DateTime @updatedAt
+
+  @@map("pareceres_sociais")
+}
+
+// ===========================================
+// ADVOGADO
+// ===========================================
+
+model Advogado {
+  id              String   @id @default(uuid())
+  nome            String
+  oab             String   // Número da OAB
+  oabUf           UF
+  telefone        String?
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  // Relacionamentos
+  usuario         Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId       String      @unique
+  
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id])
+  instituicaoId   String
+  
+  pareceresJuridicos ParecerJuridico[]
+
+  @@map("advogados")
+}
+
+model ParecerJuridico {
+  id              String   @id @default(uuid())
+  parecer         String   @db.Text
+  fundamentacao   String?  @db.Text
+  recomendacao    String?  // DEFERIDO, INDEFERIDO, DILIGENCIA
+  dataEmissao     DateTime @default(now())
+  
+  advogado        Advogado @relation(fields: [advogadoId], references: [id])
+  advogadoId      String
+  
+  candidatura     Candidatura @relation(fields: [candidaturaId], references: [id])
+  candidaturaId   String      @unique
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("pareceres_juridicos")
+}
+
+// ===========================================
+// EDITAL E CANDIDATURA
+// ===========================================
+
+model Edital {
+  id                String   @id @default(uuid())
+  titulo            String
+  descricao         String?  @db.Text
+  anoLetivo         Int
+  dataInicio        DateTime
+  dataFim           DateTime
+  vagasDisponiveis  Int
+  requisitos        String?  @db.Text
+  documentosExigidos String? @db.Text
+  ativo             Boolean  @default(true)
+  
+  instituicao       Instituicao @relation(fields: [instituicaoId], references: [id])
+  instituicaoId     String
+  
+  candidaturas      Candidatura[]
+  
+  criadoEm          DateTime @default(now())
+  atualizadoEm      DateTime @updatedAt
+
+  @@map("editais")
+}
+
+model Candidatura {
+  id              String            @id @default(uuid())
+  status          StatusCandidatura @default(PENDENTE)
+  dataInscricao   DateTime          @default(now())
+  observacoes     String?           @db.Text
+  
+  candidato       Candidato @relation(fields: [candidatoId], references: [id])
+  candidatoId     String
+  
+  edital          Edital @relation(fields: [editalId], references: [id])
+  editalId        String
+  
+  documentos      DocumentoCandidatura[]
+  parecerSocial   ParecerSocial?
+  parecerJuridico ParecerJuridico?
+  agendamentos    Agendamento[]
+  historico       HistoricoCandidatura[]
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@unique([candidatoId, editalId])
+  @@map("candidaturas")
+}
+
+model HistoricoCandidatura {
+  id              String            @id @default(uuid())
+  status          StatusCandidatura
+  observacao      String?
+  
+  candidatura     Candidatura @relation(fields: [candidaturaId], references: [id], onDelete: Cascade)
+  candidaturaId   String
+  
+  usuario         Usuario @relation(fields: [usuarioId], references: [id])
+  usuarioId       String
+  
+  createdAt       DateTime @default(now())
+
+  @@map("historico_candidatura")
+}
+
+// ===========================================
+// DOCUMENTOS
+// ===========================================
+
+model Documento {
+  id              String          @id @default(uuid())
+  tipo            String
+  nome            String
+  url             String
+  tamanho         Int?
+  mimeType        String?
+  status          StatusDocumento @default(PENDENTE)
+  observacao      String?
+  
+  candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId     String
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("documentos")
+}
+
+model DocumentoCandidatura {
+  id              String          @id @default(uuid())
+  tipo            String
+  nome            String
+  url             String
+  status          StatusDocumento @default(PENDENTE)
+  observacao      String?
+  
+  candidatura     Candidatura @relation(fields: [candidaturaId], references: [id], onDelete: Cascade)
+  candidaturaId   String
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("documentos_candidatura")
+}
+
+// ===========================================
+// AGENDAMENTO
+// ===========================================
+
+model Agendamento {
+  id              String   @id @default(uuid())
+  titulo          String
+  descricao       String?
+  dataHora        DateTime
+  duracao         Int      @default(30) // minutos
+  local           String?
+  linkOnline      String?
+  realizado       Boolean  @default(false)
+  observacoes     String?  @db.Text
+  
+  candidatura     Candidatura @relation(fields: [candidaturaId], references: [id])
+  candidaturaId   String
+  
+  assistenteSocial AssistenteSocial @relation(fields: [assistenteId], references: [id])
+  assistenteId    String
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("agendamentos")
+}
+
+// ===========================================
+// NOTIFICAÇÕES
+// ===========================================
+
+enum TipoNotificacao {
+  INFO
+  SUCESSO
+  ALERTA
+  ERRO
+}
+
+model Notificacao {
+  id          String           @id @default(uuid())
+  tipo        TipoNotificacao  @default(INFO)
+  titulo      String
+  mensagem    String
+  lida        Boolean          @default(false)
+  link        String?
+  
+  usuario     Usuario          @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId   String
+  
+  criadoEm    DateTime         @default(now())
+
+  @@map("notificacoes")
+}
+
+// ===========================================
+// LOGS E AUDITORIA
+// ===========================================
+
+model LogAtividade {
+  id          String   @id @default(uuid())
+  acao        String
+  entidade    String
+  entidadeId  String?
+  detalhes    Json?
+  ip          String?
+  userAgent   String?
+  
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId   String
+  
+  criadoEm    DateTime @default(now())
+
+  @@map("logs_atividade")
+}
+
+// ===========================================
+// MEMBROS DA EQUIPE (Instituição)
+// ===========================================
+
+model MembroEquipe {
+  id              String   @id @default(uuid())
+  nome            String
+  email           String
+  cargo           String?
+  role            Role
+  ativo           Boolean  @default(true)
+  
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id], onDelete: Cascade)
+  instituicaoId   String
+  
+  usuario         Usuario? @relation(fields: [usuarioId], references: [id])
+  usuarioId       String?  @unique
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("membros_equipe")
+}
+
+// ===========================================
+// CONVITES DE EQUIPE
+// ===========================================
+
+model ConviteEquipe {
+  id            String   @id @default(uuid())
+  codigo        String   @unique
+  tipo          Role     // ASSISTENTE_SOCIAL ou ADVOGADO
+  email         String?  // Email opcional para quem o convite foi destinado
+  usado         Boolean  @default(false)
+  usadoPor      String?  // ID do usuário que usou o convite
+  expiraEm      DateTime
+  
+  instituicao   Instituicao @relation(fields: [instituicaoId], references: [id], onDelete: Cascade)
+  instituicaoId String
+  
+  criadoEm      DateTime @default(now())
+
+  @@map("convites_equipe")
+}
+
+// ===========================================
+// CONFIGURAÇÕES DO SISTEMA
+// ===========================================
+
+model Configuracao {
+  id        String   @id @default(uuid())
+  chave     String   @unique
+  valor     String
+  descricao String?
+  criadoEm  DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@map("configuracoes")
+}

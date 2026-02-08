@@ -1,0 +1,410 @@
+.container {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.loading, .error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 1rem;
+  color: var(--color-gray-500);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-gray-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// Header
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.headerInfo {
+  flex: 1;
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-gray-900);
+  }
+}
+
+.edital {
+  font-size: 0.875rem;
+  color: var(--color-gray-500);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.statusBadge {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+// Tabs
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-gray-200);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--color-gray-700);
+    }
+
+    &.active {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-primary);
+    }
+  }
+}
+
+// Content
+.content {
+  min-height: 400px;
+}
+
+// Dados
+.dadosGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.dadosCard {
+  padding: 1.5rem;
+
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-gray-800);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-gray-100);
+
+    svg {
+      color: var(--color-primary);
+    }
+  }
+}
+
+.dadosLista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dadoItem {
+  label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    color: var(--color-gray-500);
+    margin-bottom: 0.125rem;
+  }
+
+  p {
+    font-size: 0.9375rem;
+    color: var(--color-gray-900);
+  }
+}
+
+// Documentos
+.documentosLista {
+  display: flex;
+  flex-direction: column;
+}
+
+.documentoItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-gray-100);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.docInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+
+  svg {
+    color: var(--color-gray-400);
+  }
+}
+
+.docNome {
+  display: block;
+  font-weight: 500;
+  color: var(--color-gray-900);
+}
+
+.docTipo {
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+}
+
+.docStatus {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.emptyDocs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem;
+  color: var(--color-gray-400);
+
+  svg {
+    margin-bottom: 0.5rem;
+  }
+}
+
+// Pareceres
+.pareceresGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.parecerCard {
+  padding: 1.5rem;
+
+  h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-gray-800);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-gray-100);
+  }
+}
+
+.parecerConteudo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.parecerMeta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+}
+
+.parecerTexto {
+  font-size: 0.9375rem;
+  color: var(--color-gray-700);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.parecerRecomendacao {
+  padding: 0.75rem;
+  background-color: var(--color-gray-50);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  color: var(--color-gray-700);
+
+  strong {
+    color: var(--color-gray-900);
+  }
+}
+
+.semParecer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  color: var(--color-gray-400);
+
+  svg {
+    margin-bottom: 0.5rem;
+  }
+}
+
+// Timeline/Histórico
+.timeline {
+  padding: 1rem;
+}
+
+.timelineItem {
+  position: relative;
+  padding-left: 2rem;
+  padding-bottom: 1.5rem;
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+}
+
+.timelineDot {
+  position: absolute;
+  left: 0;
+  top: 0.25rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.timelineLine {
+  position: absolute;
+  left: 5px;
+  top: 16px;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--color-gray-200);
+}
+
+.timelineContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.timelineHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timelineStatus {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.timelineData {
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+}
+
+.timelineUser {
+  font-size: 0.8125rem;
+  color: var(--color-gray-600);
+}
+
+.timelineObs {
+  font-size: 0.875rem;
+  color: var(--color-gray-700);
+  padding: 0.5rem;
+  background-color: var(--color-gray-50);
+  border-radius: var(--radius);
+  margin-top: 0.25rem;
+}
+
+.semHistorico {
+  text-align: center;
+  color: var(--color-gray-500);
+  padding: 2rem;
+}
+
+// Modal
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.textareaGroup {
+  label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-gray-700);
+    margin-bottom: 0.5rem;
+  }
+
+  textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    resize: vertical;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+  }
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .headerActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dadosGrid,
+  .pareceresGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,151 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+  padding: 2rem;
+
+  @media (max-width: 968px) {
+    display: none;
+  }
+}
+
+.brand {
+  text-align: center;
+  color: var(--color-white);
+}
+
+.brandIcon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.brandTitle {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.brandSubtitle {
+  font-size: 1.125rem;
+  opacity: 0.9;
+}
+
+.right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background-color: var(--color-gray-50);
+}
+
+.formContainer {
+  width: 100%;
+  max-width: 440px;
+  padding: 2.5rem;
+  background-color: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-gray-900);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 0.9375rem;
+  color: var(--color-gray-500);
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.roleSelection {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.roleCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0.5rem;
+  background-color: var(--color-gray-50);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: var(--transition);
+
+  &:hover {
+    background-color: var(--role-color-light);
+    border-color: var(--role-color);
+  }
+
+  &.selected {
+    background-color: var(--role-color-light);
+    border-color: var(--role-color);
+
+    .roleName {
+      color: var(--role-color);
+      font-weight: 600;
+    }
+  }
+}
+
+.roleIcon {
+  font-size: 1.5rem;
+}
+
+.roleName {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-gray-600);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+
+  a {
+    color: var(--color-gray-600);
+    transition: var(--transition);
+
+    &:hover {
+      color: var(--color-info);
+    }
+  }
+
+  span {
+    color: var(--color-gray-300);
+  }
+}

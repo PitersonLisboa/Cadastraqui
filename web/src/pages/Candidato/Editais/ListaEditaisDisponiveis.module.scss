@@ -1,0 +1,264 @@
+.container {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.header {
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--color-gray-900);
+    margin-bottom: 0.25rem;
+  }
+
+  p {
+    font-size: 1rem;
+    color: var(--color-gray-500);
+  }
+}
+
+.filtersCard {
+  margin-bottom: 1.5rem;
+}
+
+.searchRow {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.searchBox {
+  position: relative;
+  flex: 1;
+  max-width: 500px;
+
+  input {
+    padding-left: 2.5rem;
+  }
+
+  @media (max-width: 640px) {
+    max-width: 100%;
+  }
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-gray-400);
+  z-index: 1;
+}
+
+.filtersRow {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-gray-200);
+  align-items: center;
+
+  select {
+    max-width: 200px;
+  }
+}
+
+.resultCount {
+  font-size: 0.875rem;
+  color: var(--color-gray-500);
+  margin-bottom: 1rem;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 1rem;
+
+  p {
+    color: var(--color-gray-500);
+  }
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-gray-200);
+  border-top-color: var(--role-color, var(--color-success));
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem;
+  text-align: center;
+  color: var(--color-gray-400);
+
+  svg {
+    margin-bottom: 1rem;
+  }
+
+  h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-gray-700);
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    color: var(--color-gray-500);
+    margin-bottom: 1.5rem;
+    max-width: 400px;
+  }
+}
+
+.editaisGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.5rem;
+}
+
+.editalCard {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: var(--transition);
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+.editalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background-color: var(--role-color-light, #f0fdf4);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.instituicaoNome {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--role-color, #166534);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.urgentBadge {
+  padding: 0.25rem 0.625rem;
+  background-color: #fef2f2;
+  color: #dc2626;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.editalBody {
+  flex: 1;
+  padding: 1.25rem;
+
+  h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-gray-800);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+  }
+}
+
+.descricao {
+  font-size: 0.875rem;
+  color: var(--color-gray-600);
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.editalInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.infoItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+
+  svg {
+    flex-shrink: 0;
+    color: var(--color-gray-400);
+  }
+}
+
+.editalFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--color-gray-200);
+  background-color: var(--color-gray-50);
+}
+
+.anoLetivo {
+  font-size: 0.8125rem;
+  color: var(--color-gray-500);
+  font-weight: 500;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-gray-200);
+
+  span {
+    font-size: 0.875rem;
+    color: var(--color-gray-600);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

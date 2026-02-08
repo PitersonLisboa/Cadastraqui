@@ -1,0 +1,147 @@
+.container {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-gray-900);
+  }
+
+  p {
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.section {
+  padding: 1.5rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-gray-100);
+
+  svg {
+    color: var(--color-primary);
+  }
+
+  h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-gray-800);
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  button {
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.warning {
+  padding: 0.75rem 1rem;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  color: #92400e;
+}
+
+.infoCard {
+  padding: 1.5rem;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+
+.infoItem {
+  label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    color: var(--color-gray-500);
+    margin-bottom: 0.25rem;
+  }
+
+  span {
+    font-size: 0.9375rem;
+    color: var(--color-gray-900);
+    font-weight: 500;
+  }
+}
+
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .infoGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
