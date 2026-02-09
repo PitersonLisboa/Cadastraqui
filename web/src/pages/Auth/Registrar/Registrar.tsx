@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useSetRecoilState } from 'recoil'
 import { toast } from 'react-toastify'
-import { FiUser, FiBuilding, FiUserCheck, FiShield, FiArrowLeft, FiCheck } from 'react-icons/fi'
+import { FiUser, FiHome, FiUserCheck, FiShield, FiArrowLeft, FiCheck } from 'react-icons/fi'
 import { authState } from '@/atoms'
 import { authService, api } from '@/services/api'
 import { Button } from '@/components/common/Button/Button'
@@ -49,7 +49,7 @@ const TIPOS_PUBLICOS = [
     tipo: 'INSTITUICAO' as TipoRegistro,
     nome: 'Instituição',
     descricao: 'Instituição de ensino que oferece bolsas',
-    icone: FiBuilding,
+    icone: FiHome,
     cor: '#3b82f6',
   },
 ]

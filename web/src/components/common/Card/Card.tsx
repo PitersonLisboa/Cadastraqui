@@ -1,13 +1,15 @@
-import { ReactNode } from 'react'
+import { ReactNode, CSSProperties } from 'react'
 import styles from './Card.module.scss'
 
-interface CardProps {
+export interface CardProps {
   children: ReactNode
   title?: string
   subtitle?: string
   className?: string
   padding?: 'none' | 'sm' | 'md' | 'lg'
   actions?: ReactNode
+  onClick?: () => void
+  style?: CSSProperties
 }
 
 export function Card({ 
@@ -16,10 +18,16 @@ export function Card({
   subtitle, 
   className, 
   padding = 'md',
-  actions 
+  actions,
+  onClick,
+  style
 }: CardProps) {
   return (
-    <div className={`${styles.card} ${styles[padding]} ${className || ''}`}>
+    <div 
+      className={`${styles.card} ${styles[padding]} ${className || ''} ${onClick ? styles.clickable : ''}`}
+      onClick={onClick}
+      style={style}
+    >
       {(title || subtitle || actions) && (
         <div className={styles.header}>
           <div className={styles.headerText}>

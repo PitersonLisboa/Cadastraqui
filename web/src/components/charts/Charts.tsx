@@ -40,7 +40,7 @@ export const PIE_COLORS = [
 ]
 
 interface ChartContainerProps {
-  children: React.ReactNode
+  children: React.ReactElement
   title?: string
   subtitle?: string
   height?: number

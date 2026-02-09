@@ -269,6 +269,17 @@ export const candidaturaService = {
     const response = await api.put(`/candidaturas/${id}/status`, data)
     return response.data
   },
+  
+  // Método para assistente social listar candidaturas para análise
+  listarParaAnalise: async (params?: { 
+    pagina?: number
+    limite?: number
+    editalId?: string
+    status?: string
+  }) => {
+    const response = await api.get('/candidaturas', { params })
+    return response.data
+  },
 }
 
 // ===========================================
