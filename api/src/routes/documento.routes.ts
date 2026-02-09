@@ -7,10 +7,10 @@ import {
   atualizarStatusDocumento,
 } from '../controllers/documento.controller'
 import { verificarRole } from '../middlewares/auth'
-import { ROLES_DOCUMENTOS } from '../config/permissions'
+import { ROLES_DOCUMENTOS_CANDIDATOS } from '../config/permissions'
 
 export async function documentoRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', verificarRole(...ROLES_DOCUMENTOS))
+  app.addHook('preHandler', verificarRole(...ROLES_DOCUMENTOS_CANDIDATOS))
 
   app.get('/documentos', listarDocumentos)
   app.post('/documentos', uploadDocumento)

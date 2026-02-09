@@ -10,10 +10,10 @@ import {
   horariosDisponiveis,
 } from '../controllers/agendamento.controller'
 import { verificarRole } from '../middlewares/auth'
-import { ROLES_AGENDAMENTOS } from '../config/permissions'
+import { ROLES_GERENCIAR_AGENDAMENTOS } from '../config/permissions'
 
 export async function agendamentoRoutes(app: FastifyInstance) {
-  app.addHook('preHandler', verificarRole(...ROLES_AGENDAMENTOS))
+  app.addHook('preHandler', verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS))
 
   app.get('/agendamentos', listarMeusAgendamentos)
   app.post('/agendamentos', criarAgendamento)
