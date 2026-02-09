@@ -29,4 +29,8 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    port: 8080,
+    allowedHosts: ['localhost', '.railway.app', '.cadastraqui.net.br'],
+  },
 })
