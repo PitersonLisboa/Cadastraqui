@@ -454,6 +454,23 @@ export const equipeService = {
     return response.data
   },
   
+  // Endpoint unificado - envia tipo no body
+  adicionarMembro: async (data: {
+    tipo: string
+    email: string
+    senha: string
+    nome: string
+    cress?: string
+    oab?: string
+    oabUf?: string
+    cargo?: string
+    telefone?: string
+  }) => {
+    const response = await api.post('/equipe', data)
+    return response.data
+  },
+
+  // Compatibilidade com código existente
   adicionarAssistente: async (data: {
     email: string
     senha: string
@@ -461,7 +478,7 @@ export const equipeService = {
     cress: string
     telefone?: string
   }) => {
-    const response = await api.post('/equipe/assistente', data)
+    const response = await api.post('/equipe', { ...data, tipo: 'ASSISTENTE_SOCIAL' })
     return response.data
   },
   
@@ -473,22 +490,22 @@ export const equipeService = {
     oabUf: string
     telefone?: string
   }) => {
-    const response = await api.post('/equipe/advogado', data)
+    const response = await api.post('/equipe', { ...data, tipo: 'ADVOGADO' })
     return response.data
   },
   
-  atualizar: async (tipo: 'assistente' | 'advogado', id: string, data: any) => {
-    const response = await api.put(`/equipe/${tipo}/${id}`, data)
+  atualizar: async (id: string, data: any) => {
+    const response = await api.put(`/equipe/${id}`, data)
     return response.data
   },
   
-  desativar: async (tipo: 'assistente' | 'advogado', id: string) => {
-    const response = await api.post(`/equipe/${tipo}/${id}/desativar`)
+  desativar: async (tipo: string, id: string) => {
+    const response = await api.delete(`/equipe/${id}`)
     return response.data
   },
   
-  reativar: async (tipo: 'assistente' | 'advogado', id: string) => {
-    const response = await api.post(`/equipe/${tipo}/${id}/reativar`)
+  reativar: async (tipo: string, id: string) => {
+    const response = await api.post(`/equipe/${id}/reativar`)
     return response.data
   },
 }

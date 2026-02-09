@@ -6,14 +6,16 @@ import {
   FiBriefcase,
   FiMail,
   FiPhone,
-  FiEdit2,
   FiUserX,
   FiUserCheck,
   FiCheck,
   FiLink,
   FiCopy,
   FiTrash2,
-  FiClock
+  FiClock,
+  FiClipboard,
+  FiEye,
+  FiSettings
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import { Card } from '@/components/common/Card/Card'
@@ -24,36 +26,42 @@ import { Select } from '@/components/common/Select/Select'
 import { equipeService, api } from '@/services/api'
 import styles from './GestaoEquipe.module.scss'
 
-interface Assistente {
+// ===========================================
+// INTERFACES
+// ===========================================
+
+interface MembroBase {
   id: string
   nome: string
-  cress: string
   telefone?: string
   usuario: {
     email: string
     ativo: boolean
     criadoEm: string
-  }
-  _count: {
-    pareceres: number
-    agendamentos: number
   }
 }
 
-interface Advogado {
-  id: string
-  nome: string
+interface Assistente extends MembroBase {
+  cress: string
+  _count: { pareceres: number; agendamentos: number }
+}
+
+interface Advogado extends MembroBase {
   oab: string
   oabUf: string
-  telefone?: string
-  usuario: {
-    email: string
-    ativo: boolean
-    criadoEm: string
-  }
-  _count: {
-    pareceresJuridicos: number
-  }
+  _count: { pareceresJuridicos: number }
+}
+
+interface Supervisor extends MembroBase {
+  registro?: string
+}
+
+interface MembroControle extends MembroBase {
+  cargo?: string
+}
+
+interface MembroOperacional extends MembroBase {
+  cargo?: string
 }
 
 interface Convite {
@@ -66,32 +74,51 @@ interface Convite {
   criadoEm: string
 }
 
-const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+// ===========================================
+// CONFIGURAÇÃO DOS TIPOS
+// ===========================================
+
+const TIPOS_MEMBRO = [
+  { key: 'ASSISTENTE_SOCIAL', label: 'Assistente Social', icon: FiUser, cor: '#f59e0b' },
+  { key: 'ADVOGADO', label: 'Advogado', icon: FiBriefcase, cor: '#7c3aed' },
+  { key: 'SUPERVISAO', label: 'Supervisão', icon: FiEye, cor: '#0891b2' },
+  { key: 'CONTROLE', label: 'Controle', icon: FiSettings, cor: '#4f46e5' },
+  { key: 'OPERACIONAL', label: 'Operacional', icon: FiClipboard, cor: '#d97706' },
+] as const
+
+type TipoMembro = typeof TIPOS_MEMBRO[number]['key']
+
+const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']
+
+// ===========================================
+// COMPONENTE PRINCIPAL
+// ===========================================
 
 export function GestaoEquipe() {
   const [assistentes, setAssistentes] = useState<Assistente[]>([])
   const [advogados, setAdvogados] = useState<Advogado[]>([])
+  const [supervisores, setSupervisores] = useState<Supervisor[]>([])
+  const [membrosControle, setMembrosControle] = useState<MembroControle[]>([])
+  const [membrosOperacional, setMembrosOperacional] = useState<MembroOperacional[]>([])
   const [convites, setConvites] = useState<Convite[]>([])
   const [loading, setLoading] = useState(true)
-  const [modalTipo, setModalTipo] = useState<'assistente' | 'advogado' | null>(null)
-  const [modalConvite, setModalConvite] = useState(false)
-  const [tipoConvite, setTipoConvite] = useState<'ASSISTENTE_SOCIAL' | 'ADVOGADO' | 'SUPERVISAO' | 'CONTROLE' | 'OPERACIONAL'>('ASSISTENTE_SOCIAL')
-  const [gerandoConvite, setGerandoConvite] = useState(false)
   
-  const [formAssistente, setFormAssistente] = useState({
+  const [modalCadastro, setModalCadastro] = useState<TipoMembro | null>(null)
+  const [modalConvite, setModalConvite] = useState(false)
+  const [tipoConvite, setTipoConvite] = useState<TipoMembro>('ASSISTENTE_SOCIAL')
+  const [gerandoConvite, setGerandoConvite] = useState(false)
+  const [dropdownAberto, setDropdownAberto] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+
+  // Form genérico
+  const [form, setForm] = useState({
     email: '',
     senha: '',
     nome: '',
     cress: '',
-    telefone: '',
-  })
-  
-  const [formAdvogado, setFormAdvogado] = useState({
-    email: '',
-    senha: '',
-    nome: '',
     oab: '',
     oabUf: 'SP',
+    cargo: '',
     telefone: '',
   })
 
@@ -106,6 +133,9 @@ export function GestaoEquipe() {
       const data = await equipeService.listar()
       setAssistentes(data.assistentes || [])
       setAdvogados(data.advogados || [])
+      setSupervisores(data.supervisores || [])
+      setMembrosControle(data.membrosControle || [])
+      setMembrosOperacional(data.membrosOperacional || [])
     } catch (error) {
       console.error('Erro ao carregar equipe:', error)
       toast.error('Erro ao carregar equipe')
@@ -120,6 +150,50 @@ export function GestaoEquipe() {
       setConvites(response.data.convites || [])
     } catch (error) {
       console.error('Erro ao carregar convites:', error)
+    }
+  }
+
+  function resetForm() {
+    setForm({ email: '', senha: '', nome: '', cress: '', oab: '', oabUf: 'SP', cargo: '', telefone: '' })
+  }
+
+  async function handleSubmitMembro(e: React.FormEvent) {
+    e.preventDefault()
+    if (!modalCadastro || !form.email || !form.senha || !form.nome) {
+      toast.warning('Preencha todos os campos obrigatórios')
+      return
+    }
+
+    if (modalCadastro === 'ASSISTENTE_SOCIAL' && !form.cress) {
+      toast.warning('Informe o CRESS'); return
+    }
+    if (modalCadastro === 'ADVOGADO' && !form.oab) {
+      toast.warning('Informe a OAB'); return
+    }
+
+    setSalvando(true)
+    try {
+      await equipeService.adicionarMembro({
+        tipo: modalCadastro,
+        email: form.email,
+        senha: form.senha,
+        nome: form.nome,
+        cress: modalCadastro === 'ASSISTENTE_SOCIAL' ? form.cress : undefined,
+        oab: modalCadastro === 'ADVOGADO' ? form.oab : undefined,
+        oabUf: modalCadastro === 'ADVOGADO' ? form.oabUf : undefined,
+        cargo: ['SUPERVISAO', 'CONTROLE', 'OPERACIONAL'].includes(modalCadastro) ? form.cargo : undefined,
+        telefone: form.telefone || undefined,
+      })
+      
+      const tipoLabel = TIPOS_MEMBRO.find(t => t.key === modalCadastro)?.label
+      toast.success(`${tipoLabel} adicionado(a) com sucesso!`)
+      setModalCadastro(null)
+      resetForm()
+      carregarEquipe()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao adicionar membro')
+    } finally {
+      setSalvando(false)
     }
   }
 
@@ -139,13 +213,29 @@ export function GestaoEquipe() {
 
   async function handleRevogarConvite(id: string) {
     if (!confirm('Deseja revogar este convite?')) return
-    
     try {
       await api.delete(`/convites/${id}`)
       toast.success('Convite revogado')
       carregarConvites()
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao revogar convite')
+    }
+  }
+
+  async function handleToggleStatus(id: string, ativo: boolean) {
+    const acao = ativo ? 'desativar' : 'reativar'
+    if (!confirm(`Deseja realmente ${acao} este membro?`)) return
+
+    try {
+      if (ativo) {
+        await equipeService.desativar('', id)
+      } else {
+        await equipeService.reativar('', id)
+      }
+      toast.success(ativo ? 'Membro desativado!' : 'Membro reativado!')
+      carregarEquipe()
+    } catch (error) {
+      toast.error('Erro ao atualizar status')
     }
   }
 
@@ -160,94 +250,242 @@ export function GestaoEquipe() {
     toast.success('Link copiado!')
   }
 
-  async function handleAddAssistente(e: React.FormEvent) {
-    e.preventDefault()
-    
-    if (!formAssistente.email || !formAssistente.senha || !formAssistente.nome || !formAssistente.cress) {
-      toast.warning('Preencha todos os campos obrigatórios')
-      return
-    }
-
-    try {
-      await equipeService.adicionarAssistente(formAssistente)
-      toast.success('Assistente social adicionado com sucesso!')
-      setModalTipo(null)
-      resetForms()
-      carregarEquipe()
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao adicionar assistente')
-    }
-  }
-
-  async function handleAddAdvogado(e: React.FormEvent) {
-    e.preventDefault()
-    
-    if (!formAdvogado.email || !formAdvogado.senha || !formAdvogado.nome || !formAdvogado.oab) {
-      toast.warning('Preencha todos os campos obrigatórios')
-      return
-    }
-
-    try {
-      await equipeService.adicionarAdvogado(formAdvogado)
-      toast.success('Advogado adicionado com sucesso!')
-      setModalTipo(null)
-      resetForms()
-      carregarEquipe()
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao adicionar advogado')
-    }
-  }
-
-  async function handleToggleStatus(tipo: 'assistente' | 'advogado', id: string, ativo: boolean) {
-    const acao = ativo ? 'desativar' : 'reativar'
-    if (!confirm(`Deseja realmente ${acao} este membro?`)) return
-
-    try {
-      if (ativo) {
-        await equipeService.desativar(tipo, id)
-        toast.success('Membro desativado!')
-      } else {
-        await equipeService.reativar(tipo, id)
-        toast.success('Membro reativado!')
-      }
-      carregarEquipe()
-    } catch (error) {
-      toast.error('Erro ao atualizar status')
-    }
-  }
-
-  function resetForms() {
-    setFormAssistente({ email: '', senha: '', nome: '', cress: '', telefone: '' })
-    setFormAdvogado({ email: '', senha: '', nome: '', oab: '', oabUf: 'SP', telefone: '' })
-  }
-
   function formatarData(data: string) {
     return new Date(data).toLocaleDateString('pt-BR')
   }
 
-  const totalEquipe = assistentes.length + advogados.length
-  const ativos = [...assistentes, ...advogados].filter(m => m.usuario.ativo).length
+  function getLabelTipo(tipo: string) {
+    return TIPOS_MEMBRO.find(t => t.key === tipo)?.label || tipo
+  }
+
+  const totalEquipe = assistentes.length + advogados.length + supervisores.length + membrosControle.length + membrosOperacional.length
+  const todosMembros = [
+    ...assistentes.map(m => ({ ...m, _tipo: 'ASSISTENTE_SOCIAL' })),
+    ...advogados.map(m => ({ ...m, _tipo: 'ADVOGADO' })),
+    ...supervisores.map(m => ({ ...m, _tipo: 'SUPERVISAO' })),
+    ...membrosControle.map(m => ({ ...m, _tipo: 'CONTROLE' })),
+    ...membrosOperacional.map(m => ({ ...m, _tipo: 'OPERACIONAL' })),
+  ]
+  const ativos = todosMembros.filter(m => m.usuario.ativo).length
+
+  // ===========================================
+  // RENDER - Formulário específico por tipo
+  // ===========================================
+
+  function renderCamposEspecificos() {
+    if (!modalCadastro) return null
+
+    switch (modalCadastro) {
+      case 'ASSISTENTE_SOCIAL':
+        return (
+          <Input
+            label="CRESS *"
+            placeholder="Número do CRESS"
+            value={form.cress}
+            onChange={(e) => setForm({ ...form, cress: e.target.value })}
+            required
+          />
+        )
+      case 'ADVOGADO':
+        return (
+          <div className={styles.formRow}>
+            <Input
+              label="Número OAB *"
+              placeholder="123456"
+              value={form.oab}
+              onChange={(e) => setForm({ ...form, oab: e.target.value })}
+              required
+            />
+            <Select
+              label="UF da OAB *"
+              value={form.oabUf}
+              onChange={(e) => setForm({ ...form, oabUf: e.target.value })}
+              required
+            >
+              {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+            </Select>
+          </div>
+        )
+      case 'SUPERVISAO':
+      case 'CONTROLE':
+      case 'OPERACIONAL':
+        return (
+          <Input
+            label="Cargo / Registro"
+            placeholder={modalCadastro === 'SUPERVISAO' ? 'Ex: Coordenador Social' : 'Ex: Analista Documental'}
+            value={form.cargo}
+            onChange={(e) => setForm({ ...form, cargo: e.target.value })}
+          />
+        )
+      default:
+        return null
+    }
+  }
+
+  // ===========================================
+  // RENDER - Card de membro
+  // ===========================================
+
+  function renderMembroCard(membro: any, tipo: string) {
+    const config = TIPOS_MEMBRO.find(t => t.key === tipo)
+    const Icon = config?.icon || FiUser
+    const subtitulo = tipo === 'ASSISTENTE_SOCIAL' ? `CRESS: ${membro.cress}`
+      : tipo === 'ADVOGADO' ? `OAB: ${membro.oab}/${membro.oabUf}`
+      : membro.cargo || membro.registro || getLabelTipo(tipo)
+
+    return (
+      <Card key={membro.id} className={`${styles.membroCard} ${!membro.usuario.ativo ? styles.inativo : ''}`}>
+        <div className={styles.membroHeader}>
+          <div className={styles.avatar} style={{ backgroundColor: `${config?.cor}15` }}>
+            <Icon size={24} style={{ color: config?.cor }} />
+          </div>
+          <div className={styles.membroInfo}>
+            <h3>{membro.nome}</h3>
+            <span className={styles.registro}>{subtitulo}</span>
+          </div>
+          <span className={`${styles.status} ${membro.usuario.ativo ? styles.ativo : styles.inativo}`}>
+            {membro.usuario.ativo ? 'Ativo' : 'Inativo'}
+          </span>
+        </div>
+
+        <div className={styles.membroBody}>
+          <div className={styles.contato}>
+            <FiMail size={14} />
+            <span>{membro.usuario.email}</span>
+          </div>
+          {membro.telefone && (
+            <div className={styles.contato}>
+              <FiPhone size={14} />
+              <span>{membro.telefone}</span>
+            </div>
+          )}
+        </div>
+
+        {(tipo === 'ASSISTENTE_SOCIAL' && membro._count) && (
+          <div className={styles.membroStats}>
+            <div className={styles.stat}>
+              <span className={styles.statNumero}>{membro._count.pareceres}</span>
+              <span className={styles.statLabel}>Pareceres</span>
+            </div>
+            <div className={styles.stat}>
+              <span className={styles.statNumero}>{membro._count.agendamentos}</span>
+              <span className={styles.statLabel}>Agendamentos</span>
+            </div>
+          </div>
+        )}
+
+        {(tipo === 'ADVOGADO' && membro._count) && (
+          <div className={styles.membroStats}>
+            <div className={styles.stat}>
+              <span className={styles.statNumero}>{membro._count.pareceresJuridicos}</span>
+              <span className={styles.statLabel}>Pareceres Jurídicos</span>
+            </div>
+          </div>
+        )}
+
+        <div className={styles.membroFooter}>
+          <span className={styles.desde}>Desde {formatarData(membro.usuario.criadoEm)}</span>
+          <button 
+            className={`${styles.btnStatus} ${membro.usuario.ativo ? styles.btnDesativar : styles.btnReativar}`}
+            onClick={() => handleToggleStatus(membro.id, membro.usuario.ativo)}
+          >
+            {membro.usuario.ativo ? <FiUserX size={16} /> : <FiUserCheck size={16} />}
+            {membro.usuario.ativo ? 'Desativar' : 'Reativar'}
+          </button>
+        </div>
+      </Card>
+    )
+  }
+
+  // ===========================================
+  // RENDER - Seção de tipo
+  // ===========================================
+
+  function renderSecao(tipo: string, membros: any[]) {
+    const config = TIPOS_MEMBRO.find(t => t.key === tipo)
+    if (!config) return null
+    const Icon = config.icon
+
+    return (
+      <section key={tipo} className={styles.section}>
+        <h2>
+          <Icon style={{ color: config.cor }} />
+          {config.label} ({membros.length})
+        </h2>
+        
+        {membros.length === 0 ? (
+          <Card className={styles.empty}>
+            <p>Nenhum(a) {config.label.toLowerCase()} cadastrado(a)</p>
+            <Button variant="outline" onClick={() => setModalCadastro(config.key)}>
+              <FiPlus size={18} />
+              Adicionar {config.label}
+            </Button>
+          </Card>
+        ) : (
+          <div className={styles.lista}>
+            {membros.map(m => renderMembroCard(m, tipo))}
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  // ===========================================
+  // RENDER PRINCIPAL
+  // ===========================================
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <div>
           <h1>Gestão de Equipe</h1>
-          <p>Gerencie assistentes sociais e advogados</p>
+          <p>Gerencie os membros da equipe da instituição</p>
         </div>
         <div className={styles.headerActions}>
           <Button variant="ghost" onClick={() => setModalConvite(true)}>
             <FiLink size={18} />
             Gerar Convite
           </Button>
-          <Button variant="outline" onClick={() => setModalTipo('assistente')}>
-            <FiPlus size={18} />
-            Assistente Social
-          </Button>
-          <Button onClick={() => setModalTipo('advogado')}>
-            <FiPlus size={18} />
-            Advogado
-          </Button>
+          <div style={{ position: 'relative' }}>
+            <Button onClick={() => setDropdownAberto(!dropdownAberto)}>
+              <FiPlus size={18} />
+              Membro
+            </Button>
+            {dropdownAberto && (
+              <>
+                <div 
+                  style={{ position: 'fixed', inset: 0, zIndex: 10 }} 
+                  onClick={() => setDropdownAberto(false)} 
+                />
+                <div style={{
+                  position: 'absolute', right: 0, top: '100%', marginTop: '0.5rem',
+                  background: '#fff', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                  border: '1px solid #e2e8f0', zIndex: 11, minWidth: '220px', overflow: 'hidden',
+                }}>
+                  {TIPOS_MEMBRO.map((tipo) => {
+                    const Icon = tipo.icon
+                    return (
+                      <button
+                        key={tipo.key}
+                        onClick={() => { setModalCadastro(tipo.key); setDropdownAberto(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%',
+                          padding: '0.75rem 1rem', border: 'none', background: 'transparent',
+                          cursor: 'pointer', fontSize: '0.875rem', color: '#334155',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <Icon size={16} style={{ color: tipo.cor }} />
+                        {tipo.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -267,180 +505,49 @@ export function GestaoEquipe() {
             <span className={styles.resumoLabel}>Ativos</span>
           </div>
         </Card>
-        <Card className={styles.resumoCard}>
-          <FiUser size={24} />
-          <div>
-            <span className={styles.resumoNumero}>{assistentes.length}</span>
-            <span className={styles.resumoLabel}>Assistentes Sociais</span>
-          </div>
-        </Card>
-        <Card className={styles.resumoCard}>
-          <FiBriefcase size={24} />
-          <div>
-            <span className={styles.resumoNumero}>{advogados.length}</span>
-            <span className={styles.resumoLabel}>Advogados</span>
-          </div>
-        </Card>
+        {TIPOS_MEMBRO.map(tipo => {
+          const Icon = tipo.icon
+          const count = tipo.key === 'ASSISTENTE_SOCIAL' ? assistentes.length
+            : tipo.key === 'ADVOGADO' ? advogados.length
+            : tipo.key === 'SUPERVISAO' ? supervisores.length
+            : tipo.key === 'CONTROLE' ? membrosControle.length
+            : membrosOperacional.length
+          return (
+            <Card key={tipo.key} className={styles.resumoCard}>
+              <Icon size={24} style={{ color: tipo.cor }} />
+              <div>
+                <span className={styles.resumoNumero}>{count}</span>
+                <span className={styles.resumoLabel}>{tipo.label}</span>
+              </div>
+            </Card>
+          )
+        })}
       </div>
 
       {loading ? (
         <div className={styles.loading}>Carregando...</div>
       ) : (
         <div className={styles.sections}>
-          {/* Assistentes Sociais */}
-          <section className={styles.section}>
-            <h2>
-              <FiUser className={styles.iconeAssistente} />
-              Assistentes Sociais ({assistentes.length})
-            </h2>
-            
-            {assistentes.length === 0 ? (
-              <Card className={styles.empty}>
-                <p>Nenhum assistente social cadastrado</p>
-                <Button variant="outline" onClick={() => setModalTipo('assistente')}>
-                  <FiPlus size={18} />
-                  Adicionar Assistente
-                </Button>
-              </Card>
-            ) : (
-              <div className={styles.lista}>
-                {assistentes.map(as => (
-                  <Card key={as.id} className={`${styles.membroCard} ${!as.usuario.ativo ? styles.inativo : ''}`}>
-                    <div className={styles.membroHeader}>
-                      <div className={styles.avatar}>
-                        <FiUser size={24} />
-                      </div>
-                      <div className={styles.membroInfo}>
-                        <h3>{as.nome}</h3>
-                        <span className={styles.registro}>CRESS: {as.cress}</span>
-                      </div>
-                      <span className={`${styles.status} ${as.usuario.ativo ? styles.ativo : styles.inativo}`}>
-                        {as.usuario.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </div>
-
-                    <div className={styles.membroBody}>
-                      <div className={styles.contato}>
-                        <FiMail size={14} />
-                        <span>{as.usuario.email}</span>
-                      </div>
-                      {as.telefone && (
-                        <div className={styles.contato}>
-                          <FiPhone size={14} />
-                          <span>{as.telefone}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className={styles.membroStats}>
-                      <div className={styles.stat}>
-                        <span className={styles.statNumero}>{as._count.pareceres}</span>
-                        <span className={styles.statLabel}>Pareceres</span>
-                      </div>
-                      <div className={styles.stat}>
-                        <span className={styles.statNumero}>{as._count.agendamentos}</span>
-                        <span className={styles.statLabel}>Agendamentos</span>
-                      </div>
-                    </div>
-
-                    <div className={styles.membroFooter}>
-                      <span className={styles.desde}>Desde {formatarData(as.usuario.criadoEm)}</span>
-                      <button 
-                        className={`${styles.btnStatus} ${as.usuario.ativo ? styles.btnDesativar : styles.btnReativar}`}
-                        onClick={() => handleToggleStatus('assistente', as.id, as.usuario.ativo)}
-                      >
-                        {as.usuario.ativo ? <FiUserX size={16} /> : <FiUserCheck size={16} />}
-                        {as.usuario.ativo ? 'Desativar' : 'Reativar'}
-                      </button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Advogados */}
-          <section className={styles.section}>
-            <h2>
-              <FiBriefcase className={styles.iconeAdvogado} />
-              Advogados ({advogados.length})
-            </h2>
-            
-            {advogados.length === 0 ? (
-              <Card className={styles.empty}>
-                <p>Nenhum advogado cadastrado</p>
-                <Button variant="outline" onClick={() => setModalTipo('advogado')}>
-                  <FiPlus size={18} />
-                  Adicionar Advogado
-                </Button>
-              </Card>
-            ) : (
-              <div className={styles.lista}>
-                {advogados.map(adv => (
-                  <Card key={adv.id} className={`${styles.membroCard} ${!adv.usuario.ativo ? styles.inativo : ''}`}>
-                    <div className={styles.membroHeader}>
-                      <div className={styles.avatar} style={{ backgroundColor: '#f5f3ff' }}>
-                        <FiBriefcase size={24} style={{ color: '#7c3aed' }} />
-                      </div>
-                      <div className={styles.membroInfo}>
-                        <h3>{adv.nome}</h3>
-                        <span className={styles.registro}>OAB: {adv.oab}/{adv.oabUf}</span>
-                      </div>
-                      <span className={`${styles.status} ${adv.usuario.ativo ? styles.ativo : styles.inativo}`}>
-                        {adv.usuario.ativo ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </div>
-
-                    <div className={styles.membroBody}>
-                      <div className={styles.contato}>
-                        <FiMail size={14} />
-                        <span>{adv.usuario.email}</span>
-                      </div>
-                      {adv.telefone && (
-                        <div className={styles.contato}>
-                          <FiPhone size={14} />
-                          <span>{adv.telefone}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className={styles.membroStats}>
-                      <div className={styles.stat}>
-                        <span className={styles.statNumero}>{adv._count.pareceresJuridicos}</span>
-                        <span className={styles.statLabel}>Pareceres Jurídicos</span>
-                      </div>
-                    </div>
-
-                    <div className={styles.membroFooter}>
-                      <span className={styles.desde}>Desde {formatarData(adv.usuario.criadoEm)}</span>
-                      <button 
-                        className={`${styles.btnStatus} ${adv.usuario.ativo ? styles.btnDesativar : styles.btnReativar}`}
-                        onClick={() => handleToggleStatus('advogado', adv.id, adv.usuario.ativo)}
-                      >
-                        {adv.usuario.ativo ? <FiUserX size={16} /> : <FiUserCheck size={16} />}
-                        {adv.usuario.ativo ? 'Desativar' : 'Reativar'}
-                      </button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </section>
+          {renderSecao('ASSISTENTE_SOCIAL', assistentes)}
+          {renderSecao('ADVOGADO', advogados)}
+          {renderSecao('SUPERVISAO', supervisores)}
+          {renderSecao('CONTROLE', membrosControle)}
+          {renderSecao('OPERACIONAL', membrosOperacional)}
         </div>
       )}
 
-      {/* Modal Adicionar Assistente */}
+      {/* Modal Adicionar Membro (todos os tipos) */}
       <Modal
-        isOpen={modalTipo === 'assistente'}
-        onClose={() => { setModalTipo(null); resetForms(); }}
-        title="Adicionar Assistente Social"
+        isOpen={modalCadastro !== null}
+        onClose={() => { setModalCadastro(null); resetForm(); }}
+        title={`Adicionar ${TIPOS_MEMBRO.find(t => t.key === modalCadastro)?.label || 'Membro'}`}
       >
-        <form onSubmit={handleAddAssistente} className={styles.form}>
+        <form onSubmit={handleSubmitMembro} className={styles.form}>
           <Input
             label="Nome Completo *"
-            placeholder="Nome do assistente social"
-            value={formAssistente.nome}
-            onChange={(e) => setFormAssistente({ ...formAssistente, nome: e.target.value })}
+            placeholder="Nome do profissional"
+            value={form.nome}
+            onChange={(e) => setForm({ ...form, nome: e.target.value })}
             required
           />
 
@@ -448,8 +555,8 @@ export function GestaoEquipe() {
             label="Email *"
             type="email"
             placeholder="email@exemplo.com"
-            value={formAssistente.email}
-            onChange={(e) => setFormAssistente({ ...formAssistente, email: e.target.value })}
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
           />
 
@@ -457,104 +564,25 @@ export function GestaoEquipe() {
             label="Senha Inicial *"
             type="password"
             placeholder="Mínimo 6 caracteres"
-            value={formAssistente.senha}
-            onChange={(e) => setFormAssistente({ ...formAssistente, senha: e.target.value })}
+            value={form.senha}
+            onChange={(e) => setForm({ ...form, senha: e.target.value })}
             required
           />
 
-          <Input
-            label="CRESS *"
-            placeholder="Número do CRESS"
-            value={formAssistente.cress}
-            onChange={(e) => setFormAssistente({ ...formAssistente, cress: e.target.value })}
-            required
-          />
+          {renderCamposEspecificos()}
 
           <Input
             label="Telefone"
             placeholder="(11) 99999-9999"
-            value={formAssistente.telefone}
-            onChange={(e) => setFormAssistente({ ...formAssistente, telefone: e.target.value })}
+            value={form.telefone}
+            onChange={(e) => setForm({ ...form, telefone: e.target.value })}
           />
 
           <div className={styles.formActions}>
-            <Button type="button" variant="outline" onClick={() => { setModalTipo(null); resetForms(); }}>
+            <Button type="button" variant="outline" onClick={() => { setModalCadastro(null); resetForm(); }}>
               Cancelar
             </Button>
-            <Button type="submit">
-              <FiCheck size={18} />
-              Adicionar
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Modal Adicionar Advogado */}
-      <Modal
-        isOpen={modalTipo === 'advogado'}
-        onClose={() => { setModalTipo(null); resetForms(); }}
-        title="Adicionar Advogado"
-      >
-        <form onSubmit={handleAddAdvogado} className={styles.form}>
-          <Input
-            label="Nome Completo *"
-            placeholder="Nome do advogado"
-            value={formAdvogado.nome}
-            onChange={(e) => setFormAdvogado({ ...formAdvogado, nome: e.target.value })}
-            required
-          />
-
-          <Input
-            label="Email *"
-            type="email"
-            placeholder="email@exemplo.com"
-            value={formAdvogado.email}
-            onChange={(e) => setFormAdvogado({ ...formAdvogado, email: e.target.value })}
-            required
-          />
-
-          <Input
-            label="Senha Inicial *"
-            type="password"
-            placeholder="Mínimo 6 caracteres"
-            value={formAdvogado.senha}
-            onChange={(e) => setFormAdvogado({ ...formAdvogado, senha: e.target.value })}
-            required
-          />
-
-          <div className={styles.formRow}>
-            <Input
-              label="Número OAB *"
-              placeholder="123456"
-              value={formAdvogado.oab}
-              onChange={(e) => setFormAdvogado({ ...formAdvogado, oab: e.target.value })}
-              required
-            />
-
-            <Select
-              label="UF da OAB *"
-              value={formAdvogado.oabUf}
-              onChange={(e) => setFormAdvogado({ ...formAdvogado, oabUf: e.target.value })}
-              required
-            >
-              {UFS.map(uf => (
-                <option key={uf} value={uf}>{uf}</option>
-              ))}
-            </Select>
-          </div>
-
-          <Input
-            label="Telefone"
-            placeholder="(11) 99999-9999"
-            value={formAdvogado.telefone}
-            onChange={(e) => setFormAdvogado({ ...formAdvogado, telefone: e.target.value })}
-          />
-
-          <div className={styles.formActions}>
-            <Button type="button" variant="outline" onClick={() => { setModalTipo(null); resetForms(); }}>
-              Cancelar
-            </Button>
-            <Button type="submit">
+            <Button type="submit" loading={salvando}>
               <FiCheck size={18} />
               Adicionar
             </Button>
@@ -576,13 +604,11 @@ export function GestaoEquipe() {
           <Select
             label="Tipo de Profissional"
             value={tipoConvite}
-            onChange={(e) => setTipoConvite(e.target.value as typeof tipoConvite)}
+            onChange={(e) => setTipoConvite(e.target.value as TipoMembro)}
           >
-            <option value="ASSISTENTE_SOCIAL">Assistente Social</option>
-            <option value="ADVOGADO">Advogado</option>
-            <option value="SUPERVISAO">Supervisão</option>
-            <option value="CONTROLE">Controle</option>
-            <option value="OPERACIONAL">Operacional</option>
+            {TIPOS_MEMBRO.map(tipo => (
+              <option key={tipo.key} value={tipo.key}>{tipo.label}</option>
+            ))}
           </Select>
 
           <div className={styles.conviteInfo}>
@@ -613,14 +639,8 @@ export function GestaoEquipe() {
                 <div key={convite.id} className={styles.conviteItem}>
                   <div className={styles.conviteCodigo}>
                     <code>{convite.codigo}</code>
-                    <span className={convite.tipo === 'ASSISTENTE_SOCIAL' ? styles.tipoAssistente : styles.tipoAdvogado}>
-                      {{
-                        ASSISTENTE_SOCIAL: 'Assistente Social',
-                        ADVOGADO: 'Advogado',
-                        SUPERVISAO: 'Supervisão',
-                        CONTROLE: 'Controle',
-                        OPERACIONAL: 'Operacional',
-                      }[convite.tipo] || convite.tipo}
+                    <span className={styles.tipoAssistente}>
+                      {getLabelTipo(convite.tipo)}
                     </span>
                   </div>
                   <div className={styles.conviteExpira}>

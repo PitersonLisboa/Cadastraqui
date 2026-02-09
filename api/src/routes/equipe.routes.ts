@@ -3,6 +3,7 @@ import {
   listarEquipe,
   adicionarMembro,
   removerMembro,
+  reativarMembro,
   atualizarMembro,
   buscarMembro,
 } from '../controllers/equipe.controller'
@@ -18,4 +19,5 @@ export async function equipeRoutes(app: FastifyInstance) {
   app.get('/equipe/:id', buscarMembro)
   app.put('/equipe/:id', atualizarMembro)
   app.delete('/equipe/:id', removerMembro)
+  app.post('/equipe/:id/reativar', reativarMembro)
 }

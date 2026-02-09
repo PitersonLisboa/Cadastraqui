@@ -4,7 +4,6 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '../lib/prisma'
 import { 
   InstituicaoNaoEncontradaError, 
-  RecursoNaoEncontradoError, 
   NaoAutorizadoError,
   EmailJaCadastradoError 
 } from '../errors/index'
@@ -14,6 +13,7 @@ import {
 // ===========================================
 
 const criarAssistenteSchema = z.object({
+  tipo: z.literal('ASSISTENTE_SOCIAL'),
   email: z.string().email(),
   senha: z.string().min(6),
   nome: z.string().min(3),
@@ -22,6 +22,7 @@ const criarAssistenteSchema = z.object({
 })
 
 const criarAdvogadoSchema = z.object({
+  tipo: z.literal('ADVOGADO'),
   email: z.string().email(),
   senha: z.string().min(6),
   nome: z.string().min(3),
@@ -30,316 +31,285 @@ const criarAdvogadoSchema = z.object({
   telefone: z.string().optional(),
 })
 
-const atualizarMembroSchema = z.object({
-  nome: z.string().min(3).optional(),
+const criarGenericoSchema = z.object({
+  tipo: z.enum(['SUPERVISAO', 'CONTROLE', 'OPERACIONAL']),
+  email: z.string().email(),
+  senha: z.string().min(6),
+  nome: z.string().min(3),
+  cargo: z.string().optional(),
   telefone: z.string().optional(),
-  cress: z.string().optional(),
-  oab: z.string().optional(),
 })
+
+const criarMembroSchema = z.discriminatedUnion('tipo', [
+  criarAssistenteSchema,
+  criarAdvogadoSchema,
+  criarGenericoSchema,
+])
+
+// ===========================================
+// HELPERS
+// ===========================================
+
+async function obterInstituicao(usuarioId: string) {
+  const instituicao = await prisma.instituicao.findUnique({
+    where: { usuarioId },
+  })
+  if (!instituicao) throw new InstituicaoNaoEncontradaError()
+  return instituicao
+}
+
+async function verificarEmailDisponivel(email: string) {
+  const existente = await prisma.usuario.findUnique({ where: { email } })
+  if (existente) throw new EmailJaCadastradoError()
+}
 
 // ===========================================
 // CONTROLLERS
 // ===========================================
 
-// Listar equipe da instituição
+// Listar equipe da instituição (todos os tipos)
 export async function listarEquipe(request: FastifyRequest, reply: FastifyReply) {
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const instituicao = await obterInstituicao(request.usuario.id)
 
-  if (!instituicao) {
-    throw new InstituicaoNaoEncontradaError()
-  }
-
-  const [assistentes, advogados] = await Promise.all([
+  const [assistentes, advogados, supervisores, membrosControle, membrosOperacional] = await Promise.all([
     prisma.assistenteSocial.findMany({
       where: { instituicaoId: instituicao.id },
       include: {
-        usuario: {
-          select: { email: true, ativo: true, criadoEm: true },
-        },
-        _count: {
-          select: { pareceres: true, agendamentos: true },
-        },
+        usuario: { select: { email: true, ativo: true, criadoEm: true } },
+        _count: { select: { pareceres: true, agendamentos: true } },
       },
     }),
     prisma.advogado.findMany({
       where: { instituicaoId: instituicao.id },
       include: {
-        usuario: {
-          select: { email: true, ativo: true, criadoEm: true },
-        },
-        _count: {
-          select: { pareceresJuridicos: true },
-        },
+        usuario: { select: { email: true, ativo: true, criadoEm: true } },
+        _count: { select: { pareceresJuridicos: true } },
+      },
+    }),
+    prisma.supervisor.findMany({
+      where: { instituicaoId: instituicao.id },
+      include: {
+        usuario: { select: { email: true, ativo: true, criadoEm: true } },
+      },
+    }),
+    prisma.membroControle.findMany({
+      where: { instituicaoId: instituicao.id },
+      include: {
+        usuario: { select: { email: true, ativo: true, criadoEm: true } },
+      },
+    }),
+    prisma.membroOperacional.findMany({
+      where: { instituicaoId: instituicao.id },
+      include: {
+        usuario: { select: { email: true, ativo: true, criadoEm: true } },
       },
     }),
   ])
 
+  const total = assistentes.length + advogados.length + supervisores.length + membrosControle.length + membrosOperacional.length
+
   return reply.status(200).send({
     assistentes,
     advogados,
-    total: assistentes.length + advogados.length,
+    supervisores,
+    membrosControle,
+    membrosOperacional,
+    total,
   })
 }
 
-// Adicionar assistente social
-export async function adicionarAssistente(request: FastifyRequest, reply: FastifyReply) {
-  const dados = criarAssistenteSchema.parse(request.body)
-
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
-
-  if (!instituicao) {
-    throw new InstituicaoNaoEncontradaError()
-  }
-
-  // Verificar se email já existe
-  const emailExistente = await prisma.usuario.findUnique({
-    where: { email: dados.email },
-  })
-
-  if (emailExistente) {
-    throw new EmailJaCadastradoError()
-  }
+// Adicionar membro (qualquer tipo)
+export async function adicionarMembro(request: FastifyRequest, reply: FastifyReply) {
+  const dados = criarMembroSchema.parse(request.body)
+  const instituicao = await obterInstituicao(request.usuario.id)
+  await verificarEmailDisponivel(dados.email)
 
   const senhaHash = await bcrypt.hash(dados.senha, 10)
 
-  // Criar usuário e assistente em transação
   const resultado = await prisma.$transaction(async (tx) => {
     const usuario = await tx.usuario.create({
       data: {
         email: dados.email,
         senha: senhaHash,
-        role: 'ASSISTENTE_SOCIAL',
+        role: dados.tipo,
       },
     })
 
-    const assistente = await tx.assistenteSocial.create({
-      data: {
-        nome: dados.nome,
-        cress: dados.cress,
-        telefone: dados.telefone,
-        usuarioId: usuario.id,
-        instituicaoId: instituicao.id,
-      },
-      include: {
-        usuario: {
-          select: { email: true, ativo: true },
-        },
-      },
-    })
+    switch (dados.tipo) {
+      case 'ASSISTENTE_SOCIAL':
+        return tx.assistenteSocial.create({
+          data: {
+            nome: dados.nome,
+            cress: dados.cress,
+            telefone: dados.telefone,
+            usuarioId: usuario.id,
+            instituicaoId: instituicao.id,
+          },
+          include: { usuario: { select: { email: true, ativo: true } } },
+        })
 
-    return assistente
+      case 'ADVOGADO':
+        return tx.advogado.create({
+          data: {
+            nome: dados.nome,
+            oab: dados.oab,
+            oabUf: dados.oabUf as any,
+            telefone: dados.telefone,
+            usuarioId: usuario.id,
+            instituicaoId: instituicao.id,
+          },
+          include: { usuario: { select: { email: true, ativo: true } } },
+        })
+
+      case 'SUPERVISAO':
+        return tx.supervisor.create({
+          data: {
+            nome: dados.nome,
+            registro: dados.cargo,
+            telefone: dados.telefone,
+            usuarioId: usuario.id,
+            instituicaoId: instituicao.id,
+          },
+          include: { usuario: { select: { email: true, ativo: true } } },
+        })
+
+      case 'CONTROLE':
+        return tx.membroControle.create({
+          data: {
+            nome: dados.nome,
+            cargo: dados.cargo,
+            telefone: dados.telefone,
+            usuarioId: usuario.id,
+            instituicaoId: instituicao.id,
+          },
+          include: { usuario: { select: { email: true, ativo: true } } },
+        })
+
+      case 'OPERACIONAL':
+        return tx.membroOperacional.create({
+          data: {
+            nome: dados.nome,
+            cargo: dados.cargo,
+            telefone: dados.telefone,
+            usuarioId: usuario.id,
+            instituicaoId: instituicao.id,
+          },
+          include: { usuario: { select: { email: true, ativo: true } } },
+        })
+    }
   })
 
-  return reply.status(201).send({ assistente: resultado })
+  return reply.status(201).send({ membro: resultado })
 }
 
-// Adicionar advogado
-export async function adicionarAdvogado(request: FastifyRequest, reply: FastifyReply) {
-  const dados = criarAdvogadoSchema.parse(request.body)
+// Buscar membro por ID
+export async function buscarMembro(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+  const instituicao = await obterInstituicao(request.usuario.id)
 
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const tabelas = [
+    { model: prisma.assistenteSocial, tipo: 'ASSISTENTE_SOCIAL' },
+    { model: prisma.advogado, tipo: 'ADVOGADO' },
+    { model: prisma.supervisor, tipo: 'SUPERVISAO' },
+    { model: prisma.membroControle, tipo: 'CONTROLE' },
+    { model: prisma.membroOperacional, tipo: 'OPERACIONAL' },
+  ]
 
-  if (!instituicao) {
-    throw new InstituicaoNaoEncontradaError()
+  for (const tabela of tabelas) {
+    const membro = await (tabela.model as any).findUnique({ where: { id } })
+    if (membro && membro.instituicaoId === instituicao.id) {
+      return reply.send({ tipo: tabela.tipo, membro })
+    }
   }
 
-  // Verificar se email já existe
-  const emailExistente = await prisma.usuario.findUnique({
-    where: { email: dados.email },
-  })
-
-  if (emailExistente) {
-    throw new EmailJaCadastradoError()
-  }
-
-  const senhaHash = await bcrypt.hash(dados.senha, 10)
-
-  // Criar usuário e advogado em transação
-  const resultado = await prisma.$transaction(async (tx) => {
-    const usuario = await tx.usuario.create({
-      data: {
-        email: dados.email,
-        senha: senhaHash,
-        role: 'ADVOGADO',
-      },
-    })
-
-    const advogado = await tx.advogado.create({
-      data: {
-        nome: dados.nome,
-        oab: dados.oab,
-        oabUf: dados.oabUf as any,
-        telefone: dados.telefone,
-        usuarioId: usuario.id,
-        instituicaoId: instituicao.id,
-      },
-      include: {
-        usuario: {
-          select: { email: true, ativo: true },
-        },
-      },
-    })
-
-    return advogado
-  })
-
-  return reply.status(201).send({ advogado: resultado })
+  throw new NaoAutorizadoError()
 }
 
-// Atualizar membro da equipe
+// Atualizar membro
 export async function atualizarMembro(request: FastifyRequest, reply: FastifyReply) {
-  const { id, tipo } = z.object({ 
-    id: z.string().uuid(),
-    tipo: z.enum(['assistente', 'advogado']),
-  }).parse(request.params)
-  
-  const dados = atualizarMembroSchema.parse(request.body)
+  const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+  const dados = z.object({
+    nome: z.string().min(3).optional(),
+    telefone: z.string().optional(),
+    cress: z.string().optional(),
+    oab: z.string().optional(),
+    cargo: z.string().optional(),
+    registro: z.string().optional(),
+  }).parse(request.body)
 
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const instituicao = await obterInstituicao(request.usuario.id)
 
-  if (!instituicao) {
-    throw new InstituicaoNaoEncontradaError()
+  const updates: Array<{ model: any; data: any }> = [
+    { model: prisma.assistenteSocial, data: { nome: dados.nome, telefone: dados.telefone, cress: dados.cress } },
+    { model: prisma.advogado, data: { nome: dados.nome, telefone: dados.telefone, oab: dados.oab } },
+    { model: prisma.supervisor, data: { nome: dados.nome, telefone: dados.telefone, registro: dados.registro } },
+    { model: prisma.membroControle, data: { nome: dados.nome, telefone: dados.telefone, cargo: dados.cargo } },
+    { model: prisma.membroOperacional, data: { nome: dados.nome, telefone: dados.telefone, cargo: dados.cargo } },
+  ]
+
+  for (const { model, data } of updates) {
+    const membro = await model.findUnique({ where: { id } })
+    if (membro && membro.instituicaoId === instituicao.id) {
+      // Remove undefined values
+      const cleanData = Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== undefined))
+      const atualizado = await model.update({ where: { id }, data: cleanData })
+      return reply.send({ membro: atualizado })
+    }
   }
 
-  if (tipo === 'assistente') {
-    const assistente = await prisma.assistenteSocial.findUnique({
-      where: { id },
-    })
-
-    if (!assistente || assistente.instituicaoId !== instituicao.id) {
-      throw new NaoAutorizadoError()
-    }
-
-    const atualizado = await prisma.assistenteSocial.update({
-      where: { id },
-      data: {
-        nome: dados.nome,
-        telefone: dados.telefone,
-        cress: dados.cress,
-      },
-    })
-
-    return reply.status(200).send({ assistente: atualizado })
-  } else {
-    const advogado = await prisma.advogado.findUnique({
-      where: { id },
-    })
-
-    if (!advogado || advogado.instituicaoId !== instituicao.id) {
-      throw new NaoAutorizadoError()
-    }
-
-    const atualizado = await prisma.advogado.update({
-      where: { id },
-      data: {
-        nome: dados.nome,
-        telefone: dados.telefone,
-        oab: dados.oab,
-      },
-    })
-
-    return reply.status(200).send({ advogado: atualizado })
-  }
+  throw new NaoAutorizadoError()
 }
 
-// Desativar membro da equipe
-export async function desativarMembro(request: FastifyRequest, reply: FastifyReply) {
-  const { id, tipo } = z.object({ 
-    id: z.string().uuid(),
-    tipo: z.enum(['assistente', 'advogado']),
-  }).parse(request.params)
+// Desativar/Remover membro
+export async function removerMembro(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+  const instituicao = await obterInstituicao(request.usuario.id)
 
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const tabelas = [
+    prisma.assistenteSocial,
+    prisma.advogado,
+    prisma.supervisor,
+    prisma.membroControle,
+    prisma.membroOperacional,
+  ]
 
-  if (!instituicao) {
-    throw new InstituicaoNaoEncontradaError()
+  for (const model of tabelas) {
+    const membro = await (model as any).findUnique({ where: { id } })
+    if (membro && membro.instituicaoId === instituicao.id) {
+      await prisma.usuario.update({
+        where: { id: membro.usuarioId },
+        data: { ativo: false },
+      })
+      return reply.send({ message: 'Membro desativado com sucesso' })
+    }
   }
 
-  let usuarioId: string
-
-  if (tipo === 'assistente') {
-    const assistente = await prisma.assistenteSocial.findUnique({
-      where: { id },
-    })
-
-    if (!assistente || assistente.instituicaoId !== instituicao.id) {
-      throw new NaoAutorizadoError()
-    }
-
-    usuarioId = assistente.usuarioId
-  } else {
-    const advogado = await prisma.advogado.findUnique({
-      where: { id },
-    })
-
-    if (!advogado || advogado.instituicaoId !== instituicao.id) {
-      throw new NaoAutorizadoError()
-    }
-
-    usuarioId = advogado.usuarioId
-  }
-
-  await prisma.usuario.update({
-    where: { id: usuarioId },
-    data: { ativo: false },
-  })
-
-  return reply.status(200).send({ message: 'Membro desativado com sucesso' })
+  throw new NaoAutorizadoError()
 }
 
-// Reativar membro da equipe
+// Reativar membro
 export async function reativarMembro(request: FastifyRequest, reply: FastifyReply) {
-  const { id, tipo } = z.object({ 
-    id: z.string().uuid(),
-    tipo: z.enum(['assistente', 'advogado']),
-  }).parse(request.params)
+  const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+  const instituicao = await obterInstituicao(request.usuario.id)
 
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const tabelas = [
+    prisma.assistenteSocial,
+    prisma.advogado,
+    prisma.supervisor,
+    prisma.membroControle,
+    prisma.membroOperacional,
+  ]
 
-  if (!instituicao) {
-    throw new InstituicaoNaoEncontradaError()
+  for (const model of tabelas) {
+    const membro = await (model as any).findUnique({ where: { id } })
+    if (membro && membro.instituicaoId === instituicao.id) {
+      await prisma.usuario.update({
+        where: { id: membro.usuarioId },
+        data: { ativo: true },
+      })
+      return reply.send({ message: 'Membro reativado com sucesso' })
+    }
   }
 
-  let usuarioId: string
-
-  if (tipo === 'assistente') {
-    const assistente = await prisma.assistenteSocial.findUnique({
-      where: { id },
-    })
-
-    if (!assistente || assistente.instituicaoId !== instituicao.id) {
-      throw new NaoAutorizadoError()
-    }
-
-    usuarioId = assistente.usuarioId
-  } else {
-    const advogado = await prisma.advogado.findUnique({
-      where: { id },
-    })
-
-    if (!advogado || advogado.instituicaoId !== instituicao.id) {
-      throw new NaoAutorizadoError()
-    }
-
-    usuarioId = advogado.usuarioId
-  }
-
-  await prisma.usuario.update({
-    where: { id: usuarioId },
-    data: { ativo: true },
-  })
-
-  return reply.status(200).send({ message: 'Membro reativado com sucesso' })
+  throw new NaoAutorizadoError()
 }
