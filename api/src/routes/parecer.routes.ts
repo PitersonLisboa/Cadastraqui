@@ -1,30 +1,18 @@
 import { FastifyInstance } from 'fastify'
 import {
   emitirParecerSocial,
-  listarPareceresSociais,
   emitirParecerJuridico,
-  listarPareceresJuridicos,
+  listarMeusPareceresSociais,
+  listarMeusPareceresJuridicos,
 } from '../controllers/parecer.controller'
 import { verificarRole } from '../middlewares/auth'
-import { ROLES_EMITIR_PARECER_SOCIAL } from '../config/permissions'
+import { ROLES_PARECERES } from '../config/permissions'
 
 export async function parecerRoutes(app: FastifyInstance) {
-  // Parecer Social - apenas ASSISTENTE_SOCIAL pode emitir (deferir/indeferir)
-  // SUPERVISAO pode visualizar mas NÃO emitir
-  app.post('/pareceres/social', { 
-    preHandler: [verificarRole(...ROLES_EMITIR_PARECER_SOCIAL)] 
-  }, emitirParecerSocial)
-  
-  app.get('/pareceres/social', { 
-    preHandler: [verificarRole('ASSISTENTE_SOCIAL', 'SUPERVISAO', 'ADMIN')] 
-  }, listarPareceresSociais)
+  app.addHook('preHandler', verificarRole(...ROLES_PARECERES))
 
-  // Parecer Jurídico - ADVOGADO (para documentos de certificação institucional)
-  app.post('/pareceres/juridico', { 
-    preHandler: [verificarRole('ADVOGADO')] 
-  }, emitirParecerJuridico)
-  
-  app.get('/pareceres/juridico', { 
-    preHandler: [verificarRole('ADVOGADO', 'INSTITUICAO', 'ADMIN')] 
-  }, listarPareceresJuridicos)
+  app.get('/pareceres/sociais', listarMeusPareceresSociais)
+  app.post('/pareceres/sociais', emitirParecerSocial)
+  app.get('/pareceres/juridicos', listarMeusPareceresJuridicos)
+  app.post('/pareceres/juridicos', emitirParecerJuridico)
 }

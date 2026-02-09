@@ -1,51 +1,26 @@
 import { FastifyInstance } from 'fastify'
 import {
+  listarMeusAgendamentos,
   criarAgendamento,
-  listarAgendamentos,
   buscarAgendamento,
   atualizarAgendamento,
-  cancelarAgendamento,
-  registrarPresenca,
-  meusAgendamentos,
-  detalhesAgendamento,
+  excluirAgendamento,
+  marcarRealizado,
+  listarAgendamentosCandidato,
+  horariosDisponiveis,
 } from '../controllers/agendamento.controller'
-import { verificarRole, verificarJWT } from '../middlewares/auth'
-import { ROLES_GERENCIAR_AGENDAMENTOS } from '../config/permissions'
+import { verificarRole } from '../middlewares/auth'
+import { ROLES_AGENDAMENTOS } from '../config/permissions'
 
 export async function agendamentoRoutes(app: FastifyInstance) {
-  // Criar agendamento - AS, Supervisão e Operacional podem criar
-  app.post('/agendamentos', { 
-    preHandler: [verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS)] 
-  }, criarAgendamento)
-  
-  // Listar agendamentos
-  app.get('/agendamentos', { 
-    preHandler: [verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS)] 
-  }, listarAgendamentos)
-  
-  // Buscar agendamento específico
-  app.get('/agendamentos/:id', { preHandler: [verificarJWT] }, buscarAgendamento)
-  
-  // Atualizar agendamento
-  app.put('/agendamentos/:id', { 
-    preHandler: [verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS)] 
-  }, atualizarAgendamento)
-  
-  // Cancelar agendamento
-  app.delete('/agendamentos/:id', { 
-    preHandler: [verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS)] 
-  }, cancelarAgendamento)
-  
-  // Registrar presença
-  app.post('/agendamentos/:id/presenca', { 
-    preHandler: [verificarRole('ASSISTENTE_SOCIAL')] 
-  }, registrarPresenca)
-  
-  // Rotas do candidato
-  app.get('/candidato/agendamentos', { 
-    preHandler: [verificarRole('CANDIDATO')] 
-  }, meusAgendamentos)
-  
-  // Detalhes (qualquer autenticado, controller valida)
-  app.get('/agendamentos/:id/detalhes', { preHandler: [verificarJWT] }, detalhesAgendamento)
+  app.addHook('preHandler', verificarRole(...ROLES_AGENDAMENTOS))
+
+  app.get('/agendamentos', listarMeusAgendamentos)
+  app.post('/agendamentos', criarAgendamento)
+  app.get('/agendamentos/horarios', horariosDisponiveis)
+  app.get('/agendamentos/candidato/:candidatoId', listarAgendamentosCandidato)
+  app.get('/agendamentos/:id', buscarAgendamento)
+  app.put('/agendamentos/:id', atualizarAgendamento)
+  app.delete('/agendamentos/:id', excluirAgendamento)
+  app.post('/agendamentos/:id/realizado', marcarRealizado)
 }
