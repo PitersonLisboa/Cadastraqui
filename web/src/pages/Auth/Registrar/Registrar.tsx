@@ -12,7 +12,7 @@ import { Button } from '@/components/common/Button/Button'
 import { Input } from '@/components/common/Input/Input'
 import styles from './Registrar.module.scss'
 
-type TipoRegistro = 'CANDIDATO' | 'INSTITUICAO' | 'ASSISTENTE_SOCIAL' | 'ADVOGADO' | null
+type TipoRegistro = 'CANDIDATO' | 'INSTITUICAO' | 'ASSISTENTE_SOCIAL' | 'ADVOGADO' | 'SUPERVISAO' | 'CONTROLE' | 'OPERACIONAL' | null
 
 interface ConviteInfo {
   tipo: string
@@ -68,6 +68,27 @@ const TIPOS_COM_CONVITE = [
     descricao: 'Profissional vinculado a uma instituição (requer código de convite)',
     icone: FiShield,
     cor: '#8b5cf6',
+  },
+  {
+    tipo: 'SUPERVISAO' as TipoRegistro,
+    nome: 'Supervisão',
+    descricao: 'Coordenador do setor social (requer código de convite)',
+    icone: FiUserCheck,
+    cor: '#0891b2',
+  },
+  {
+    tipo: 'CONTROLE' as TipoRegistro,
+    nome: 'Controle',
+    descricao: 'Instância de consulta e acompanhamento (requer código de convite)',
+    icone: FiShield,
+    cor: '#4f46e5',
+  },
+  {
+    tipo: 'OPERACIONAL' as TipoRegistro,
+    nome: 'Operacional',
+    descricao: 'Equipe de pré-análise documental (requer código de convite)',
+    icone: FiUserCheck,
+    cor: '#d97706',
   },
 ]
 
@@ -125,7 +146,7 @@ export function RegistrarPage() {
   const handleSelecionarTipo = (tipo: TipoRegistro) => {
     setTipoSelecionado(tipo)
     
-    if (tipo === 'ASSISTENTE_SOCIAL' || tipo === 'ADVOGADO') {
+    if (['ASSISTENTE_SOCIAL', 'ADVOGADO', 'SUPERVISAO', 'CONTROLE', 'OPERACIONAL'].includes(tipo as string)) {
       setEtapa('convite')
     } else {
       setEtapa('dados')
@@ -172,6 +193,15 @@ export function RegistrarPage() {
           break
         case 'ADVOGADO':
           navigate('/advogado')
+          break
+        case 'SUPERVISAO':
+          navigate('/supervisao')
+          break
+        case 'CONTROLE':
+          navigate('/controle')
+          break
+        case 'OPERACIONAL':
+          navigate('/operacional')
           break
       }
     } catch (error: any) {
@@ -324,7 +354,7 @@ export function RegistrarPage() {
                 {...register('email')}
               />
 
-              {(tipoSelecionado === 'ASSISTENTE_SOCIAL' || tipoSelecionado === 'ADVOGADO') && (
+              {['ASSISTENTE_SOCIAL', 'ADVOGADO', 'SUPERVISAO', 'CONTROLE', 'OPERACIONAL'].includes(tipoSelecionado as string) && (
                 <>
                   <Input
                     label="Nome Completo"
@@ -333,8 +363,16 @@ export function RegistrarPage() {
                     {...register('nome')}
                   />
                   <Input
-                    label={tipoSelecionado === 'ASSISTENTE_SOCIAL' ? 'CRESS' : 'OAB'}
-                    placeholder={tipoSelecionado === 'ASSISTENTE_SOCIAL' ? 'Ex: 12345/SP' : 'Ex: 123456/SP'}
+                    label={
+                      tipoSelecionado === 'ASSISTENTE_SOCIAL' ? 'CRESS' :
+                      tipoSelecionado === 'ADVOGADO' ? 'OAB' :
+                      'Registro/Cargo (opcional)'
+                    }
+                    placeholder={
+                      tipoSelecionado === 'ASSISTENTE_SOCIAL' ? 'Ex: 12345/SP' :
+                      tipoSelecionado === 'ADVOGADO' ? 'Ex: 123456/SP' :
+                      'Ex: Coordenador Social'
+                    }
                     error={errors.registro?.message}
                     {...register('registro')}
                   />

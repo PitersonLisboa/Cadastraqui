@@ -75,7 +75,7 @@ export function GestaoEquipe() {
   const [loading, setLoading] = useState(true)
   const [modalTipo, setModalTipo] = useState<'assistente' | 'advogado' | null>(null)
   const [modalConvite, setModalConvite] = useState(false)
-  const [tipoConvite, setTipoConvite] = useState<'ASSISTENTE_SOCIAL' | 'ADVOGADO'>('ASSISTENTE_SOCIAL')
+  const [tipoConvite, setTipoConvite] = useState<'ASSISTENTE_SOCIAL' | 'ADVOGADO' | 'SUPERVISAO' | 'CONTROLE' | 'OPERACIONAL'>('ASSISTENTE_SOCIAL')
   const [gerandoConvite, setGerandoConvite] = useState(false)
   
   const [formAssistente, setFormAssistente] = useState({
@@ -576,10 +576,13 @@ export function GestaoEquipe() {
           <Select
             label="Tipo de Profissional"
             value={tipoConvite}
-            onChange={(e) => setTipoConvite(e.target.value as 'ASSISTENTE_SOCIAL' | 'ADVOGADO')}
+            onChange={(e) => setTipoConvite(e.target.value as typeof tipoConvite)}
           >
             <option value="ASSISTENTE_SOCIAL">Assistente Social</option>
             <option value="ADVOGADO">Advogado</option>
+            <option value="SUPERVISAO">Supervisão</option>
+            <option value="CONTROLE">Controle</option>
+            <option value="OPERACIONAL">Operacional</option>
           </Select>
 
           <div className={styles.conviteInfo}>
@@ -611,7 +614,13 @@ export function GestaoEquipe() {
                   <div className={styles.conviteCodigo}>
                     <code>{convite.codigo}</code>
                     <span className={convite.tipo === 'ASSISTENTE_SOCIAL' ? styles.tipoAssistente : styles.tipoAdvogado}>
-                      {convite.tipo === 'ASSISTENTE_SOCIAL' ? 'Assistente Social' : 'Advogado'}
+                      {{
+                        ASSISTENTE_SOCIAL: 'Assistente Social',
+                        ADVOGADO: 'Advogado',
+                        SUPERVISAO: 'Supervisão',
+                        CONTROLE: 'Controle',
+                        OPERACIONAL: 'Operacional',
+                      }[convite.tipo] || convite.tipo}
                     </span>
                   </div>
                   <div className={styles.conviteExpira}>
