@@ -12,38 +12,50 @@ import {
 // SCHEMAS DE VALIDAÇÃO
 // ===========================================
 
-const criarAssistenteSchema = z.object({
-  tipo: z.literal('ASSISTENTE_SOCIAL'),
+const baseFields = {
   email: z.string().email(),
   senha: z.string().min(6),
   nome: z.string().min(3),
-  cress: z.string().min(3),
   telefone: z.string().optional(),
+}
+
+const criarAssistenteSchema = z.object({
+  tipo: z.literal('ASSISTENTE_SOCIAL'),
+  ...baseFields,
+  cress: z.string().min(3),
 })
 
 const criarAdvogadoSchema = z.object({
   tipo: z.literal('ADVOGADO'),
-  email: z.string().email(),
-  senha: z.string().min(6),
-  nome: z.string().min(3),
+  ...baseFields,
   oab: z.string().min(3),
   oabUf: z.string().length(2),
-  telefone: z.string().optional(),
 })
 
-const criarGenericoSchema = z.object({
-  tipo: z.enum(['SUPERVISAO', 'CONTROLE', 'OPERACIONAL']),
-  email: z.string().email(),
-  senha: z.string().min(6),
-  nome: z.string().min(3),
+const criarSupervisaoSchema = z.object({
+  tipo: z.literal('SUPERVISAO'),
+  ...baseFields,
   cargo: z.string().optional(),
-  telefone: z.string().optional(),
+})
+
+const criarControleSchema = z.object({
+  tipo: z.literal('CONTROLE'),
+  ...baseFields,
+  cargo: z.string().optional(),
+})
+
+const criarOperacionalSchema = z.object({
+  tipo: z.literal('OPERACIONAL'),
+  ...baseFields,
+  cargo: z.string().optional(),
 })
 
 const criarMembroSchema = z.discriminatedUnion('tipo', [
   criarAssistenteSchema,
   criarAdvogadoSchema,
-  criarGenericoSchema,
+  criarSupervisaoSchema,
+  criarControleSchema,
+  criarOperacionalSchema,
 ])
 
 // ===========================================
