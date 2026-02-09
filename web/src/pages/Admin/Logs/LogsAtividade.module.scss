@@ -1,0 +1,257 @@
+.container {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-gray-900);
+  }
+
+  p {
+    font-size: 0.875rem;
+    color: var(--color-gray-500);
+  }
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 1rem;
+  color: var(--color-gray-500);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--color-gray-200);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+// Filtros
+.filtros {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+}
+
+.filtrosForm {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+
+  > * {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0;
+  }
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius);
+  flex: 2 !important;
+
+  input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.875rem;
+  }
+
+  svg {
+    color: var(--color-gray-400);
+  }
+}
+
+// Logs
+.logsCard {
+  padding: 0;
+  overflow: hidden;
+}
+
+.timeline {
+  padding: 1rem;
+}
+
+.logItem {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--color-gray-100);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.logIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--color-gray-100);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.logContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.logHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.logAcao {
+  font-weight: 600;
+  color: var(--color-gray-900);
+  font-size: 0.9375rem;
+}
+
+.logTempo {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--color-gray-500);
+}
+
+.logUser {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-gray-600);
+  margin-bottom: 0.5rem;
+
+  svg {
+    color: var(--color-gray-400);
+  }
+}
+
+.logRole {
+  font-size: 0.6875rem;
+  padding: 0.125rem 0.375rem;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
+  border-radius: var(--radius);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.logDetalhes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem;
+  background-color: var(--color-gray-50);
+  border-radius: var(--radius);
+  margin-bottom: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--color-gray-600);
+
+  span {
+    strong {
+      color: var(--color-gray-700);
+    }
+  }
+}
+
+.logMeta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--color-gray-400);
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: var(--color-gray-400);
+
+  svg {
+    margin-bottom: 1rem;
+  }
+}
+
+.paginacao {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-top: 1px solid var(--color-gray-100);
+
+  span {
+    font-size: 0.875rem;
+    color: var(--color-gray-600);
+  }
+}
+
+@media (max-width: 768px) {
+  .filtrosForm {
+    flex-direction: column;
+
+    > * {
+      width: 100%;
+    }
+  }
+
+  .logHeader {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .logMeta {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
