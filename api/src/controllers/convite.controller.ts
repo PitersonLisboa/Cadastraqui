@@ -14,7 +14,7 @@ import { Role } from '@prisma/client'
 // ===========================================
 
 const criarConviteSchema = z.object({
-  tipo: z.enum(['ASSISTENTE_SOCIAL', 'ADVOGADO']),
+  tipo: z.enum(['ASSISTENTE_SOCIAL', 'ADVOGADO', 'SUPERVISAO', 'CONTROLE', 'OPERACIONAL']),
   email: z.string().email().optional(),
   validadeDias: z.number().min(1).max(30).default(7),
 })

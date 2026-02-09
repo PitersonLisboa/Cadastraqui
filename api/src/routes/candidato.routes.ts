@@ -1,21 +1,22 @@
 import { FastifyInstance } from 'fastify'
 import {
+  criarCandidato,
+  meuPerfil,
   listarCandidatos,
   buscarCandidato,
-  criarCandidato,
   atualizarCandidato,
   excluirCandidato,
-  meuPerfil,
 } from '../controllers/candidato.controller'
 import { verificarJWT, verificarRole } from '../middlewares/auth'
+import { ROLES_VISUALIZAR_CANDIDATURAS } from '../config/permissions'
 
 export async function candidatoRoutes(app: FastifyInstance) {
-  // Rotas para o próprio candidato
+  // Rotas do próprio candidato
   app.get('/candidato/meu-perfil', { preHandler: [verificarRole('CANDIDATO')] }, meuPerfil)
   app.post('/candidato', { preHandler: [verificarRole('CANDIDATO')] }, criarCandidato)
-  
-  // Rotas para admin e instituição
-  app.get('/candidatos', { preHandler: [verificarRole('ADMIN', 'INSTITUICAO', 'ASSISTENTE_SOCIAL')] }, listarCandidatos)
+
+  // Rotas administrativas - ADVOGADO não tem acesso a dados de candidatos
+  app.get('/candidatos', { preHandler: [verificarRole(...ROLES_VISUALIZAR_CANDIDATURAS)] }, listarCandidatos)
   app.get('/candidatos/:id', { preHandler: [verificarJWT] }, buscarCandidato)
   app.put('/candidatos/:id', { preHandler: [verificarJWT] }, atualizarCandidato)
   app.delete('/candidatos/:id', { preHandler: [verificarRole('ADMIN')] }, excluirCandidato)

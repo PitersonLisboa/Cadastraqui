@@ -9,6 +9,10 @@ import {
   atualizarStatusCandidatura,
 } from '../controllers/candidatura.controller'
 import { verificarJWT, verificarRole } from '../middlewares/auth'
+import {
+  ROLES_VISUALIZAR_CANDIDATURAS,
+  ROLES_ALTERAR_STATUS_CANDIDATURA,
+} from '../config/permissions'
 
 export async function candidaturaRoutes(app: FastifyInstance) {
   // Rotas do candidato
@@ -20,12 +24,13 @@ export async function candidaturaRoutes(app: FastifyInstance) {
   // Rotas para visualizar candidatura (candidato, instituição, analistas)
   app.get('/candidaturas/:id', { preHandler: [verificarJWT] }, buscarCandidatura)
   
-  // Rotas para instituição e analistas
+  // Listar candidaturas - ADVOGADO NÃO tem acesso (apenas docs institucionais)
   app.get('/candidaturas', { 
-    preHandler: [verificarRole('INSTITUICAO', 'ADMIN', 'ASSISTENTE_SOCIAL', 'ADVOGADO')] 
+    preHandler: [verificarRole(...ROLES_VISUALIZAR_CANDIDATURAS)] 
   }, listarCandidaturas)
   
+  // Alterar status - apenas quem pode deferir/indeferir
   app.put('/candidaturas/:id/status', { 
-    preHandler: [verificarRole('INSTITUICAO', 'ADMIN', 'ASSISTENTE_SOCIAL', 'ADVOGADO')] 
+    preHandler: [verificarRole(...ROLES_ALTERAR_STATUS_CANDIDATURA)] 
   }, atualizarStatusCandidatura)
 }

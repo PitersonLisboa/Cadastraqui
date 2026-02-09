@@ -26,16 +26,16 @@ const registrarSchema = z.object({
   senha: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   confirmarSenha: z.string(),
   role: z.nativeEnum(Role).default(Role.CANDIDATO),
-  codigoConvite: z.string().optional(), // Obrigatório para ASSISTENTE_SOCIAL e ADVOGADO
+  codigoConvite: z.string().optional(), // Obrigatório para roles vinculados a instituição
   // Dados adicionais para profissionais
   nome: z.string().optional(),
-  registro: z.string().optional(), // CRESS ou OAB
+  registro: z.string().optional(), // CRESS, OAB ou outro registro
 }).refine((data) => data.senha === data.confirmarSenha, {
   message: 'As senhas não conferem',
   path: ['confirmarSenha'],
 }).refine((data) => {
-  // Se for assistente ou advogado, código de convite é obrigatório
-  if (['ASSISTENTE_SOCIAL', 'ADVOGADO'].includes(data.role)) {
+  // Se for role vinculado a instituição, código de convite é obrigatório
+  if (['ASSISTENTE_SOCIAL', 'ADVOGADO', 'SUPERVISAO', 'CONTROLE', 'OPERACIONAL'].includes(data.role)) {
     return !!data.codigoConvite
   }
   return true
@@ -150,9 +150,9 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
     throw new EmailJaCadastradoError()
   }
 
-  // Para ASSISTENTE_SOCIAL e ADVOGADO, validar código de convite
+  // Para roles vinculados a instituição, validar código de convite
   let convite = null
-  if (['ASSISTENTE_SOCIAL', 'ADVOGADO'].includes(role)) {
+  if (['ASSISTENTE_SOCIAL', 'ADVOGADO', 'SUPERVISAO', 'CONTROLE', 'OPERACIONAL'].includes(role)) {
     if (!codigoConvite) {
       return reply.status(400).send({
         message: 'Código de convite é obrigatório para este tipo de cadastro',
@@ -183,8 +183,15 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
     }
 
     if (convite.tipo !== role) {
+      const nomesTipos: Record<string, string> = {
+        ASSISTENTE_SOCIAL: 'Assistente Social',
+        ADVOGADO: 'Advogado',
+        SUPERVISAO: 'Supervisão',
+        CONTROLE: 'Controle',
+        OPERACIONAL: 'Operacional',
+      }
       return reply.status(400).send({
-        message: `Este código é para ${convite.tipo === 'ASSISTENTE_SOCIAL' ? 'Assistente Social' : 'Advogado'}`,
+        message: `Este código é para ${nomesTipos[convite.tipo] || convite.tipo}`,
       })
     }
   }
@@ -203,12 +210,14 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
       },
     })
 
-    // Se for profissional com convite, criar perfil e vincular à instituição
+    // Se for role com convite, criar perfil e vincular à instituição
     if (convite) {
+      const nomeCompleto = nome || email.split('@')[0]
+      
       if (role === 'ASSISTENTE_SOCIAL') {
         await tx.assistenteSocial.create({
           data: {
-            nome: nome || email.split('@')[0],
+            nome: nomeCompleto,
             cress: registro || '',
             telefone: '',
             usuarioId: usuario.id,
@@ -218,9 +227,39 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
       } else if (role === 'ADVOGADO') {
         await tx.advogado.create({
           data: {
-            nome: nome || email.split('@')[0],
+            nome: nomeCompleto,
             oab: registro || '',
             oabUf: 'SP',
+            telefone: '',
+            usuarioId: usuario.id,
+            instituicaoId: convite.instituicaoId,
+          },
+        })
+      } else if (role === 'SUPERVISAO') {
+        await tx.supervisor.create({
+          data: {
+            nome: nomeCompleto,
+            registro: registro || null,
+            telefone: '',
+            usuarioId: usuario.id,
+            instituicaoId: convite.instituicaoId,
+          },
+        })
+      } else if (role === 'CONTROLE') {
+        await tx.membroControle.create({
+          data: {
+            nome: nomeCompleto,
+            cargo: registro || null,
+            telefone: '',
+            usuarioId: usuario.id,
+            instituicaoId: convite.instituicaoId,
+          },
+        })
+      } else if (role === 'OPERACIONAL') {
+        await tx.membroOperacional.create({
+          data: {
+            nome: nomeCompleto,
+            cargo: registro || null,
             telefone: '',
             usuarioId: usuario.id,
             instituicaoId: convite.instituicaoId,

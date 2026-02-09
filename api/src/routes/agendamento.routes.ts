@@ -1,49 +1,51 @@
 import { FastifyInstance } from 'fastify'
 import {
-  listarMeusAgendamentos,
   criarAgendamento,
+  listarAgendamentos,
   buscarAgendamento,
   atualizarAgendamento,
-  excluirAgendamento,
-  marcarRealizado,
-  listarAgendamentosCandidato,
-  horariosDisponiveis,
+  cancelarAgendamento,
+  registrarPresenca,
+  meusAgendamentos,
+  detalhesAgendamento,
 } from '../controllers/agendamento.controller'
 import { verificarRole, verificarJWT } from '../middlewares/auth'
+import { ROLES_GERENCIAR_AGENDAMENTOS } from '../config/permissions'
 
 export async function agendamentoRoutes(app: FastifyInstance) {
-  // Rotas do Assistente Social
-  app.get('/agendamentos', { 
-    preHandler: [verificarRole('ASSISTENTE_SOCIAL')] 
-  }, listarMeusAgendamentos)
-  
+  // Criar agendamento - AS, Supervisão e Operacional podem criar
   app.post('/agendamentos', { 
-    preHandler: [verificarRole('ASSISTENTE_SOCIAL')] 
+    preHandler: [verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS)] 
   }, criarAgendamento)
   
-  app.get('/agendamentos/:id', { 
-    preHandler: [verificarJWT] 
-  }, buscarAgendamento)
+  // Listar agendamentos
+  app.get('/agendamentos', { 
+    preHandler: [verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS)] 
+  }, listarAgendamentos)
   
+  // Buscar agendamento específico
+  app.get('/agendamentos/:id', { preHandler: [verificarJWT] }, buscarAgendamento)
+  
+  // Atualizar agendamento
   app.put('/agendamentos/:id', { 
-    preHandler: [verificarRole('ASSISTENTE_SOCIAL', 'ADMIN')] 
+    preHandler: [verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS)] 
   }, atualizarAgendamento)
   
+  // Cancelar agendamento
   app.delete('/agendamentos/:id', { 
-    preHandler: [verificarRole('ASSISTENTE_SOCIAL', 'ADMIN')] 
-  }, excluirAgendamento)
+    preHandler: [verificarRole(...ROLES_GERENCIAR_AGENDAMENTOS)] 
+  }, cancelarAgendamento)
   
-  app.post('/agendamentos/:id/realizado', { 
+  // Registrar presença
+  app.post('/agendamentos/:id/presenca', { 
     preHandler: [verificarRole('ASSISTENTE_SOCIAL')] 
-  }, marcarRealizado)
-
-  // Rotas do Candidato
-  app.get('/agendamentos/candidato', { 
+  }, registrarPresenca)
+  
+  // Rotas do candidato
+  app.get('/candidato/agendamentos', { 
     preHandler: [verificarRole('CANDIDATO')] 
-  }, listarAgendamentosCandidato)
-
-  // Horários disponíveis
-  app.get('/agendamentos/horarios-disponiveis', { 
-    preHandler: [verificarJWT] 
-  }, horariosDisponiveis)
+  }, meusAgendamentos)
+  
+  // Detalhes (qualquer autenticado, controller valida)
+  app.get('/agendamentos/:id/detalhes', { preHandler: [verificarJWT] }, detalhesAgendamento)
 }

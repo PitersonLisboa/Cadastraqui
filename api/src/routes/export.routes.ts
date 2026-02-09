@@ -1,24 +1,22 @@
 import { FastifyInstance } from 'fastify'
 import {
-  exportarCandidaturas,
-  exportarEditais,
-  exportarRelatorioDashboard,
+  exportarCandidaturasCSV,
+  exportarCandidaturasPDF,
+  exportarRelatorioGeral,
 } from '../controllers/export.controller'
 import { verificarRole } from '../middlewares/auth'
+import { ROLES_EXPORTAR } from '../config/permissions'
 
 export async function exportRoutes(app: FastifyInstance) {
-  // Exportar candidaturas (PDF/Excel)
-  app.get('/export/candidaturas', {
-    preHandler: [verificarRole('ADMIN', 'INSTITUICAO')],
-  }, exportarCandidaturas)
+  app.get('/export/candidaturas/csv', {
+    preHandler: [verificarRole(...ROLES_EXPORTAR)],
+  }, exportarCandidaturasCSV)
 
-  // Exportar editais (Excel)
-  app.get('/export/editais', {
-    preHandler: [verificarRole('ADMIN', 'INSTITUICAO')],
-  }, exportarEditais)
+  app.get('/export/candidaturas/pdf', {
+    preHandler: [verificarRole(...ROLES_EXPORTAR)],
+  }, exportarCandidaturasPDF)
 
-  // Exportar relatório do dashboard (PDF)
-  app.get('/export/dashboard', {
-    preHandler: [verificarRole('ADMIN', 'INSTITUICAO')],
-  }, exportarRelatorioDashboard)
+  app.get('/export/relatorio-geral', {
+    preHandler: [verificarRole(...ROLES_EXPORTAR)],
+  }, exportarRelatorioGeral)
 }

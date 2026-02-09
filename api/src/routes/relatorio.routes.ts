@@ -1,36 +1,37 @@
 import { FastifyInstance } from 'fastify'
 import {
-  dashboardAdmin,
-  dashboardInstituicao,
+  relatorioGeral,
+  relatorioInstituicao,
   relatorioCandidaturas,
-  estatisticasAssistente,
-  estatisticasAdvogado,
+  relatorioAssistente,
+  relatorioAdvogado,
 } from '../controllers/relatorio.controller'
 import { verificarRole } from '../middlewares/auth'
+import { ROLES_RELATORIOS_INSTITUICAO } from '../config/permissions'
 
 export async function relatorioRoutes(app: FastifyInstance) {
-  // Dashboard Admin
-  app.get('/relatorios/dashboard/admin', { 
+  // Relatório geral - apenas ADMIN
+  app.get('/relatorios/geral', { 
     preHandler: [verificarRole('ADMIN')] 
-  }, dashboardAdmin)
+  }, relatorioGeral)
 
-  // Dashboard Instituição
-  app.get('/relatorios/dashboard/instituicao', { 
-    preHandler: [verificarRole('INSTITUICAO')] 
-  }, dashboardInstituicao)
+  // Relatório da instituição - INSTITUICAO, SUPERVISAO, CONTROLE
+  app.get('/relatorios/instituicao', { 
+    preHandler: [verificarRole(...ROLES_RELATORIOS_INSTITUICAO)] 
+  }, relatorioInstituicao)
 
-  // Relatório de Candidaturas
+  // Relatório de candidaturas - INSTITUICAO, SUPERVISAO, CONTROLE, ADMIN
   app.get('/relatorios/candidaturas', { 
-    preHandler: [verificarRole('ADMIN', 'INSTITUICAO')] 
+    preHandler: [verificarRole(...ROLES_RELATORIOS_INSTITUICAO)] 
   }, relatorioCandidaturas)
 
-  // Estatísticas Assistente Social
-  app.get('/relatorios/estatisticas/assistente', { 
-    preHandler: [verificarRole('ASSISTENTE_SOCIAL')] 
-  }, estatisticasAssistente)
+  // Relatório do assistente social
+  app.get('/relatorios/assistente', { 
+    preHandler: [verificarRole('ASSISTENTE_SOCIAL', 'SUPERVISAO')] 
+  }, relatorioAssistente)
 
-  // Estatísticas Advogado
-  app.get('/relatorios/estatisticas/advogado', { 
-    preHandler: [verificarRole('ADVOGADO')] 
-  }, estatisticasAdvogado)
+  // Relatório do advogado (limitado a docs institucionais)
+  app.get('/relatorios/advogado', { 
+    preHandler: [verificarRole('ADVOGADO', 'INSTITUICAO')] 
+  }, relatorioAdvogado)
 }

@@ -5,9 +5,10 @@ import {
   buscarMembro,
   atualizarMembro,
   excluirMembro,
-  composicaoFamiliar,
+  listarMembrosCandidato,
 } from '../controllers/familia.controller'
 import { verificarRole, verificarJWT } from '../middlewares/auth'
+import { ROLES_VER_FAMILIA } from '../config/permissions'
 
 export async function familiaRoutes(app: FastifyInstance) {
   // Rotas do candidato
@@ -17,8 +18,8 @@ export async function familiaRoutes(app: FastifyInstance) {
   app.put('/familia/:id', { preHandler: [verificarRole('CANDIDATO')] }, atualizarMembro)
   app.delete('/familia/:id', { preHandler: [verificarRole('CANDIDATO')] }, excluirMembro)
 
-  // Rota para analistas verem composição familiar
-  app.get('/familia/candidato/:candidatoId', { 
-    preHandler: [verificarRole('ASSISTENTE_SOCIAL', 'ADVOGADO', 'INSTITUICAO', 'ADMIN')] 
-  }, composicaoFamiliar)
+  // Visualizar família de um candidato - ADVOGADO NÃO tem acesso
+  app.get('/candidatos/:candidatoId/familia', { 
+    preHandler: [verificarRole(...ROLES_VER_FAMILIA)] 
+  }, listarMembrosCandidato)
 }

@@ -19,6 +19,9 @@ enum Role {
   ADMIN
   INSTITUICAO
   CANDIDATO
+  SUPERVISAO
+  CONTROLE
+  OPERACIONAL
   ASSISTENTE_SOCIAL
   ADVOGADO
 }
@@ -90,6 +93,9 @@ model Usuario {
   instituicao       Instituicao?
   assistenteSocial  AssistenteSocial?
   advogado          Advogado?
+  supervisor        Supervisor?
+  membroControle    MembroControle?
+  membroOperacional MembroOperacional?
   sessoes           Sessao[]
   logs              LogAtividade[]
   historicosCandidatura HistoricoCandidatura[]
@@ -255,6 +261,9 @@ model Instituicao {
   
   assistentesSociais      AssistenteSocial[]
   advogados               Advogado[]
+  supervisores            Supervisor[]
+  membrosControle         MembroControle[]
+  membrosOperacional      MembroOperacional[]
   editais                 Edital[]
   unidades                UnidadeInstituicao[]
   membrosEquipe           MembroEquipe[]
@@ -392,6 +401,75 @@ model ParecerJuridico {
   atualizadoEm    DateTime @updatedAt
 
   @@map("pareceres_juridicos")
+}
+
+// ===========================================
+// SUPERVISOR (Coordenador do setor social)
+// Mesmas funções do AS, mas NÃO defere/indefere
+// ===========================================
+
+model Supervisor {
+  id              String   @id @default(uuid())
+  nome            String
+  registro        String?  // Registro profissional opcional
+  telefone        String?
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  usuario         Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId       String      @unique
+  
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id])
+  instituicaoId   String
+
+  @@map("supervisores")
+}
+
+// ===========================================
+// MEMBRO CONTROLE (Instância superior de consulta)
+// Visualização e encaminhamentos, sem decisão
+// ===========================================
+
+model MembroControle {
+  id              String   @id @default(uuid())
+  nome            String
+  cargo           String?
+  telefone        String?
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  usuario         Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId       String      @unique
+  
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id])
+  instituicaoId   String
+
+  @@map("membros_controle")
+}
+
+// ===========================================
+// MEMBRO OPERACIONAL (Equipe de pré-análise)
+// Analisa docs, faz solicitações, NÃO finaliza parecer
+// ===========================================
+
+model MembroOperacional {
+  id              String   @id @default(uuid())
+  nome            String
+  cargo           String?
+  telefone        String?
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  usuario         Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuarioId       String      @unique
+  
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id])
+  instituicaoId   String
+
+  @@map("membros_operacional")
 }
 
 // ===========================================
