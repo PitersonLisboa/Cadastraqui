@@ -1,13 +1,15 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
-// VITE_API_URL é substituída em BUILD TIME pelo Vite
-// Se não estiver definida, usa fallback para desenvolvimento local
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+// Prioridade de resolução da URL da API:
+// 1. import.meta.env.VITE_API_URL (substituída em build time pelo Vite)
+// 2. window.__ENV__?.VITE_API_URL (injetada em runtime via script no index.html)
+// 3. Fallback para localhost (desenvolvimento)
+const API_URL = 
+  import.meta.env.VITE_API_URL || 
+  (window as any).__ENV__?.VITE_API_URL || 
+  'http://localhost:3333'
 
-// Debug: mostra a URL da API no console (apenas em dev)
-if (import.meta.env.DEV) {
-  console.log('[CadastrAQUI] API URL:', API_URL)
-}
+console.log('[CadastrAQUI] API URL:', API_URL)
 
 export const api = axios.create({
   baseURL: API_URL,
