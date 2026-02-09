@@ -16,7 +16,17 @@ export const app = fastify({
 
 // Plugins
 app.register(cors, {
-  origin: env.NODE_ENV === 'development' ? true : env.FRONTEND_URL,
+  origin: env.NODE_ENV === 'development' 
+    ? true 
+    : (origin, cb) => {
+        // Aceitar origens configuradas (separadas por vírgula) e subdomínios do Railway
+        const allowed = env.FRONTEND_URL.split(',').map(u => u.trim())
+        if (!origin || allowed.includes(origin) || origin.endsWith('.railway.app')) {
+          cb(null, true)
+        } else {
+          cb(new Error('Bloqueado pelo CORS'), false)
+        }
+      },
   credentials: true,
 })
 
