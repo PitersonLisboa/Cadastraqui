@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "start": "serve dist -s -l ${PORT:-8080}",
-    "preview": "vite preview",
+    "preview": "serve dist -s -l ${PORT:-8080}",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
