@@ -29,7 +29,27 @@ export interface Usuario {
   role: Role
   ativo: boolean
   primeiroAcesso: boolean
+  instituicaoId: string | null
   criadoEm: string
+}
+
+export interface Tenant {
+  slug: string
+  nome: string
+  logoUrl: string | null
+  corPrimaria: string
+  corSecundaria: string
+  instituicaoId: string
+  configuracoes: Record<string, any> | null
+  instituicao: {
+    id: string
+    razaoSocial: string
+    nomeFantasia: string | null
+    email: string
+    telefone: string
+    cidade: string
+    uf: string
+  }
 }
 
 export interface Candidato {

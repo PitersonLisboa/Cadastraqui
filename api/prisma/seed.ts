@@ -509,6 +509,58 @@ async function main() {
   console.log('   ✓ Notificações criadas')
 
   // =============================================
+  // 9. SEGUNDA INSTITUIÇÃO: METODISTA (só estrutura)
+  // =============================================
+  console.log('\n🏛️  Criando Instituição Metodista...')
+  const usuarioMetodista = await prisma.usuario.create({
+    data: {
+      nome: 'Universidade Metodista',
+      email: 'instituicao@metodista.br',
+      senha: senhaHash,
+      role: 'INSTITUICAO',
+      ativo: true,
+    },
+  })
+
+  const metodista = await prisma.instituicao.create({
+    data: {
+      usuarioId: usuarioMetodista.id,
+      cnpj: '44351146000398',
+      razaoSocial: 'Instituto Metodista de Ensino Superior',
+      nomeFantasia: 'Universidade Metodista de São Paulo',
+      email: 'contato@metodista.br',
+      telefone: '1143665000',
+      endereco: 'Rua Alfeu Tavares',
+      numero: '149',
+      bairro: 'Rudge Ramos',
+      cidade: 'São Bernardo do Campo',
+      uf: 'SP',
+      cep: '09641000',
+      status: 'ATIVA',
+      tipoInstituicao: 'UNIVERSIDADE',
+      codigoMEC: '302',
+    },
+  })
+
+  await prisma.usuario.update({
+    where: { id: usuarioMetodista.id },
+    data: { instituicaoId: metodista.id },
+  })
+
+  const tenantMetodista = await prisma.tenant.create({
+    data: {
+      slug: 'Metodista',
+      nome: 'Universidade Metodista',
+      instituicaoId: metodista.id,
+      corPrimaria: '#1b5e20',
+      corSecundaria: '#4caf50',
+    },
+  })
+
+  console.log(`   ✓ Instituição criada: ${metodista.nomeFantasia}`)
+  console.log(`   ✓ Tenant criado: ${tenantMetodista.slug}`)
+
+  // =============================================
   // RESUMO FINAL
   // =============================================
   console.log('\n' + '='.repeat(60))
@@ -516,9 +568,11 @@ async function main() {
   console.log('='.repeat(60))
   console.log('\n📋 RESUMO DOS DADOS CRIADOS:')
   console.log('─'.repeat(40))
-  console.log(`   🏛️  Tenant: ${tenant.slug} (${tenant.nome})`)
+  console.log(`   🏛️  Tenant 1: ${tenant.slug} (${tenant.nome})`)
+  console.log(`   🏛️  Tenant 2: ${tenantMetodista.slug} (${tenantMetodista.nome})`)
   console.log(`   👤 Admin: admin@teste.com`)
-  console.log(`   🏛️  Instituição: instituicao@pucminas.br`)
+  console.log(`   🏛️  Instituição 1: instituicao@pucminas.br`)
+  console.log(`   🏛️  Instituição 2: instituicao@metodista.br`)
   console.log(`   ⚖️  Advogado: advogado@teste.com`)
   console.log(`   👩‍💼 Assistente Social 1: assistente1@teste.com`)
   console.log(`   👩‍💼 Assistente Social 2: assistente2@teste.com`)
@@ -527,6 +581,10 @@ async function main() {
   console.log(`   👨‍🎓 Candidato 3: candidato3@teste.com (APROVADO)`)
   console.log('─'.repeat(40))
   console.log(`   🔑 SENHA PARA TODOS: 123456`)
+  console.log('─'.repeat(40))
+  console.log(`   🌐 URLs:`)
+  console.log(`      /PUCMinas/login   → PUC Minas`)
+  console.log(`      /Metodista/login  → Metodista`)
   console.log('─'.repeat(40))
   console.log('\n')
 }

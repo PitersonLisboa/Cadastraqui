@@ -47,7 +47,15 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token expirado ou inválido
       localStorage.removeItem('cadastraqui-persist')
-      window.location.href = '/login'
+      // Preservar tenant slug no redirect
+      const path = window.location.pathname
+      const slugMatch = path.match(/^\/([^/]+)\//)
+      const knownNonTenant = ['admin', 'login', 'registrar', 'esqueci-senha', 'redefinir-senha']
+      if (slugMatch && !knownNonTenant.includes(slugMatch[1])) {
+        window.location.href = `/${slugMatch[1]}/login`
+      } else {
+        window.location.href = '/login'
+      }
     }
     
     return Promise.reject(error)
@@ -72,6 +80,7 @@ export const authService = {
     codigoConvite?: string
     nome?: string
     registro?: string
+    tenantSlug?: string
   }) => {
     const response = await api.post('/auth/registrar', data)
     return response.data
@@ -609,6 +618,22 @@ export const familiaService = {
   
   composicao: async (candidatoId: string) => {
     const response = await api.get(`/familia/composicao/${candidatoId}`)
+    return response.data
+  },
+}
+
+// ===========================================
+// SERVIÇOS DE TENANT
+// ===========================================
+
+export const tenantService = {
+  buscarPorSlug: async (slug: string) => {
+    const response = await api.get(`/tenant/${slug}`)
+    return response.data
+  },
+  
+  listarAtivos: async () => {
+    const response = await api.get('/tenants')
     return response.data
   },
 }

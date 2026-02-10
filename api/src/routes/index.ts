@@ -18,12 +18,16 @@ import { adminRoutes } from './admin.routes'
 import { configuracaoRoutes } from './configuracao.routes'
 import { familiaRoutes } from './familia.routes'
 import { conviteRoutes } from './convite.routes'
+import { tenantRoutes } from './tenant.routes'
 
 export async function registerRoutes(app: FastifyInstance) {
   // Rota de health check
   app.get('/health', async () => {
     return { status: 'ok', timestamp: new Date().toISOString() }
   })
+
+  // Rotas públicas (sem auth)
+  await app.register(tenantRoutes)
 
   // Registrar todas as rotas
   await app.register(authRoutes)

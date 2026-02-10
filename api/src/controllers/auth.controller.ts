@@ -27,6 +27,7 @@ const registrarSchema = z.object({
   confirmarSenha: z.string(),
   role: z.nativeEnum(Role).default(Role.CANDIDATO),
   codigoConvite: z.string().optional(), // Obrigatório para roles vinculados a instituição
+  tenantSlug: z.string().optional(), // Slug do tenant (ex: "PUCMinas") - para candidatos
   // Dados adicionais para profissionais
   nome: z.string().optional(),
   registro: z.string().optional(), // CRESS, OAB ou outro registro
@@ -135,7 +136,7 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
 }
 
 export async function registrar(request: FastifyRequest, reply: FastifyReply) {
-  const { email, senha, role, codigoConvite, nome, registro } = registrarSchema.parse(request.body)
+  const { email, senha, role, codigoConvite, nome, registro, tenantSlug } = registrarSchema.parse(request.body)
 
   // Bloquear registro de ADMIN
   if (role === 'ADMIN') {
@@ -151,6 +152,20 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
 
   if (usuarioExistente) {
     throw new EmailJaCadastradoError()
+  }
+
+  // Resolver instituicaoId a partir do tenantSlug (para candidatos)
+  let instituicaoIdFromTenant: string | null = null
+  if (tenantSlug && role === 'CANDIDATO') {
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: tenantSlug },
+    })
+    if (!tenant || !tenant.ativo) {
+      return reply.status(400).send({
+        message: 'Instituição não encontrada ou inativa',
+      })
+    }
+    instituicaoIdFromTenant = tenant.instituicaoId
   }
 
   // Para roles vinculados a instituição, validar código de convite
@@ -203,14 +218,14 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
 
   // Criar usuário e perfil em transação
   const resultado = await prisma.$transaction(async (tx) => {
-    // Criar usuário com vínculo à instituição (se vier de convite)
+    // Criar usuário com vínculo à instituição (se vier de convite ou tenant)
     const usuario = await tx.usuario.create({
       data: {
         email,
         senha: senhaHash,
         role,
         nome,
-        instituicaoId: convite ? convite.instituicaoId : null,
+        instituicaoId: convite ? convite.instituicaoId : instituicaoIdFromTenant,
       },
     })
 

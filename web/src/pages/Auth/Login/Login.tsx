@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,6 +24,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const setAuth = useSetRecoilState(authState)
   const navigate = useNavigate()
+  const { slug } = useParams<{ slug: string }>()
 
   const {
     register,
@@ -58,7 +59,10 @@ export function LoginPage() {
 
       toast.success(`Bem-vindo(a)!`)
       const userRole = response.usuario.role as Role
-      navigate(ROLES_CONFIG[userRole].rota)
+      const baseRota = ROLES_CONFIG[userRole].rota
+      // Se estiver dentro de um tenant, prefixar com o slug
+      const rota = slug ? `/${slug}${baseRota}` : baseRota
+      navigate(rota)
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao fazer login')
     } finally {
@@ -140,9 +144,9 @@ export function LoginPage() {
           </form>
 
           <div className={styles.links}>
-            <Link to="/esqueci-senha">Esqueci minha senha</Link>
+            <Link to={slug ? `/${slug}/esqueci-senha` : '/esqueci-senha'}>Esqueci minha senha</Link>
             <span>•</span>
-            <Link to="/registrar">Criar conta</Link>
+            <Link to={slug ? `/${slug}/registrar` : '/registrar'}>Criar conta</Link>
           </div>
         </div>
       </div>

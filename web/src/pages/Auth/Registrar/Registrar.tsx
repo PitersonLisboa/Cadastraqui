@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -94,6 +94,7 @@ const TIPOS_COM_CONVITE = [
 
 export function RegistrarPage() {
   const [searchParams] = useSearchParams()
+  const { slug } = useParams<{ slug: string }>()
   const codigoUrl = searchParams.get('codigo')
   
   const [tipoSelecionado, setTipoSelecionado] = useState<TipoRegistro>(null)
@@ -170,6 +171,7 @@ export function RegistrarPage() {
         ...data,
         role: tipoSelecionado,
         codigoConvite: conviteValidado ? codigoConvite : undefined,
+        tenantSlug: slug || undefined,
       })
 
       setAuth({
@@ -180,28 +182,29 @@ export function RegistrarPage() {
 
       toast.success('Conta criada com sucesso!')
 
-      // Redirecionar conforme o tipo
+      // Redirecionar conforme o tipo (com ou sem tenant)
+      const prefix = slug ? `/${slug}` : ''
       switch (tipoSelecionado) {
         case 'CANDIDATO':
-          navigate('/candidato')
+          navigate(`${prefix}/candidato`)
           break
         case 'INSTITUICAO':
-          navigate('/instituicao')
+          navigate(`${prefix}/instituicao`)
           break
         case 'ASSISTENTE_SOCIAL':
-          navigate('/assistente-social')
+          navigate(`${prefix}/assistente-social`)
           break
         case 'ADVOGADO':
-          navigate('/advogado')
+          navigate(`${prefix}/advogado`)
           break
         case 'SUPERVISAO':
-          navigate('/supervisao')
+          navigate(`${prefix}/supervisao`)
           break
         case 'CONTROLE':
-          navigate('/controle')
+          navigate(`${prefix}/controle`)
           break
         case 'OPERACIONAL':
-          navigate('/operacional')
+          navigate(`${prefix}/operacional`)
           break
       }
     } catch (error: any) {

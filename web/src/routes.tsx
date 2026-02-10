@@ -1,5 +1,6 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { Layout } from './components/layout/Layout/Layout'
+import { TenantProvider, TenantLoading, TenantNotFound, useTenant } from './contexts/TenantContext'
 import { LoginPage } from './pages/Auth/Login/Login'
 import { RegistrarPage } from './pages/Auth/Registrar/Registrar'
 import { EsqueciSenha } from './pages/Auth/EsqueciSenha/EsqueciSenha'
@@ -53,41 +54,97 @@ import { MeusPareceresAdvogado } from './pages/Advogado/Pareceres/MeusPareceresA
 // Perfil (compartilhado)
 import { Perfil } from './pages/Perfil/Perfil'
 
-// Placeholder para páginas não implementadas ainda
-function PlaceholderPage({ title }: { title: string }) {
+// ===========================================
+// WRAPPER: Carrega tenant e valida
+// ===========================================
+
+function TenantGuard() {
+  const { tenant, loading, error, slug } = useTenant()
+  if (loading) return <TenantLoading />
+  if (error || !tenant) return <TenantNotFound slug={slug || undefined} />
+  return <Outlet />
+}
+
+function TenantLayout() {
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>{title}</h1>
-      <p style={{ color: '#6b7280' }}>Esta página está em desenvolvimento.</p>
-    </div>
+    <TenantProvider>
+      <TenantGuard />
+    </TenantProvider>
   )
 }
 
+// ===========================================
+// ROTAS COMPARTILHADAS (reutilizadas dentro de cada tenant)
+// ===========================================
+
+const candidatoChildren = [
+  { index: true, element: <DashboardCandidato /> },
+  { path: 'cadastro', element: <CadastroCandidato /> },
+  { path: 'editais', element: <ListaEditaisDisponiveis /> },
+  { path: 'editais/:id', element: <DetalhesEditalCandidato /> },
+  { path: 'editais/:editalId/inscrever', element: <WizardInscricao /> },
+  { path: 'candidaturas', element: <MinhasCandidaturas /> },
+  { path: 'candidaturas/:id', element: <DetalhesCandidatura /> },
+  { path: 'documentos', element: <MeusDocumentos /> },
+  { path: 'agendamentos', element: <MeusAgendamentos /> },
+  { path: 'familia', element: <MembrosFamilia /> },
+  { path: 'perfil', element: <Perfil /> },
+]
+
+const instituicaoChildren = [
+  { index: true, element: <DashboardInstituicao /> },
+  { path: 'cadastro', element: <CadastroInstituicao /> },
+  { path: 'editais', element: <ListaEditais /> },
+  { path: 'editais/novo', element: <FormEdital /> },
+  { path: 'editais/:id', element: <DetalhesEdital /> },
+  { path: 'editais/:id/editar', element: <FormEdital /> },
+  { path: 'candidaturas', element: <ListaCandidaturasInstituicao /> },
+  { path: 'candidaturas/:id', element: <DetalhesCandidaturaInstituicao /> },
+  { path: 'equipe', element: <GestaoEquipe /> },
+  { path: 'relatorios', element: <RelatoriosInstituicao /> },
+  { path: 'documentos', element: <DocumentosInstituicao /> },
+  { path: 'perfil', element: <Perfil /> },
+]
+
+const assistenteSocialChildren = [
+  { index: true, element: <DashboardAssistente /> },
+  { path: 'candidaturas', element: <ListaCandidaturasAssistente /> },
+  { path: 'candidaturas/:id', element: <AnalisarCandidatura /> },
+  { path: 'agendamentos', element: <ListaAgendamentos /> },
+  { path: 'pareceres', element: <MeusPareceres /> },
+  { path: 'perfil', element: <Perfil /> },
+]
+
+const advogadoChildren = [
+  { index: true, element: <DashboardAdvogado /> },
+  { path: 'candidaturas', element: <ListaCandidaturasAdvogado /> },
+  { path: 'candidaturas/:id', element: <AnalisarCandidaturaAdvogado /> },
+  { path: 'pareceres', element: <MeusPareceresAdvogado /> },
+  { path: 'perfil', element: <Perfil /> },
+]
+
+// ===========================================
+// ROUTER
+// ===========================================
+
 export const router = createBrowserRouter([
-  {
-    path: '/login',
-    element: <LoginPage />,
-  },
-  {
-    path: '/registrar',
-    element: <RegistrarPage />,
-  },
-  {
-    path: '/esqueci-senha',
-    element: <EsqueciSenha />,
-  },
-  {
-    path: '/redefinir-senha',
-    element: <RedefinirSenha />,
-  },
+  // =========================================
+  // ROTA RAIZ
+  // =========================================
   {
     path: '/',
     element: <Navigate to="/login" replace />,
   },
-  
+
   // =========================================
-  // ROTAS ADMIN
+  // ROTAS LEGADO (sem tenant - para admin e compat)
   // =========================================
+  { path: '/login', element: <LoginPage /> },
+  { path: '/registrar', element: <RegistrarPage /> },
+  { path: '/esqueci-senha', element: <EsqueciSenha /> },
+  { path: '/redefinir-senha', element: <RedefinirSenha /> },
+
+  // Admin (acesso global, sem tenant)
   {
     path: '/admin',
     element: <Layout />,
@@ -103,76 +160,33 @@ export const router = createBrowserRouter([
   },
 
   // =========================================
-  // ROTAS INSTITUIÇÃO
+  // ROTAS COM TENANT — /:slug/...
+  // Ex: /PUCMinas/login, /PUCMinas/candidato/editais
   // =========================================
   {
-    path: '/instituicao',
-    element: <Layout />,
+    path: '/:slug',
+    element: <TenantLayout />,
     children: [
-      { index: true, element: <DashboardInstituicao /> },
-      { path: 'cadastro', element: <CadastroInstituicao /> },
-      { path: 'editais', element: <ListaEditais /> },
-      { path: 'editais/novo', element: <FormEdital /> },
-      { path: 'editais/:id', element: <DetalhesEdital /> },
-      { path: 'editais/:id/editar', element: <FormEdital /> },
-      { path: 'candidaturas', element: <ListaCandidaturasInstituicao /> },
-      { path: 'candidaturas/:id', element: <DetalhesCandidaturaInstituicao /> },
-      { path: 'equipe', element: <GestaoEquipe /> },
-      { path: 'relatorios', element: <RelatoriosInstituicao /> },
-      { path: 'documentos', element: <DocumentosInstituicao /> },
-      { path: 'perfil', element: <Perfil /> },
-    ],
-  },
+      // Index do tenant → login
+      { index: true, element: <Navigate to="login" replace /> },
 
-  // =========================================
-  // ROTAS CANDIDATO
-  // =========================================
-  {
-    path: '/candidato',
-    element: <Layout />,
-    children: [
-      { index: true, element: <DashboardCandidato /> },
-      { path: 'cadastro', element: <CadastroCandidato /> },
-      { path: 'editais', element: <ListaEditaisDisponiveis /> },
-      { path: 'editais/:id', element: <DetalhesEditalCandidato /> },
-      { path: 'editais/:editalId/inscrever', element: <WizardInscricao /> },
-      { path: 'candidaturas', element: <MinhasCandidaturas /> },
-      { path: 'candidaturas/:id', element: <DetalhesCandidatura /> },
-      { path: 'documentos', element: <MeusDocumentos /> },
-      { path: 'agendamentos', element: <MeusAgendamentos /> },
-      { path: 'familia', element: <MembrosFamilia /> },
-      { path: 'perfil', element: <Perfil /> },
-    ],
-  },
+      // Auth
+      { path: 'login', element: <LoginPage /> },
+      { path: 'registrar', element: <RegistrarPage /> },
+      { path: 'esqueci-senha', element: <EsqueciSenha /> },
+      { path: 'redefinir-senha', element: <RedefinirSenha /> },
 
-  // =========================================
-  // ROTAS ASSISTENTE SOCIAL
-  // =========================================
-  {
-    path: '/assistente-social',
-    element: <Layout />,
-    children: [
-      { index: true, element: <DashboardAssistente /> },
-      { path: 'candidaturas', element: <ListaCandidaturasAssistente /> },
-      { path: 'candidaturas/:id', element: <AnalisarCandidatura /> },
-      { path: 'agendamentos', element: <ListaAgendamentos /> },
-      { path: 'pareceres', element: <MeusPareceres /> },
-      { path: 'perfil', element: <Perfil /> },
-    ],
-  },
+      // Candidato
+      { path: 'candidato', element: <Layout />, children: candidatoChildren },
 
-  // =========================================
-  // ROTAS ADVOGADO
-  // =========================================
-  {
-    path: '/advogado',
-    element: <Layout />,
-    children: [
-      { index: true, element: <DashboardAdvogado /> },
-      { path: 'candidaturas', element: <ListaCandidaturasAdvogado /> },
-      { path: 'candidaturas/:id', element: <AnalisarCandidaturaAdvogado /> },
-      { path: 'pareceres', element: <MeusPareceresAdvogado /> },
-      { path: 'perfil', element: <Perfil /> },
+      // Instituição
+      { path: 'instituicao', element: <Layout />, children: instituicaoChildren },
+
+      // Assistente Social
+      { path: 'assistente-social', element: <Layout />, children: assistenteSocialChildren },
+
+      // Advogado
+      { path: 'advogado', element: <Layout />, children: advogadoChildren },
     ],
   },
 
@@ -195,8 +209,8 @@ export const router = createBrowserRouter([
         <p style={{ fontSize: '1.25rem', color: '#6b7280', marginBottom: '2rem' }}>
           Página não encontrada
         </p>
-        <a href="/login" style={{ color: '#3b82f6', textDecoration: 'underline' }}>
-          Voltar para o login
+        <a href="/" style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+          Voltar para o início
         </a>
       </div>
     ),
