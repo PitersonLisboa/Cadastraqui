@@ -13,11 +13,13 @@ import {
   atualizarInstituicao,
   excluirInstituicao,
 } from '../controllers/instituicao.controller'
+import { meusEditais } from '../controllers/edital.controller'
 import { verificarJWT, verificarRole } from '../middlewares/auth'
 import {
   ROLES_VISUALIZAR_CANDIDATURAS,
   ROLES_DOCUMENTOS_INSTITUCIONAIS,
   ROLES_RELATORIOS_INSTITUICAO,
+  ROLES_GERENCIAR_EDITAIS,
 } from '../config/permissions'
 
 export async function instituicaoRoutes(app: FastifyInstance) {
@@ -27,6 +29,11 @@ export async function instituicaoRoutes(app: FastifyInstance) {
     preHandler: [verificarRole('INSTITUICAO', 'SUPERVISAO', 'CONTROLE')] 
   }, dashboardInstituicao)
   app.post('/instituicao', { preHandler: [verificarRole('INSTITUICAO')] }, criarInstituicao)
+
+  // Editais da instituição
+  app.get('/instituicao/editais', { 
+    preHandler: [verificarRole(...ROLES_GERENCIAR_EDITAIS)] 
+  }, meusEditais)
 
   // Candidaturas da instituição - ADVOGADO NÃO tem acesso
   app.get('/instituicao/candidaturas', { 
