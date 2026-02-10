@@ -108,9 +108,9 @@ ALTER TABLE "logs_atividade" ADD CONSTRAINT "logs_atividade_instituicaoId_fkey"
 ALTER TABLE "configuracoes" ADD CONSTRAINT "configuracoes_instituicaoId_fkey"
     FOREIGN KEY ("instituicaoId") REFERENCES "instituicoes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
--- PASSO 5: Tornar NOT NULL onde necessário (apenas após preenchimento)
--- Candidato DEVE ter instituição
-ALTER TABLE "candidatos" ALTER COLUMN "instituicaoId" SET NOT NULL;
+-- PASSO 5: Índices opcionais para performance
+-- (instituicaoId no candidato é nullable - será NOT NULL em versão futura
+-- após confirmar que todos os dados estão preenchidos)
 
 -- PASSO 6: Criar tenant padrão para a instituição existente
 INSERT INTO "tenants" ("id", "slug", "nome", "instituicaoId", "atualizadoEm")

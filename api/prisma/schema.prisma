@@ -171,8 +171,8 @@ model Candidato {
   usuarioId         String   @unique
   
   // Multi-tenant
-  instituicao       Instituicao @relation("CandidatoInstituicao", fields: [instituicaoId], references: [id])
-  instituicaoId     String
+  instituicao       Instituicao? @relation("CandidatoInstituicao", fields: [instituicaoId], references: [id])
+  instituicaoId     String?
   
   responsavelLegal  ResponsavelLegal? @relation(fields: [responsavelId], references: [id])
   responsavelId     String?
