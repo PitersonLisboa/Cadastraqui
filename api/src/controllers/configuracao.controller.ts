@@ -29,11 +29,24 @@ const salvarConfiguracoesSchema = z.object({
 // ===========================================
 
 export async function listarConfiguracoes(request: FastifyRequest, reply: FastifyReply) {
-  const configs = await prisma.configuracao.findMany()
+  // Multi-tenant: buscar configs da instituição + globais (null)
+  const instituicaoId = request.usuario.instituicaoId
+  const configs = await prisma.configuracao.findMany({
+    where: {
+      OR: [
+        { instituicaoId: null },
+        ...(instituicaoId ? [{ instituicaoId }] : []),
+      ],
+    },
+  })
   
+  // Configs da instituição sobrescrevem globais
   const configuracoes: Record<string, string> = {}
   for (const config of configs) {
-    configuracoes[config.chave] = config.valor
+    // Se já tem valor da instituição, não sobrescrever com global
+    if (config.instituicaoId || !configuracoes[config.chave]) {
+      configuracoes[config.chave] = config.valor
+    }
   }
 
   return reply.status(200).send({ configuracoes })
@@ -41,15 +54,36 @@ export async function listarConfiguracoes(request: FastifyRequest, reply: Fastif
 
 export async function salvarConfiguracoes(request: FastifyRequest, reply: FastifyReply) {
   const dados = salvarConfiguracoesSchema.parse(request.body)
+  const instituicaoId = request.usuario.instituicaoId || null
 
   // Salvar cada configuração
   for (const [chave, valor] of Object.entries(dados)) {
     if (valor !== undefined && valor !== '') {
-      await prisma.configuracao.upsert({
-        where: { chave },
-        update: { valor },
-        create: { chave, valor },
-      })
+      if (instituicaoId) {
+        // Config da instituição: usar unique composta
+        await prisma.configuracao.upsert({
+          where: {
+            chave_instituicaoId: { chave, instituicaoId },
+          },
+          update: { valor },
+          create: { chave, valor, instituicaoId },
+        })
+      } else {
+        // Config global: buscar por chave + null
+        const existing = await prisma.configuracao.findFirst({
+          where: { chave, instituicaoId: null },
+        })
+        if (existing) {
+          await prisma.configuracao.update({
+            where: { id: existing.id },
+            data: { valor },
+          })
+        } else {
+          await prisma.configuracao.create({
+            data: { chave, valor, instituicaoId: null },
+          })
+        }
+      }
     }
   }
 
