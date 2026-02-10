@@ -37,9 +37,10 @@ export async function exportarCandidaturas(request: FastifyRequest, reply: Fasti
 
   // Se for instituição, filtrar pelos editais dela
   if (request.usuario.role === 'INSTITUICAO') {
-    const instituicao = await prisma.instituicao.findUnique({
-      where: { usuarioId: request.usuario.id },
-    })
+    const instituicaoId = request.usuario.instituicaoId
+    const instituicao = instituicaoId ? await prisma.instituicao.findUnique({
+      where: { id: instituicaoId },
+    }) : null
 
     if (!instituicao) {
       return reply.status(400).send({ message: 'Instituição não encontrada' })
@@ -91,9 +92,9 @@ export async function exportarCandidaturas(request: FastifyRequest, reply: Fasti
 
   // Buscar nome da instituição
   let instituicaoNome = 'Cadastraqui'
-  if (request.usuario.role === 'INSTITUICAO') {
+  if (request.usuario.instituicaoId) {
     const inst = await prisma.instituicao.findUnique({
-      where: { usuarioId: request.usuario.id },
+      where: { id: request.usuario.instituicaoId },
       select: { nomeFantasia: true, razaoSocial: true },
     })
     if (inst) instituicaoNome = inst.nomeFantasia || inst.razaoSocial
@@ -133,9 +134,10 @@ export async function exportarEditais(request: FastifyRequest, reply: FastifyRep
 
   // Se for instituição, filtrar pelos editais dela
   if (request.usuario.role === 'INSTITUICAO') {
-    const instituicao = await prisma.instituicao.findUnique({
-      where: { usuarioId: request.usuario.id },
-    })
+    const instituicaoId = request.usuario.instituicaoId
+    const instituicao = instituicaoId ? await prisma.instituicao.findUnique({
+      where: { id: instituicaoId },
+    }) : null
 
     if (!instituicao) {
       return reply.status(400).send({ message: 'Instituição não encontrada' })
@@ -225,9 +227,10 @@ export async function exportarRelatorioDashboard(request: FastifyRequest, reply:
     }
     config.titulo = 'Relatório Administrativo'
   } else if (request.usuario.role === 'INSTITUICAO') {
-    const instituicao = await prisma.instituicao.findUnique({
-      where: { usuarioId: request.usuario.id },
-    })
+    const instituicaoId = request.usuario.instituicaoId
+    const instituicao = instituicaoId ? await prisma.instituicao.findUnique({
+      where: { id: instituicaoId },
+    }) : null
 
     if (!instituicao) {
       return reply.status(400).send({ message: 'Instituição não encontrada' })

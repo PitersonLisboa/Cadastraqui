@@ -62,9 +62,9 @@ const criarMembroSchema = z.discriminatedUnion('tipo', [
 // HELPERS
 // ===========================================
 
-async function obterInstituicao(usuarioId: string) {
+async function obterInstituicao(usuarioIdOrInstituicaoId: string, byInstituicaoId = false) {
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId },
+    where: byInstituicaoId ? { id: usuarioIdOrInstituicaoId } : { usuarioId: usuarioIdOrInstituicaoId },
   })
   if (!instituicao) throw new InstituicaoNaoEncontradaError()
   return instituicao
@@ -81,7 +81,7 @@ async function verificarEmailDisponivel(email: string) {
 
 // Listar equipe da instituição (todos os tipos)
 export async function listarEquipe(request: FastifyRequest, reply: FastifyReply) {
-  const instituicao = await obterInstituicao(request.usuario.id)
+  const instituicao = await obterInstituicao(request.usuario.instituicaoId!, true)
 
   const [assistentes, advogados, supervisores, membrosControle, membrosOperacional] = await Promise.all([
     prisma.assistenteSocial.findMany({
@@ -133,7 +133,7 @@ export async function listarEquipe(request: FastifyRequest, reply: FastifyReply)
 // Adicionar membro (qualquer tipo)
 export async function adicionarMembro(request: FastifyRequest, reply: FastifyReply) {
   const dados = criarMembroSchema.parse(request.body)
-  const instituicao = await obterInstituicao(request.usuario.id)
+  const instituicao = await obterInstituicao(request.usuario.instituicaoId!, true)
   await verificarEmailDisponivel(dados.email)
 
   const senhaHash = await bcrypt.hash(dados.senha, 10)
@@ -217,7 +217,7 @@ export async function adicionarMembro(request: FastifyRequest, reply: FastifyRep
 // Buscar membro por ID
 export async function buscarMembro(request: FastifyRequest, reply: FastifyReply) {
   const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-  const instituicao = await obterInstituicao(request.usuario.id)
+  const instituicao = await obterInstituicao(request.usuario.instituicaoId!, true)
 
   const tabelas = [
     { model: prisma.assistenteSocial, tipo: 'ASSISTENTE_SOCIAL' },
@@ -249,7 +249,7 @@ export async function atualizarMembro(request: FastifyRequest, reply: FastifyRep
     registro: z.string().optional(),
   }).parse(request.body)
 
-  const instituicao = await obterInstituicao(request.usuario.id)
+  const instituicao = await obterInstituicao(request.usuario.instituicaoId!, true)
 
   const updates: Array<{ model: any; data: any }> = [
     { model: prisma.assistenteSocial, data: { nome: dados.nome, telefone: dados.telefone, cress: dados.cress } },
@@ -275,7 +275,7 @@ export async function atualizarMembro(request: FastifyRequest, reply: FastifyRep
 // Desativar/Remover membro
 export async function removerMembro(request: FastifyRequest, reply: FastifyReply) {
   const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-  const instituicao = await obterInstituicao(request.usuario.id)
+  const instituicao = await obterInstituicao(request.usuario.instituicaoId!, true)
 
   const tabelas = [
     prisma.assistenteSocial,
@@ -302,7 +302,7 @@ export async function removerMembro(request: FastifyRequest, reply: FastifyReply
 // Reativar membro
 export async function reativarMembro(request: FastifyRequest, reply: FastifyReply) {
   const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-  const instituicao = await obterInstituicao(request.usuario.id)
+  const instituicao = await obterInstituicao(request.usuario.instituicaoId!, true)
 
   const tabelas = [
     prisma.assistenteSocial,

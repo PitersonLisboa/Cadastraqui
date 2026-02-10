@@ -74,8 +74,14 @@ export async function dashboardAdmin(request: FastifyRequest, reply: FastifyRepl
 // ===========================================
 
 export async function dashboardInstituicao(request: FastifyRequest, reply: FastifyReply) {
+  // Multi-tenant: usar instituicaoId do token
+  const instituicaoId = request.usuario.instituicaoId
+  if (!instituicaoId) {
+    return reply.status(200).send({ resumo: null })
+  }
+
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: instituicaoId },
   })
 
   if (!instituicao) {
@@ -184,11 +190,8 @@ export async function relatorioCandidaturas(request: FastifyRequest, reply: Fast
   // Verificar permissão
   let instituicaoId: string | undefined
 
-  if (request.usuario.role === 'INSTITUICAO') {
-    const instituicao = await prisma.instituicao.findUnique({
-      where: { usuarioId: request.usuario.id },
-    })
-    if (instituicao) instituicaoId = instituicao.id
+  if (request.usuario.role !== 'ADMIN' && request.usuario.instituicaoId) {
+    instituicaoId = request.usuario.instituicaoId
   }
 
   const where: any = {}

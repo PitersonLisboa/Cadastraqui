@@ -8,6 +8,7 @@ interface JwtPayload {
   sub: string
   email: string
   role: Role
+  instituicaoId: string | null
   iat: number
   exp: number
 }
@@ -18,6 +19,7 @@ declare module 'fastify' {
       id: string
       email: string
       role: Role
+      instituicaoId: string | null
     }
   }
 }
@@ -42,6 +44,7 @@ export async function verificarJWT(request: FastifyRequest, reply: FastifyReply)
       id: decoded.sub,
       email: decoded.email,
       role: decoded.role,
+      instituicaoId: decoded.instituicaoId || null,
     }
   } catch (error) {
     if (error instanceof TokenInvalidoError) {
@@ -63,7 +66,7 @@ export function verificarRole(...rolesPermitidas: Role[]) {
   }
 }
 
-export function gerarToken(payload: { sub: string; email: string; role: Role }): string {
+export function gerarToken(payload: { sub: string; email: string; role: Role; instituicaoId: string | null }): string {
   return jwt.sign(payload, env.JWT_SECRET, {
     expiresIn: '7d',
   })

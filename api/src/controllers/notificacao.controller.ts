@@ -13,10 +13,11 @@ interface CriarNotificacaoParams {
   titulo: string
   mensagem: string
   link?: string
+  instituicaoId?: string | null
 }
 
 export async function criarNotificacao(params: CriarNotificacaoParams) {
-  const { usuarioId, tipo = 'INFO', titulo, mensagem, link } = params
+  const { usuarioId, tipo = 'INFO', titulo, mensagem, link, instituicaoId } = params
 
   return prisma.notificacao.create({
     data: {
@@ -25,6 +26,7 @@ export async function criarNotificacao(params: CriarNotificacaoParams) {
       titulo,
       mensagem,
       link,
+      instituicaoId: instituicaoId || null,
     },
   })
 }

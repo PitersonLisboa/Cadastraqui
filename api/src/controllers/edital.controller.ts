@@ -75,6 +75,11 @@ export async function listarEditais(request: FastifyRequest, reply: FastifyReply
     where.instituicaoId = instituicaoId
   }
 
+  // Multi-tenant: forçar filtro por instituição (exceto ADMIN)
+  if (request.usuario.role !== 'ADMIN' && request.usuario.instituicaoId) {
+    where.instituicaoId = request.usuario.instituicaoId
+  }
+
   const [editais, total] = await Promise.all([
     prisma.edital.findMany({
       where,
@@ -143,19 +148,16 @@ export async function buscarEdital(request: FastifyRequest, reply: FastifyReply)
 export async function criarEdital(request: FastifyRequest, reply: FastifyReply) {
   const dados = criarEditalSchema.parse(request.body)
 
-  // Buscar instituição do usuário logado
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
-
-  if (!instituicao) {
+  // Multi-tenant: usar instituicaoId do token
+  const instituicaoId = request.usuario.instituicaoId
+  if (!instituicaoId) {
     throw new InstituicaoNaoEncontradaError()
   }
 
   const edital = await prisma.edital.create({
     data: {
       ...dados,
-      instituicaoId: instituicao.id,
+      instituicaoId,
     } as any,
     include: {
       instituicao: {
@@ -239,9 +241,10 @@ export async function meusEditais(request: FastifyRequest, reply: FastifyReply) 
   const { pagina, limite, busca, apenasAtivos, anoLetivo, ordenarPor, ordem } =
     listarEditaisSchema.parse(request.query)
 
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const instituicaoId_local = request.usuario.instituicaoId
+  const instituicao = instituicaoId_local ? await prisma.instituicao.findUnique({
+    where: { id: instituicaoId_local },
+  }) : null
 
   if (!instituicao) {
     throw new InstituicaoNaoEncontradaError()

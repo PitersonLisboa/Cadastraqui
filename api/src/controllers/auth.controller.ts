@@ -95,6 +95,7 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
     sub: usuario.id,
     email: usuario.email,
     role: usuario.role,
+    instituicaoId: usuario.instituicaoId,
   })
 
   // Registrar sessão
@@ -117,6 +118,7 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
       entidadeId: usuario.id,
       ip: request.ip,
       userAgent: request.headers['user-agent'],
+      instituicaoId: usuario.instituicaoId,
     },
   })
 
@@ -127,6 +129,7 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
       email: usuario.email,
       role: usuario.role,
       primeiroAcesso: usuario.primeiroAcesso,
+      instituicaoId: usuario.instituicaoId,
     },
   })
 }
@@ -200,13 +203,14 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
 
   // Criar usuário e perfil em transação
   const resultado = await prisma.$transaction(async (tx) => {
-    // Criar usuário
+    // Criar usuário com vínculo à instituição (se vier de convite)
     const usuario = await tx.usuario.create({
       data: {
         email,
         senha: senhaHash,
         role,
         nome,
+        instituicaoId: convite ? convite.instituicaoId : null,
       },
     })
 
@@ -284,6 +288,7 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
     sub: resultado.id,
     email: resultado.email,
     role: resultado.role,
+    instituicaoId: resultado.instituicaoId,
   })
 
   // Enviar email de boas-vindas (async, não bloqueia)
@@ -296,6 +301,7 @@ export async function registrar(request: FastifyRequest, reply: FastifyReply) {
       email: resultado.email,
       role: resultado.role,
       primeiroAcesso: resultado.primeiroAcesso,
+      instituicaoId: resultado.instituicaoId,
     },
     instituicao: convite ? {
       id: convite.instituicao.id,
@@ -314,8 +320,9 @@ export async function perfil(request: FastifyRequest, reply: FastifyReply) {
       ativo: true,
       primeiroAcesso: true,
       criadoEm: true,
+      instituicaoId: true,
       candidato: true,
-      instituicao: true,
+      instituicaoAdmin: true,
       assistenteSocial: true,
       advogado: true,
       responsavelLegal: true,
@@ -430,6 +437,7 @@ export async function solicitarRecuperacaoSenha(request: FastifyRequest, reply: 
       entidadeId: usuario.id,
       ip: request.ip,
       userAgent: request.headers['user-agent'],
+      instituicaoId: usuario.instituicaoId,
     },
   })
 
@@ -527,6 +535,7 @@ export async function redefinirSenha(request: FastifyRequest, reply: FastifyRepl
       entidadeId: tokenRecuperacao.usuarioId,
       ip: request.ip,
       userAgent: request.headers['user-agent'],
+      instituicaoId: tokenRecuperacao.usuario.instituicaoId,
     },
   })
 

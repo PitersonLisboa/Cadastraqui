@@ -47,15 +47,23 @@ const listarCandidatosSchema = z.object({
 export async function listarCandidatos(request: FastifyRequest, reply: FastifyReply) {
   const { pagina, limite, busca, ordenarPor, ordem } = listarCandidatosSchema.parse(request.query)
 
-  const where = busca
-    ? {
-        OR: [
-          { nome: { contains: busca, mode: 'insensitive' as const } },
-          { cpf: { contains: busca } },
-          { usuario: { email: { contains: busca, mode: 'insensitive' as const } } },
-        ],
-      }
-    : {}
+  // Multi-tenant: filtrar por instituição (ADMIN vê todos)
+  const tenantFilter = request.usuario.role === 'ADMIN'
+    ? {}
+    : { instituicaoId: request.usuario.instituicaoId! }
+
+  const where = {
+    ...tenantFilter,
+    ...(busca
+      ? {
+          OR: [
+            { nome: { contains: busca, mode: 'insensitive' as const } },
+            { cpf: { contains: busca } },
+            { usuario: { email: { contains: busca, mode: 'insensitive' as const } } },
+          ],
+        }
+      : {}),
+  }
 
   const [candidatos, total] = await Promise.all([
     prisma.candidato.findMany({
@@ -147,6 +155,7 @@ export async function criarCandidato(request: FastifyRequest, reply: FastifyRepl
     data: {
       ...dados,
       usuarioId: request.usuario.id,
+      instituicaoId: request.usuario.instituicaoId!,
     } as any,
     include: {
       usuario: {

@@ -61,7 +61,8 @@ export async function obterPerfil(request: FastifyRequest, reply: FastifyReply) 
       primeiroAcesso: true,
       criadoEm: true,
       candidato: true,
-      instituicao: true,
+      instituicaoAdmin: true,
+      instituicaoId: true,
       assistenteSocial: {
         include: {
           instituicao: {
@@ -91,7 +92,7 @@ export async function obterPerfil(request: FastifyRequest, reply: FastifyReply) 
       perfilEspecifico = usuario.candidato
       break
     case 'INSTITUICAO':
-      perfilEspecifico = usuario.instituicao
+      perfilEspecifico = usuario.instituicaoAdmin
       break
     case 'ASSISTENTE_SOCIAL':
       perfilEspecifico = usuario.assistenteSocial
@@ -139,7 +140,7 @@ export async function atualizarPerfilInstituicao(request: FastifyRequest, reply:
   const dados = atualizarInstituicaoSchema.parse(request.body)
 
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: request.usuario.instituicaoId! },
   })
 
   if (!instituicao) {

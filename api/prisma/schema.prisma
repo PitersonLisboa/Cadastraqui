@@ -87,10 +87,14 @@ model Usuario {
   criadoEm      DateTime  @default(now())
   atualizadoEm  DateTime  @updatedAt
 
+  // Multi-tenant: vínculo com instituição (nullable para ADMIN)
+  instituicao       Instituicao? @relation("UsuariosInstituicao", fields: [instituicaoId], references: [id])
+  instituicaoId     String?
+
   // Relacionamentos
   candidato         Candidato?
   responsavelLegal  ResponsavelLegal?
-  instituicao       Instituicao?
+  instituicaoAdmin  Instituicao?      @relation("InstituicaoAdmin")
   assistenteSocial  AssistenteSocial?
   advogado          Advogado?
   supervisor        Supervisor?
@@ -165,6 +169,10 @@ model Candidato {
   // Relacionamentos
   usuario           Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId         String   @unique
+  
+  // Multi-tenant
+  instituicao       Instituicao @relation("CandidatoInstituicao", fields: [instituicaoId], references: [id])
+  instituicaoId     String
   
   responsavelLegal  ResponsavelLegal? @relation(fields: [responsavelId], references: [id])
   responsavelId     String?
@@ -256,8 +264,13 @@ model Instituicao {
   atualizadoEm            DateTime @updatedAt
 
   // Relacionamentos
-  usuario                 Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario                 Usuario  @relation("InstituicaoAdmin", fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId               String   @unique
+  
+  // Multi-tenant
+  usuarios                Usuario[]  @relation("UsuariosInstituicao")
+  tenant                  Tenant?
+  candidatos              Candidato[] @relation("CandidatoInstituicao")
   
   assistentesSociais      AssistenteSocial[]
   advogados               Advogado[]
@@ -269,8 +282,35 @@ model Instituicao {
   membrosEquipe           MembroEquipe[]
   documentos              DocumentoInstituicao[]
   convitesEquipe          ConviteEquipe[]
+  notificacoes            Notificacao[]
+  logsAtividade           LogAtividade[]
+  configuracoes           Configuracao[]
 
   @@map("instituicoes")
+}
+
+// ===========================================
+// TENANT (Personalização por instituição)
+// ===========================================
+
+model Tenant {
+  id              String   @id @default(uuid())
+  slug            String   @unique  // "PUCMinas", "Metodista"
+  nome            String
+  logoUrl         String?
+  corPrimaria     String?  @default("#1e40af")
+  corSecundaria   String?  @default("#3b82f6")
+  dominio         String?
+  ativo           Boolean  @default(true)
+  configuracoes   Json?
+
+  instituicao     Instituicao @relation(fields: [instituicaoId], references: [id])
+  instituicaoId   String      @unique
+
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("tenants")
 }
 
 model DocumentoInstituicao {
@@ -629,6 +669,10 @@ model Notificacao {
   usuario     Usuario          @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   usuarioId   String
   
+  // Multi-tenant
+  instituicao   Instituicao? @relation(fields: [instituicaoId], references: [id])
+  instituicaoId String?
+  
   criadoEm    DateTime         @default(now())
 
   @@map("notificacoes")
@@ -649,6 +693,10 @@ model LogAtividade {
   
   usuario     Usuario  @relation(fields: [usuarioId], references: [id])
   usuarioId   String
+  
+  // Multi-tenant
+  instituicao   Instituicao? @relation(fields: [instituicaoId], references: [id])
+  instituicaoId String?
   
   criadoEm    DateTime @default(now())
 
@@ -706,11 +754,17 @@ model ConviteEquipe {
 
 model Configuracao {
   id        String   @id @default(uuid())
-  chave     String   @unique
+  chave     String
   valor     String
   descricao String?
+  
+  // Multi-tenant (null = configuração global)
+  instituicao   Instituicao? @relation(fields: [instituicaoId], references: [id])
+  instituicaoId String?
+  
   criadoEm  DateTime @default(now())
   atualizadoEm DateTime @updatedAt
 
+  @@unique([chave, instituicaoId])
   @@map("configuracoes")
 }

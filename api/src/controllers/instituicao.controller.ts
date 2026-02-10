@@ -164,10 +164,13 @@ export async function criarInstituicao(request: FastifyRequest, reply: FastifyRe
     },
   })
 
-  // Atualizar primeiro acesso
+  // Vincular instituicaoId ao usuário (multi-tenant)
   await prisma.usuario.update({
     where: { id: request.usuario.id },
-    data: { primeiroAcesso: false },
+    data: { 
+      primeiroAcesso: false,
+      instituicaoId: instituicao.id,
+    },
   })
 
   return reply.status(201).send({ instituicao })
@@ -237,7 +240,7 @@ export async function excluirInstituicao(request: FastifyRequest, reply: Fastify
 
 export async function meuPerfilInstituicao(request: FastifyRequest, reply: FastifyReply) {
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: request.usuario.instituicaoId! },
     include: {
       usuario: {
         select: {
@@ -269,7 +272,7 @@ export async function meuPerfilInstituicao(request: FastifyRequest, reply: Fasti
 
 export async function dashboardInstituicao(request: FastifyRequest, reply: FastifyReply) {
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: request.usuario.instituicaoId! },
   })
 
   if (!instituicao) {
@@ -342,7 +345,7 @@ export async function listarCandidaturasInstituicao(request: FastifyRequest, rep
   const { pagina, limite, busca, status, editalId } = listarCandidaturasInstituicaoSchema.parse(request.query)
 
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: request.usuario.instituicaoId! },
   })
 
   if (!instituicao) {
@@ -421,7 +424,7 @@ export async function buscarCandidaturaInstituicao(request: FastifyRequest, repl
   const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
 
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: request.usuario.instituicaoId! },
   })
 
   if (!instituicao) {
@@ -488,7 +491,7 @@ export async function buscarCandidaturaInstituicao(request: FastifyRequest, repl
 
 export async function listarDocumentosInstituicao(request: FastifyRequest, reply: FastifyReply) {
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: request.usuario.instituicaoId! },
   })
 
   if (!instituicao) {
@@ -505,7 +508,7 @@ export async function listarDocumentosInstituicao(request: FastifyRequest, reply
 
 export async function uploadDocumentoInstituicao(request: FastifyRequest, reply: FastifyReply) {
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: request.usuario.instituicaoId! },
   })
 
   if (!instituicao) {
@@ -553,7 +556,7 @@ export async function excluirDocumentoInstituicao(request: FastifyRequest, reply
   const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
 
   const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
+    where: { id: request.usuario.instituicaoId! },
   })
 
   if (!instituicao) {

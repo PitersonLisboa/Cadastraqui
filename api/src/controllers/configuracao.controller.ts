@@ -61,6 +61,7 @@ export async function salvarConfiguracoes(request: FastifyRequest, reply: Fastif
       entidade: 'Configuracao',
       detalhes: { chaves: Object.keys(dados) },
       ip: request.ip,
+      instituicaoId: request.usuario.instituicaoId,
     },
   })
 

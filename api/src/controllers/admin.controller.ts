@@ -179,6 +179,7 @@ export async function criarUsuario(request: FastifyRequest, reply: FastifyReply)
       entidadeId: usuario.id,
       detalhes: { email, role },
       ip: request.ip,
+      instituicaoId: request.usuario.instituicaoId,
     },
   })
 
@@ -224,6 +225,7 @@ export async function atualizarUsuario(request: FastifyRequest, reply: FastifyRe
       entidadeId: id,
       detalhes: dados,
       ip: request.ip,
+      instituicaoId: request.usuario.instituicaoId,
     },
   })
 
@@ -257,6 +259,7 @@ export async function alternarStatusUsuario(request: FastifyRequest, reply: Fast
       entidade: 'Usuario',
       entidadeId: id,
       ip: request.ip,
+      instituicaoId: request.usuario.instituicaoId,
     },
   })
 
@@ -293,6 +296,7 @@ export async function resetarSenha(request: FastifyRequest, reply: FastifyReply)
       entidade: 'Usuario',
       entidadeId: id,
       ip: request.ip,
+      instituicaoId: request.usuario.instituicaoId,
     },
   })
 
@@ -415,6 +419,7 @@ export async function atualizarStatusInstituicao(request: FastifyRequest, reply:
       entidadeId: id,
       detalhes: { statusAnterior: instituicao.status, novoStatus: status },
       ip: request.ip,
+      instituicaoId: request.usuario.instituicaoId,
     },
   })
 

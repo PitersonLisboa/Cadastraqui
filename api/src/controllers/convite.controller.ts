@@ -46,9 +46,10 @@ export async function criarConvite(request: FastifyRequest, reply: FastifyReply)
   const { tipo, email, validadeDias } = criarConviteSchema.parse(request.body)
 
   // Buscar instituição do usuário
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const instituicaoId = request.usuario.instituicaoId
+  const instituicao = instituicaoId ? await prisma.instituicao.findUnique({
+    where: { id: instituicaoId },
+  }) : null
 
   if (!instituicao) {
     throw new InstituicaoNaoEncontradaError()
@@ -97,9 +98,10 @@ export async function criarConvite(request: FastifyRequest, reply: FastifyReply)
 
 // Listar convites da instituição
 export async function listarConvites(request: FastifyRequest, reply: FastifyReply) {
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const instituicaoId = request.usuario.instituicaoId
+  const instituicao = instituicaoId ? await prisma.instituicao.findUnique({
+    where: { id: instituicaoId },
+  }) : null
 
   if (!instituicao) {
     throw new InstituicaoNaoEncontradaError()
@@ -117,9 +119,10 @@ export async function listarConvites(request: FastifyRequest, reply: FastifyRepl
 export async function revogarConvite(request: FastifyRequest, reply: FastifyReply) {
   const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
 
-  const instituicao = await prisma.instituicao.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  const instituicaoId = request.usuario.instituicaoId
+  const instituicao = instituicaoId ? await prisma.instituicao.findUnique({
+    where: { id: instituicaoId },
+  }) : null
 
   if (!instituicao) {
     throw new InstituicaoNaoEncontradaError()

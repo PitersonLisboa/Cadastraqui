@@ -323,20 +323,9 @@ export async function listarCandidaturas(request: FastifyRequest, reply: Fastify
 
   const where: any = {}
 
-  // Se for instituição, filtrar pelos editais dela
-  if (request.usuario.role === 'INSTITUICAO') {
-    const instituicao = await prisma.instituicao.findUnique({
-      where: { usuarioId: request.usuario.id },
-    })
-
-    if (!instituicao) {
-      return reply.status(200).send({
-        candidaturas: [],
-        paginacao: { pagina, limite, total: 0, totalPaginas: 0 },
-      })
-    }
-
-    where.edital = { instituicaoId: instituicao.id }
+  // Multi-tenant: filtrar por instituição (exceto ADMIN)
+  if (request.usuario.role !== 'ADMIN' && request.usuario.instituicaoId) {
+    where.edital = { instituicaoId: request.usuario.instituicaoId }
   }
 
   if (editalId) {
