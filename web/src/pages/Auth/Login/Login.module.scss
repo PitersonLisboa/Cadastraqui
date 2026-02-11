@@ -1,14 +1,18 @@
+// =============================================
+// LOGIN - Layout legado (sem tenant)
+// =============================================
+
 .container {
   display: flex;
   min-height: 100vh;
 }
 
-.left {
+.legacyLeft {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--tenant-primary, #1e40af) 0%, var(--tenant-secondary, #7c3aed) 100%);
+  background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
   padding: 2rem;
 
   @media (max-width: 968px) {
@@ -18,21 +22,13 @@
 
 .brand {
   text-align: center;
-  color: var(--color-white);
+  color: #fff;
 }
 
 .brandIcon {
   font-size: 4rem;
   display: block;
   margin-bottom: 1rem;
-}
-
-.brandLogo {
-  max-width: 180px;
-  max-height: 120px;
-  object-fit: contain;
-  margin-bottom: 1.5rem;
-  filter: brightness(0) invert(1);
 }
 
 .brandTitle {
@@ -46,12 +42,6 @@
   opacity: 0.9;
 }
 
-.brandDescription {
-  font-size: 0.875rem;
-  opacity: 0.7;
-  margin-top: 0.75rem;
-}
-
 .right {
   flex: 1;
   display: flex;
@@ -61,31 +51,7 @@
   background-color: var(--color-gray-50);
 }
 
-.formContainer {
-  width: 100%;
-  max-width: 440px;
-  padding: 2.5rem;
-  background-color: var(--color-white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-.title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-gray-900);
-  margin-bottom: 0.5rem;
-  text-align: center;
-}
-
-.subtitle {
-  font-size: 0.9375rem;
-  color: var(--color-gray-500);
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-
-.roleSelection {
+.legacyRoleSelection {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
@@ -135,6 +101,291 @@
   text-align: center;
   line-height: 1.2;
 }
+
+// =============================================
+// LOGIN - Layout com tenant
+// =============================================
+
+.tenantContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f9fafb;
+}
+
+// ===== STICKY HEADER =====
+
+.stickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background-color: #fff;
+  border-bottom: 3px solid #1e40af;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  gap: 1rem;
+
+  @media (max-width: 640px) {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+}
+
+// Logo Cadastraqui
+.cadastraquiLogo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.cadastraquiIcon {
+  font-size: 1.5rem;
+}
+
+.cadastraquiText {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1e40af;
+  letter-spacing: 0.5px;
+
+  @media (max-width: 480px) {
+    display: none;
+  }
+}
+
+// Logo instituição (botão)
+.institutionLogoBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius);
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    opacity: 0.75;
+  }
+}
+
+.institutionLogo {
+  max-height: 56px;
+  max-width: 200px;
+  object-fit: contain;
+
+  @media (max-width: 640px) {
+    max-height: 40px;
+    max-width: 140px;
+  }
+}
+
+.institutionNameFallback {
+  font-size: 1.25rem;
+  font-weight: 700;
+  white-space: nowrap;
+
+  @media (max-width: 640px) {
+    font-size: 1rem;
+  }
+}
+
+// Dropdown
+.dropdownWrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dropdownToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+}
+
+.dropdownArrow {
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 220px;
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  z-index: 110;
+  animation: fadeIn 0.15s ease;
+}
+
+.dropdownItem {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  font-size: 0.9375rem;
+  color: #374151;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background-color: #f3f4f6;
+  }
+
+  &:not(:last-child) {
+    border-bottom: 1px solid #f3f4f6;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+// ===== MAIN CONTENT =====
+
+.mainContent {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+// ===== FORM CONTAINER (compartilhado) =====
+
+.formContainer {
+  width: 100%;
+  max-width: 440px;
+  padding: 2.5rem;
+  background-color: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-gray-900);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: 0.9375rem;
+  color: var(--color-gray-500);
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+// ===== TELA 1: Cards de acesso público =====
+
+.publicAccessCards {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.accessCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 2rem;
+  background-color: #f9fafb;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+
+  &:hover {
+    border-color: var(--access-color);
+    background-color: #f0f4ff;
+  }
+
+  &.selected {
+    border-color: var(--access-color);
+    background-color: #f0f4ff;
+
+    .accessCardLabel {
+      color: var(--access-color);
+      font-weight: 600;
+    }
+  }
+}
+
+.accessCardIcon {
+  font-size: 2.5rem;
+}
+
+.accessCardLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+// ===== TELA 2: Login restrito =====
+
+.restrictedHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.restrictedBadge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.restrictedRoleName {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-gray-900);
+}
+
+// ===== FORM & LINKS (compartilhado) =====
 
 .form {
   display: flex;
