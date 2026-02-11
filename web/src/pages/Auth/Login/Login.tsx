@@ -32,7 +32,8 @@ const RESTRICTED_ROLES: { role: string; label: string }[] = [
 
 // Tipos de acesso público (cards na tela principal)
 const PUBLIC_ACCESS_TYPES = [
-  { id: 'CANDIDATO' as Role, label: 'Candidato', icon: '📝' },
+  { id: 'ALUNO', label: 'Aluno', icon: '🎓', externalSlug: 'Escola' },
+  { id: 'CANDIDATO', label: 'Candidato', icon: '📝', externalSlug: null },
 ]
 
 export function LoginPage() {
@@ -88,9 +89,14 @@ export function LoginPage() {
     reset()
   }
 
-  // Selecionar acesso público (Candidato)
-  const handlePublicAccess = (role: Role) => {
-    setSelectedRole(role)
+  // Selecionar acesso público (Candidato ou redirecionar Aluno)
+  const handlePublicAccess = (item: typeof PUBLIC_ACCESS_TYPES[number]) => {
+    if (item.externalSlug) {
+      // Redireciona para outro tenant (ex: Aluno → /Escola/login)
+      window.location.href = `/${item.externalSlug}/login`
+      return
+    }
+    setSelectedRole(item.id)
     setRestrictedRole(null)
   }
 
@@ -249,7 +255,7 @@ export function LoginPage() {
                     type="button"
                     className={`${styles.accessCard} ${selectedRole === item.id ? styles.selected : ''}`}
                     style={{ '--access-color': tenantPrimary } as React.CSSProperties}
-                    onClick={() => handlePublicAccess(item.id)}
+                    onClick={() => handlePublicAccess(item)}
                   >
                     <span className={styles.accessCardIcon}>{item.icon}</span>
                     <span className={styles.accessCardLabel}>{item.label}</span>
