@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet, useParams, Link } from 'react-router-dom'
 import { Layout } from './components/layout/Layout/Layout'
 import { TenantProvider, TenantLoading, TenantNotFound, useTenant } from './contexts/TenantContext'
 import { LoginPage } from './pages/Auth/Login/Login'
@@ -53,6 +53,48 @@ import { MeusPareceresAdvogado } from './pages/Advogado/Pareceres/MeusPareceresA
 
 // Perfil (compartilhado)
 import { Perfil } from './pages/Perfil/Perfil'
+
+// ===========================================
+// COMPONENTE: Aluno em breve (placeholder)
+// ===========================================
+
+function AlunoEmBreve() {
+  const { slug } = useParams<{ slug: string }>()
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100vh',
+      textAlign: 'center',
+      padding: '2rem',
+    }}>
+      <h1 style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🎓</h1>
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: '#1f2937', marginBottom: '0.5rem' }}>
+        Acesso do Aluno
+      </h2>
+      <p style={{ color: '#6b7280', marginBottom: '2rem', maxWidth: '400px' }}>
+        O módulo de acesso para alunos está em desenvolvimento e estará disponível em breve.
+      </p>
+      <Link
+        to={`/${slug}/login`}
+        style={{
+          display: 'inline-block',
+          padding: '0.625rem 1.5rem',
+          backgroundColor: '#1e40af',
+          color: '#fff',
+          borderRadius: '0.375rem',
+          textDecoration: 'none',
+          fontWeight: 500,
+          transition: 'opacity 0.2s',
+        }}
+      >
+        Voltar para a página inicial
+      </Link>
+    </div>
+  )
+}
 
 // ===========================================
 // WRAPPER: Carrega tenant e valida
@@ -178,6 +220,9 @@ export const router = createBrowserRouter([
 
       // Candidato
       { path: 'candidato', element: <Layout />, children: candidatoChildren },
+
+      // Aluno (em breve — redireciona de volta ao login)
+      { path: 'aluno', element: <AlunoEmBreve /> },
 
       // Instituição
       { path: 'instituicao', element: <Layout />, children: instituicaoChildren },

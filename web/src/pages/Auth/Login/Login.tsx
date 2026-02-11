@@ -32,8 +32,8 @@ const RESTRICTED_ROLES: { role: string; label: string }[] = [
 
 // Tipos de acesso público (cards na tela principal)
 const PUBLIC_ACCESS_TYPES = [
-  { id: 'ALUNO', label: 'Aluno', icon: '🎓', externalSlug: 'Escola' },
-  { id: 'CANDIDATO', label: 'Candidato', icon: '📝', externalSlug: null },
+  { id: 'ALUNO', label: 'Aluno', icon: '🎓', isExternal: true },
+  { id: 'CANDIDATO', label: 'Candidato', icon: '📝', isExternal: false },
 ]
 
 export function LoginPage() {
@@ -91,9 +91,9 @@ export function LoginPage() {
 
   // Selecionar acesso público (Candidato ou redirecionar Aluno)
   const handlePublicAccess = (item: typeof PUBLIC_ACCESS_TYPES[number]) => {
-    if (item.externalSlug) {
-      // Redireciona para outro tenant (ex: Aluno → /Escola/login)
-      window.location.href = `/${item.externalSlug}/login`
+    if (item.isExternal && slug) {
+      // Redireciona para /:slug/aluno (ex: /PUCMinas/aluno)
+      navigate(`/${slug}/aluno`)
       return
     }
     setSelectedRole(item.id)
