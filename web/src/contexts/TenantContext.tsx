@@ -41,7 +41,7 @@ interface TenantContextType {
 const TenantContext = createContext<TenantContextType>({
   tenant: null,
   slug: null,
-  loading: true,
+  loading: false,
   error: null,
   tenantPath: (path) => path,
 })

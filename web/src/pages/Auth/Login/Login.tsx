@@ -10,6 +10,7 @@ import { authService } from '@/services/api'
 import { ROLES_CONFIG, Role } from '@/types'
 import { Button } from '@/components/common/Button/Button'
 import { Input } from '@/components/common/Input/Input'
+import { useTenant } from '@/contexts/TenantContext'
 import styles from './Login.module.scss'
 
 const loginSchema = z.object({
@@ -25,6 +26,7 @@ export function LoginPage() {
   const setAuth = useSetRecoilState(authState)
   const navigate = useNavigate()
   const { slug } = useParams<{ slug: string }>()
+  const { tenant } = useTenant()
 
   const {
     register,
@@ -74,17 +76,37 @@ export function LoginPage() {
     <div className={styles.container}>
       <div className={styles.left}>
         <div className={styles.brand}>
-          <span className={styles.brandIcon}>📋</span>
-          <h1 className={styles.brandTitle}>Cadastraqui</h1>
+          {tenant?.logoUrl ? (
+            <img 
+              src={tenant.logoUrl} 
+              alt={tenant.nome} 
+              className={styles.brandLogo}
+            />
+          ) : (
+            <span className={styles.brandIcon}>📋</span>
+          )}
+          <h1 className={styles.brandTitle}>
+            {tenant?.nome || 'Cadastraqui'}
+          </h1>
           <p className={styles.brandSubtitle}>
-            Sistema de Gestão de Certificação CEBAS
+            {tenant 
+              ? `${tenant.instituicao.cidade}/${tenant.instituicao.uf}`
+              : 'Sistema de Gestão de Certificação CEBAS'
+            }
           </p>
+          {tenant && (
+            <p className={styles.brandDescription}>
+              Sistema de Gestão de Certificação CEBAS
+            </p>
+          )}
         </div>
       </div>
 
       <div className={styles.right}>
         <div className={styles.formContainer}>
-          <h2 className={styles.title}>Entrar no Sistema</h2>
+          <h2 className={styles.title}>
+            {tenant ? `Entrar — ${tenant.nome}` : 'Entrar no Sistema'}
+          </h2>
           <p className={styles.subtitle}>Selecione o tipo de acesso e faça login</p>
 
           {/* Seleção de Role */}
@@ -135,8 +157,13 @@ export function LoginPage() {
               loading={loading}
               style={
                 selectedRole
-                  ? ({ '--role-color': ROLES_CONFIG[selectedRole].cor } as React.CSSProperties)
-                  : undefined
+                  ? ({ 
+                      '--role-color': ROLES_CONFIG[selectedRole].cor,
+                      ...(tenant && { backgroundColor: tenant.corPrimaria }),
+                    } as React.CSSProperties)
+                  : tenant 
+                    ? ({ backgroundColor: tenant.corPrimaria } as React.CSSProperties) 
+                    : undefined
               }
             >
               Entrar
