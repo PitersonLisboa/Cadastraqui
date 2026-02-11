@@ -1,5 +1,5 @@
 import { useRecoilValue, useSetRecoilState } from 'recoil'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { FiMenu, FiLogOut, FiUser } from 'react-icons/fi'
 import { authState, sidebarState } from '@/atoms'
 import { ROLES_CONFIG } from '@/types'
@@ -11,6 +11,7 @@ export function Header() {
   const setSidebar = useSetRecoilState(sidebarState)
   const setAuth = useSetRecoilState(authState)
   const navigate = useNavigate()
+  const { slug } = useParams<{ slug: string }>()
 
   const roleConfig = auth.usuario ? ROLES_CONFIG[auth.usuario.role] : null
 
@@ -21,7 +22,7 @@ export function Header() {
   const handleLogout = () => {
     setAuth({ token: null, usuario: null, isAuthenticated: false })
     localStorage.removeItem('cadastraqui-persist')
-    navigate('/login')
+    navigate(slug ? `/${slug}/login` : '/login')
   }
 
   if (!auth.usuario) return null
