@@ -173,7 +173,7 @@ export interface ListaResponse<T> {
 }
 
 // ===========================================
-// CONFIGURAÇÕES DE ROLES
+// CONFIGURAÇÕES DE ROLES — Paleta 1.x
 // ===========================================
 
 export interface RoleConfig {
@@ -187,35 +187,35 @@ export interface RoleConfig {
 export const ROLES_CONFIG: Record<Role, RoleConfig> = {
   ADMIN: {
     nome: 'Administrador',
-    cor: '#991b1b',      // Vermelho/Bordô
+    cor: '#991b1b',
     corClara: '#fef2f2',
     icone: '👤',
     rota: '/admin',
   },
   INSTITUICAO: {
     nome: 'Instituição',
-    cor: '#1e40af',      // Azul
-    corClara: '#eff6ff',
+    cor: '#1F4B73',       // Primary do Cadastraqui (1.x)
+    corClara: '#e8f0f8',
     icone: '🏢',
     rota: '/instituicao',
   },
   CANDIDATO: {
     nome: 'Candidato',
-    cor: '#166534',      // Verde
-    corClara: '#f0fdf4',
+    cor: '#499468',       // Verde do 1.x (success)
+    corClara: '#edf7f1',
     icone: '🎓',
     rota: '/candidato',
   },
   ASSISTENTE_SOCIAL: {
     nome: 'Assistente Social',
-    cor: '#7c3aed',      // Roxo
+    cor: '#7c3aed',
     corClara: '#faf5ff',
     icone: '👩‍⚕️',
     rota: '/assistente-social',
   },
   ADVOGADO: {
     nome: 'Advogado',
-    cor: '#c2410c',      // Laranja
+    cor: '#c2410c',
     corClara: '#fff7ed',
     icone: '⚖️',
     rota: '/advogado',

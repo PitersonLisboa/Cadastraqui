@@ -2,30 +2,44 @@
 // CADASTRAQUI - ESTILOS GLOBAIS
 // ===========================================
 
+// Fontes
+@import './fonts';
+
 // Variáveis de cores por role
 :root {
+  // =============================================
+  // IDENTIDADE CADASTRAQUI (absorvida do 1.x)
+  // =============================================
+  --color-primary: #1F4B73;          // Azul institucional — cor dominante
+  --color-primary-light: #2a6399;    // Hover/variação clara
+  --color-primary-lighter: #e8f0f8;  // Backgrounds sutis
+  --color-primary-dark: #163a5a;     // Active/pressed
+  --color-primary-black: #1D1D1B;    // Texto principal forte
+
   // Cores base
   --color-white: #ffffff;
   --color-black: #000000;
+  --color-background: #F5F5F5;       // Background geral (1.x)
   --color-gray-50: #f9fafb;
   --color-gray-100: #f3f4f6;
   --color-gray-200: #e5e7eb;
   --color-gray-300: #d1d5db;
   --color-gray-400: #9ca3af;
   --color-gray-500: #6b7280;
-  --color-gray-600: #4b5563;
+  --color-gray-600: #52525C;         // Cinza texto (1.x)
   --color-gray-700: #374151;
   --color-gray-800: #1f2937;
   --color-gray-900: #111827;
+  --color-gray-light: #CFCFCF;       // Bordas leves (1.x)
 
   // Cores das roles
   --color-admin: #991b1b;
   --color-admin-light: #fef2f2;
   --color-admin-dark: #7f1d1d;
   
-  --color-instituicao: #1e40af;
-  --color-instituicao-light: #eff6ff;
-  --color-instituicao-dark: #1e3a8a;
+  --color-instituicao: #1F4B73;      // Usa o primary (identidade)
+  --color-instituicao-light: #e8f0f8;
+  --color-instituicao-dark: #163a5a;
   
   --color-candidato: #166534;
   --color-candidato-light: #f0fdf4;
@@ -39,11 +53,23 @@
   --color-advogado-light: #fff7ed;
   --color-advogado-dark: #9a3412;
 
+  --color-supervisao: #0e7490;
+  --color-supervisao-light: #ecfeff;
+  --color-supervisao-dark: #155e75;
+
+  --color-controle: #4338ca;
+  --color-controle-light: #eef2ff;
+  --color-controle-dark: #3730a3;
+
+  --color-operacional: #b45309;
+  --color-operacional-light: #fffbeb;
+  --color-operacional-dark: #92400e;
+
   // Status
-  --color-success: #22c55e;
+  --color-success: #499468;          // Verde do 1.x (mais sóbrio/institucional)
   --color-warning: #f59e0b;
-  --color-error: #ef4444;
-  --color-info: #3b82f6;
+  --color-error: #EF3E36;            // Vermelho do 1.x
+  --color-info: #1F4B73;             // Usa primary como info
 
   // Tamanhos
   --sidebar-width: 260px;
@@ -89,8 +115,16 @@ body {
   font-family: var(--font-family);
   font-size: 1rem;
   line-height: 1.5;
-  color: var(--color-gray-900);
-  background-color: var(--color-gray-50);
+  color: var(--color-primary-black);
+  background-color: var(--color-background);
+}
+
+// Checkbox estilizado (absorvido do 1.x)
+input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 0.2em;
 }
 
 a {

@@ -1,3 +1,20 @@
+// =============================================
+// SIDEBAR - Visual absorvido do 1.x
+// Ícones circulares com cores por role
+// =============================================
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 85;
+  display: none;
+
+  @media (max-width: 768px) {
+    display: block;
+  }
+}
+
 .sidebar {
   position: fixed;
   top: var(--header-height);
@@ -11,53 +28,44 @@
   transition: transform 0.3s ease-in-out;
   z-index: 90;
   overflow-y: auto;
+  overflow-x: hidden;
 
   &.closed {
     transform: translateX(-100%);
   }
 }
 
-.roleIndicator {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1.25rem 1.5rem;
-  background-color: var(--role-color-light);
-  border-bottom: 2px solid var(--role-color);
-}
-
-.roleIcon {
-  font-size: 1.5rem;
-}
-
-.roleName {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--role-color);
-}
+// ===== NAVEGAÇÃO =====
 
 .nav {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 1rem 0.75rem;
-  gap: 0.25rem;
+  padding: 1rem 0.5rem;
+  gap: 0.125rem;
 }
 
 .navItem {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: 0.875rem;
+  padding: 0.625rem 0.75rem;
   color: var(--color-gray-600);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 500;
   border-radius: var(--radius);
-  transition: var(--transition);
+  transition: all 0.2s ease;
+  text-decoration: none;
 
   &:hover {
     background-color: var(--color-gray-50);
-    color: var(--role-color);
+    color: var(--color-primary);
+
+    .navIcon {
+      background-color: var(--color-primary-lighter);
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+    }
   }
 
   &.active {
@@ -65,44 +73,73 @@
     color: var(--role-color);
 
     .navIcon {
-      color: var(--role-color);
+      background-color: var(--role-color);
+      color: var(--color-white);
+      border-color: var(--role-color);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    .navLabel {
+      font-weight: 600;
     }
   }
 }
 
+// Ícone circular (inspirado no 1.x screenshot 4)
 .navIcon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  font-size: 1.125rem;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-gray-100);
+  border: 1.5px solid var(--color-gray-300);
   color: var(--color-gray-500);
-  transition: var(--transition);
+  font-size: 1rem;
+  transition: all 0.2s ease;
 }
 
 .navLabel {
   flex: 1;
+  line-height: 1.3;
 }
 
+// ===== FOOTER =====
+
 .footer {
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1rem;
   border-top: 1px solid var(--color-gray-200);
+  text-align: center;
 }
 
 .version {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--color-gray-400);
+  letter-spacing: 0.02em;
 }
 
-// Responsive
+// ===== RESPONSIVE =====
+
 @media (max-width: 768px) {
   .sidebar {
-    width: 100%;
-    max-width: 280px;
+    width: 280px;
     box-shadow: var(--shadow-lg);
 
     &.closed {
       transform: translateX(-100%);
     }
   }
+}
+
+// ===== SCROLLBAR =====
+
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: var(--color-gray-300);
+  border-radius: var(--radius-full);
 }

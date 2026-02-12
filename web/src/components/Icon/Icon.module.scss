@@ -1,0 +1,20 @@
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+
+  // Transição suave para hover effects
+  transition: opacity 0.2s ease, transform 0.2s ease;
+
+  &[role='button'] {
+    &:hover {
+      opacity: 0.7;
+      transform: scale(1.05);
+    }
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+}

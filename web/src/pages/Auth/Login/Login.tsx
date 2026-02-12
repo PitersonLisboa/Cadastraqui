@@ -30,10 +30,10 @@ const RESTRICTED_ROLES: { role: string; label: string }[] = [
   { role: 'GESTAO_ESCOLAR', label: 'Alunos - Gestão Escolar' },
 ]
 
-// Tipos de acesso público (cards na tela principal)
+// Tipos de acesso público — ícones SVG do 1.x
 const PUBLIC_ACCESS_TYPES = [
-  { id: 'ALUNO', label: 'Aluno', icon: '🎓', isExternal: true },
-  { id: 'CANDIDATO', label: 'Candidato', icon: '📝', isExternal: false },
+  { id: 'ALUNO', label: 'Aluno', icon: '/icons/student.svg', isExternal: true },
+  { id: 'CANDIDATO', label: 'Candidato', icon: '/icons/student-register.svg', isExternal: false },
 ]
 
 export function LoginPage() {
@@ -56,7 +56,6 @@ export function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
-  // Fechar dropdown ao clicar fora
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -67,10 +66,9 @@ export function LoginPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const tenantPrimary = tenant?.corPrimaria || '#1e40af'
+  const tenantPrimary = tenant?.corPrimaria || '#1F4B73'
 
-  // Selecionar role restrito via dropdown
-  const handleRestrictedRoleSelect = (role: string, label: string) => {
+  const handleRestrictedRoleSelect = (role: string) => {
     if (role === 'GESTAO_ESCOLAR') {
       toast.info('Acesso de Alunos - Gestão Escolar em breve!')
       setDropdownOpen(false)
@@ -82,17 +80,14 @@ export function LoginPage() {
     reset()
   }
 
-  // Voltar para tela principal (clicando no logo da instituição)
   const handleBackToMain = () => {
     setRestrictedRole(null)
     setSelectedRole(null)
     reset()
   }
 
-  // Selecionar acesso público (Candidato ou redirecionar Aluno)
-  const handlePublicAccess = (item: typeof PUBLIC_ACCESS_TYPES[number]) => {
+  const handlePublicAccess = (item: (typeof PUBLIC_ACCESS_TYPES)[number]) => {
     if (item.isExternal && slug) {
-      // Redireciona para /:slug/aluno (ex: /PUCMinas/aluno)
       navigate(`/${slug}/aluno`)
       return
     }
@@ -135,18 +130,21 @@ export function LoginPage() {
     }
   }
 
-  const restrictedLabel = RESTRICTED_ROLES.find(r => r.role === restrictedRole)?.label
+  const restrictedLabel = RESTRICTED_ROLES.find((r) => r.role === restrictedRole)?.label
 
   // ========================
-  // RENDER: Sem tenant (legado)
+  // RENDER: Sem tenant (admin / legado)
   // ========================
   if (!tenant) {
     return (
       <div className={styles.container}>
         <div className={styles.legacyLeft}>
           <div className={styles.brand}>
-            <span className={styles.brandIcon}>📋</span>
-            <h1 className={styles.brandTitle}>Cadastraqui</h1>
+            <img
+              src="/images/logo/logo_white_transparent.png"
+              alt="Cadastraqui"
+              className={styles.brandLogo}
+            />
             <p className={styles.brandSubtitle}>Sistema de Gestão de Certificação CEBAS</p>
           </div>
         </div>
@@ -162,7 +160,9 @@ export function LoginPage() {
                     key={role}
                     type="button"
                     className={`${styles.roleCard} ${selectedRole === role ? styles.selected : ''}`}
-                    style={{ '--role-color': config.cor, '--role-color-light': config.corClara } as React.CSSProperties}
+                    style={
+                      { '--role-color': config.cor, '--role-color-light': config.corClara } as React.CSSProperties
+                    }
                     onClick={() => setSelectedRole(role)}
                   >
                     <span className={styles.roleIcon}>{config.icone}</span>
@@ -193,14 +193,11 @@ export function LoginPage() {
   return (
     <div className={styles.tenantContainer}>
       {/* ===== STICKY HEADER ===== */}
-      <header className={styles.stickyHeader} style={{ borderBottomColor: tenantPrimary }}>
-        {/* Logo Cadastraqui */}
+      <header className={styles.stickyHeader}>
         <div className={styles.cadastraquiLogo}>
-          <span className={styles.cadastraquiIcon}>📋</span>
-          <span className={styles.cadastraquiText}>CADASTRAQUI</span>
+          <img src="/images/logo/logo_primary_transparent.png" alt="Cadastraqui" className={styles.cadastraquiLogoImg} />
         </div>
 
-        {/* Logo da instituição (clicável = volta à tela principal) */}
         <button className={styles.institutionLogoBtn} onClick={handleBackToMain} title={`Voltar — ${tenant.nome}`}>
           {tenant.logoUrl ? (
             <img src={tenant.logoUrl} alt={tenant.nome} className={styles.institutionLogo} />
@@ -211,7 +208,6 @@ export function LoginPage() {
           )}
         </button>
 
-        {/* Dropdown Acesso Restrito */}
         <div className={styles.dropdownWrapper} ref={dropdownRef}>
           <button
             className={styles.dropdownToggle}
@@ -228,7 +224,7 @@ export function LoginPage() {
                 <button
                   key={item.role}
                   className={styles.dropdownItem}
-                  onClick={() => handleRestrictedRoleSelect(item.role, item.label)}
+                  onClick={() => handleRestrictedRoleSelect(item.role)}
                 >
                   {item.label}
                 </button>
@@ -238,12 +234,12 @@ export function LoginPage() {
         </div>
       </header>
 
-      {/* ===== CONTEÚDO PRINCIPAL ===== */}
+      {/* ===== CONTEÚDO ===== */}
       <main className={styles.mainContent}>
         <div className={styles.formContainer}>
           <h2 className={styles.title}>Entrar no Sistema</h2>
 
-          {/* ===== TELA 1: Acesso público (Candidato) ===== */}
+          {/* TELA 1: Acesso público */}
           {!restrictedRole && (
             <>
               <p className={styles.subtitle}>Selecione o tipo de acesso e faça login</p>
@@ -257,7 +253,7 @@ export function LoginPage() {
                     style={{ '--access-color': tenantPrimary } as React.CSSProperties}
                     onClick={() => handlePublicAccess(item)}
                   >
-                    <span className={styles.accessCardIcon}>{item.icon}</span>
+                    <img src={item.icon} alt={item.label} className={styles.accessCardSvg} />
                     <span className={styles.accessCardLabel}>{item.label}</span>
                   </button>
                 ))}
@@ -267,30 +263,24 @@ export function LoginPage() {
                 <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
                   <Input label="Email" type="email" placeholder="seu@email.com" error={errors.email?.message} {...register('email')} />
                   <Input label="Senha" type="password" placeholder="••••••••" error={errors.senha?.message} {...register('senha')} />
-                  <Button type="submit" fullWidth loading={loading} style={{ backgroundColor: tenantPrimary }}>
-                    Entrar
-                  </Button>
+                  <Button type="submit" fullWidth loading={loading} style={{ backgroundColor: tenantPrimary }}>Entrar</Button>
                 </form>
               )}
             </>
           )}
 
-          {/* ===== TELA 2: Login restrito (veio do dropdown) ===== */}
+          {/* TELA 2: Login restrito */}
           {restrictedRole && (
             <>
               <div className={styles.restrictedHeader}>
-                <span className={styles.restrictedBadge} style={{ backgroundColor: tenantPrimary }}>
-                  Acesso Restrito
-                </span>
+                <span className={styles.restrictedBadge} style={{ backgroundColor: tenantPrimary }}>Acesso Restrito</span>
                 <h3 className={styles.restrictedRoleName}>{restrictedLabel}</h3>
               </div>
 
               <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
-                <Input label="Email" type="email" placeholder="seu@email.com" error={errors.email?.message} {...register('email')} />
+                <Input type="email" placeholder="seu@email.com" error={errors.email?.message} {...register('email')} />
                 <Input label="Senha" type="password" placeholder="••••••••" error={errors.senha?.message} {...register('senha')} />
-                <Button type="submit" fullWidth loading={loading} style={{ backgroundColor: tenantPrimary }}>
-                  Entrar
-                </Button>
+                <Button type="submit" fullWidth loading={loading} style={{ backgroundColor: tenantPrimary }}>Entrar</Button>
               </form>
             </>
           )}

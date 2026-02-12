@@ -1,6 +1,8 @@
 // =============================================
-// LOGIN - Layout legado (sem tenant)
+// LOGIN - Absorção estética do 1.x
 // =============================================
+
+// ===== LAYOUT LEGADO (sem tenant / admin) =====
 
 .container {
   display: flex;
@@ -12,7 +14,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+  background: linear-gradient(135deg, #1F4B73 0%, #163a5a 100%);
   padding: 2rem;
 
   @media (max-width: 968px) {
@@ -25,21 +27,17 @@
   color: #fff;
 }
 
-.brandIcon {
-  font-size: 4rem;
-  display: block;
-  margin-bottom: 1rem;
-}
-
-.brandTitle {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+.brandLogo {
+  max-width: 280px;
+  height: auto;
+  margin-bottom: 1.5rem;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
 }
 
 .brandSubtitle {
   font-size: 1.125rem;
-  opacity: 0.9;
+  opacity: 0.85;
+  font-weight: 300;
 }
 
 .right {
@@ -48,7 +46,7 @@
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background-color: var(--color-gray-50);
+  background-color: var(--color-background);
 }
 
 .legacyRoleSelection {
@@ -68,20 +66,23 @@
   align-items: center;
   gap: 0.5rem;
   padding: 1rem 0.5rem;
-  background-color: var(--color-gray-50);
-  border: 2px solid transparent;
+  background-color: var(--color-white);
+  border: 2px solid var(--color-gray-light);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: var(--transition);
+  transition: all 0.2s ease;
 
   &:hover {
     background-color: var(--role-color-light);
     border-color: var(--role-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 
   &.selected {
     background-color: var(--role-color-light);
     border-color: var(--role-color);
+    box-shadow: 0 0 0 3px rgba(31, 75, 115, 0.1);
 
     .roleName {
       color: var(--role-color);
@@ -103,17 +104,17 @@
 }
 
 // =============================================
-// LOGIN - Layout com tenant
+// LOGIN - Layout com tenant (fidedigno ao 1.x)
 // =============================================
 
 .tenantContainer {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: #f9fafb;
+  background-color: var(--color-background);
 }
 
-// ===== STICKY HEADER =====
+// ===== STICKY HEADER (como no screenshot do 1.x) =====
 
 .stickyHeader {
   position: sticky;
@@ -121,43 +122,32 @@
   z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1.5rem;
-  background-color: #fff;
-  border-bottom: 3px solid #1e40af;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  gap: 2rem;
+  justify-content: space-between;
+  padding: 0.625rem 1.5rem;
+  background-color: var(--color-white);
+  border-bottom: 2px solid var(--color-gray-200);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 
   @media (max-width: 640px) {
     padding: 0.5rem 0.75rem;
-    gap: 1rem;
   }
 }
 
-// Logo Cadastraqui
 .cadastraquiLogo {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
   flex-shrink: 0;
 }
 
-.cadastraquiIcon {
-  font-size: 1.5rem;
-}
-
-.cadastraquiText {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #1e40af;
-  letter-spacing: 0.5px;
+.cadastraquiLogoImg {
+  height: 36px;
+  width: auto;
 
   @media (max-width: 480px) {
-    display: none;
+    height: 28px;
   }
 }
 
-// Logo instituição (botão)
 .institutionLogoBtn {
   background: none;
   border: none;
@@ -175,12 +165,12 @@
 }
 
 .institutionLogo {
-  max-height: 56px;
+  max-height: 60px;
   max-width: 200px;
   object-fit: contain;
 
   @media (max-width: 640px) {
-    max-height: 40px;
+    max-height: 44px;
     max-width: 140px;
   }
 }
@@ -195,7 +185,8 @@
   }
 }
 
-// Dropdown
+// ===== DROPDOWN (fidedigno ao 1.x) =====
+
 .dropdownWrapper {
   position: relative;
   flex-shrink: 0;
@@ -207,16 +198,18 @@
   gap: 0.5rem;
   padding: 0.625rem 1.25rem;
   color: #fff;
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: all 0.2s;
   white-space: nowrap;
+  letter-spacing: 0.02em;
 
   &:hover {
     opacity: 0.9;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   @media (max-width: 480px) {
@@ -236,16 +229,16 @@
 
 .dropdownMenu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   right: 0;
   min-width: 220px;
-  background-color: #fff;
-  border: 1px solid #e5e7eb;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-gray-200);
   border-radius: var(--radius);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   overflow: hidden;
   z-index: 110;
-  animation: fadeIn 0.15s ease;
+  animation: fadeSlideDown 0.15s ease;
 }
 
 .dropdownItem {
@@ -254,24 +247,32 @@
   padding: 0.75rem 1.25rem;
   text-align: left;
   font-size: 0.9375rem;
-  color: #374151;
+  font-weight: 500;
+  color: var(--color-primary-black);
   background: none;
   border: none;
   cursor: pointer;
   transition: background-color 0.15s;
 
   &:hover {
-    background-color: #f3f4f6;
+    background-color: var(--color-primary-lighter);
+    color: var(--color-primary);
   }
 
   &:not(:last-child) {
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--color-gray-100);
   }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fadeSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 // ===== MAIN CONTENT =====
@@ -284,23 +285,21 @@
   padding: 2rem;
 }
 
-// ===== FORM CONTAINER (compartilhado) =====
+// ===== FORM CONTAINER =====
 
 .formContainer {
   width: 100%;
-  max-width: 440px;
-  padding: 2.5rem;
-  background-color: #fff;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  max-width: 480px;
+  padding: 2.5rem 2rem;
 }
 
 .title {
   font-size: 1.5rem;
   font-weight: 600;
-  color: var(--color-gray-900);
-  margin-bottom: 0.5rem;
+  color: var(--color-primary-black);
+  margin-bottom: 0.25rem;
   text-align: center;
+  letter-spacing: -0.01em;
 }
 
 .subtitle {
@@ -308,9 +307,10 @@
   color: var(--color-gray-500);
   text-align: center;
   margin-bottom: 1.5rem;
+  font-style: italic;
 }
 
-// ===== TELA 1: Cards de acesso público =====
+// ===== CARDS DE ACESSO PÚBLICO (fidedigno ao 1.x) =====
 
 .publicAccessCards {
   display: flex;
@@ -324,25 +324,28 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1.25rem 2rem;
-  background-color: #f9fafb;
-  border: 2px solid #d1d5db;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  background-color: var(--color-white);
+  border: 2px solid var(--color-primary-black);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   min-width: 160px;
   width: 100%;
   max-width: 200px;
 
   &:hover {
     border-color: var(--access-color);
-    background-color: #f0f4ff;
+    background-color: var(--color-primary-lighter);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(31, 75, 115, 0.15);
   }
 
   &.selected {
     border-color: var(--access-color);
-    background-color: #f0f4ff;
+    background-color: var(--color-primary-lighter);
+    box-shadow: 0 0 0 3px rgba(31, 75, 115, 0.15);
 
     .accessCardLabel {
       color: var(--access-color);
@@ -351,14 +354,16 @@
   }
 }
 
-.accessCardIcon {
-  font-size: 3.5rem;
+.accessCardSvg {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
 }
 
 .accessCardLabel {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   font-weight: 500;
-  color: #4b5563;
+  color: var(--color-primary-black);
 }
 
 // ===== TELA 2: Login restrito =====
@@ -385,10 +390,10 @@
 .restrictedRoleName {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-gray-900);
+  color: var(--color-primary-black);
 }
 
-// ===== FORM & LINKS (compartilhado) =====
+// ===== FORM & LINKS =====
 
 .form {
   display: flex;
@@ -406,14 +411,14 @@
 
   a {
     color: var(--color-gray-600);
-    transition: var(--transition);
+    transition: color 0.2s;
 
     &:hover {
-      color: var(--color-info);
+      color: var(--color-primary);
     }
   }
 
   span {
-    color: var(--color-gray-300);
+    color: var(--color-gray-light);
   }
 }

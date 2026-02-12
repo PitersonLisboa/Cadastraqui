@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useParams } from 'react-router-dom'
 import { useRecoilValue } from 'recoil'
 import {
   FiHome,
@@ -67,46 +67,55 @@ const menusByRole: Record<Role, MenuItem[]> = {
 export function Sidebar() {
   const auth = useRecoilValue(authState)
   const sidebar = useRecoilValue(sidebarState)
+  const { slug } = useParams<{ slug: string }>()
 
   if (!auth.usuario) return null
 
   const roleConfig = ROLES_CONFIG[auth.usuario.role]
   const menuItems = menusByRole[auth.usuario.role] || []
 
+  // Prefixa com slug do tenant se existir
+  const buildPath = (path: string) => {
+    if (slug) return `/${slug}${path}`
+    return path
+  }
+
   return (
-    <aside
-      className={`${styles.sidebar} ${sidebar.isOpen ? '' : styles.closed}`}
-      style={
-        {
-          '--role-color': roleConfig.cor,
-          '--role-color-light': roleConfig.corClara,
-        } as React.CSSProperties
-      }
-    >
-      <div className={styles.roleIndicator}>
-        <span className={styles.roleIcon}>{roleConfig.icone}</span>
-        <span className={styles.roleName}>{roleConfig.nome}</span>
-      </div>
+    <>
+      {/* Overlay mobile */}
+      {sidebar.isOpen && (
+        <div className={styles.overlay} />
+      )}
 
-      <nav className={styles.nav}>
-        {menuItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `${styles.navItem} ${isActive ? styles.active : ''}`
-            }
-            end={item.path === roleConfig.rota}
-          >
-            <span className={styles.navIcon}>{item.icon}</span>
-            <span className={styles.navLabel}>{item.label}</span>
-          </NavLink>
-        ))}
-      </nav>
+      <aside
+        className={`${styles.sidebar} ${sidebar.isOpen ? '' : styles.closed}`}
+        style={
+          {
+            '--role-color': roleConfig.cor,
+            '--role-color-light': roleConfig.corClara,
+          } as React.CSSProperties
+        }
+      >
+        <nav className={styles.nav}>
+          {menuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={buildPath(item.path)}
+              className={({ isActive }) =>
+                `${styles.navItem} ${isActive ? styles.active : ''}`
+              }
+              end={item.path === roleConfig.rota}
+            >
+              <span className={styles.navIcon}>{item.icon}</span>
+              <span className={styles.navLabel}>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
 
-      <div className={styles.footer}>
-        <span className={styles.version}>v2.0.0</span>
-      </div>
-    </aside>
+        <div className={styles.footer}>
+          <span className={styles.version}>Cadastraqui v2.0</span>
+        </div>
+      </aside>
+    </>
   )
 }
