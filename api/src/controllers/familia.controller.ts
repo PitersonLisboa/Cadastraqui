@@ -8,10 +8,10 @@ import { CandidatoNaoEncontradoError, RecursoNaoEncontradoError, NaoAutorizadoEr
 // ===========================================
 
 const criarMembroSchema = z.object({
-  nome: z.string().min(3),
+  nome: z.string().min(2),
   parentesco: z.string(),
-  dataNascimento: z.coerce.date(),
-  cpf: z.string(),
+  dataNascimento: z.coerce.date().optional(),
+  cpf: z.string().optional(),
   renda: z.number().min(0).optional(),
   ocupacao: z.string().optional(),
 })
@@ -29,7 +29,10 @@ export async function listarMembros(request: FastifyRequest, reply: FastifyReply
   })
 
   if (!candidato) {
-    throw new CandidatoNaoEncontradoError()
+    return reply.status(200).send({
+      membros: [],
+      resumo: { totalMembros: 0, rendaTotal: 0, rendaPerCapita: 0 },
+    })
   }
 
   const membros = await prisma.membroFamilia.findMany({

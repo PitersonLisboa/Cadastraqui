@@ -6,31 +6,59 @@ import {
   CpfJaCadastradoError,
   NaoAutorizadoError,
 } from '../errors/index'
-import { UF } from '@prisma/client'
 
 // ===========================================
 // SCHEMAS DE VALIDAÇÃO
 // ===========================================
 
 const criarCandidatoSchema = z.object({
-  nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
-  cpf: z.string().length(11, 'CPF deve ter 11 dígitos'),
-  dataNascimento: z.coerce.date(),
-  telefone: z.string(),
+  // Dados pessoais
+  nome: z.string().min(2),
+  cpf: z.string().min(11).max(14),
+  dataNascimento: z.coerce.date().optional(),
+  telefone: z.string().optional(),
   celular: z.string().optional(),
-  cep: z.string(),
-  endereco: z.string(),
-  numero: z.string(),
+
+  // Endereço
+  cep: z.string().optional(),
+  endereco: z.string().optional(),
+  numero: z.string().optional(),
   complemento: z.string().optional(),
-  bairro: z.string(),
-  cidade: z.string(),
-  uf: z.nativeEnum(UF),
-  estadoCivil: z.string().optional(),
-  profissao: z.string().optional(),
-  rendaFamiliar: z.coerce.number().optional(),
+  bairro: z.string().optional(),
+  cidade: z.string().optional(),
+  uf: z.string().optional(),
+
+  // Documentos
   rg: z.string().optional(),
   rgEstado: z.string().optional(),
   rgOrgao: z.string().optional(),
+  possuiComprovante: z.boolean().optional(),
+
+  // Dados adicionais
+  nomeSocial: z.string().optional(),
+  sexo: z.string().optional(),
+  profissao: z.string().optional(),
+  nacionalidade: z.string().optional(),
+  naturalidade: z.string().optional(),
+  naturalidadeEstado: z.string().optional(),
+
+  // Estado civil
+  estadoCivil: z.string().optional(),
+
+  // Informações pessoais extra
+  corRaca: z.string().optional(),
+  escolaridade: z.string().optional(),
+  religiao: z.string().optional(),
+  necessidadesEspeciais: z.boolean().optional(),
+
+  // Benefícios
+  cadastroUnico: z.boolean().optional(),
+  escolaPublica: z.boolean().optional(),
+  bolsaCebasBasica: z.boolean().optional(),
+  bolsaCebasProfissional: z.boolean().optional(),
+
+  // Renda
+  rendaFamiliar: z.coerce.number().optional(),
 })
 
 const atualizarCandidatoSchema = criarCandidatoSchema.partial()
@@ -295,43 +323,51 @@ export async function meusDados(request: FastifyRequest, reply: FastifyReply) {
 
 // PUT /candidatos/me — atualizar dados do próprio candidato
 export async function atualizarMeusDados(request: FastifyRequest, reply: FastifyReply) {
-  const dados = atualizarCandidatoSchema.parse(request.body)
+  let dados: any
+  try {
+    dados = atualizarCandidatoSchema.parse(request.body)
+  } catch (err: any) {
+    const issues = err.issues?.map((i: any) => `${i.path.join('.')}: ${i.message}`) || []
+    return reply.status(400).send({ message: 'Erro de validação', errors: issues })
+  }
 
   let candidato = await prisma.candidato.findUnique({
     where: { usuarioId: request.usuario.id },
   })
 
   if (!candidato) {
-    // Candidato não existe ainda — criar com os dados disponíveis + defaults
     if (!dados.nome || !dados.cpf) {
       return reply.status(400).send({ message: 'Nome e CPF são obrigatórios para o primeiro cadastro' })
     }
 
-    // Verificar CPF
-    const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: dados.cpf } })
+    const cpfLimpo = dados.cpf.replace(/\D/g, '')
+    const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: cpfLimpo } })
     if (cpfExistente) throw new CpfJaCadastradoError()
 
-    candidato = await prisma.candidato.create({
-      data: {
-        nome: dados.nome,
-        cpf: dados.cpf,
-        dataNascimento: dados.dataNascimento || new Date('2000-01-01'),
-        telefone: dados.telefone || '',
-        celular: dados.celular || undefined,
-        cep: dados.cep || '00000000',
-        endereco: dados.endereco || '',
-        numero: dados.numero || '',
-        bairro: dados.bairro || '',
-        cidade: dados.cidade || '',
-        uf: dados.uf || 'SP',
-        complemento: dados.complemento || undefined,
-        estadoCivil: dados.estadoCivil || undefined,
-        profissao: dados.profissao || undefined,
-        rendaFamiliar: dados.rendaFamiliar || undefined,
-        usuarioId: request.usuario.id,
-        instituicaoId: request.usuario.instituicaoId || undefined,
-      } as any,
-    })
+    const createData: any = {
+      nome: dados.nome,
+      cpf: cpfLimpo,
+      usuarioId: request.usuario.id,
+    }
+    if (dados.dataNascimento) createData.dataNascimento = dados.dataNascimento
+    if (dados.telefone) createData.telefone = dados.telefone
+    if (dados.celular) createData.celular = dados.celular
+    if (dados.cep) createData.cep = dados.cep
+    if (dados.endereco) createData.endereco = dados.endereco
+    if (dados.numero) createData.numero = dados.numero
+    if (dados.complemento) createData.complemento = dados.complemento
+    if (dados.bairro) createData.bairro = dados.bairro
+    if (dados.cidade) createData.cidade = dados.cidade
+    if (dados.uf) createData.uf = dados.uf
+    if (dados.rg) createData.rg = dados.rg
+    if (dados.rgEstado) createData.rgEstado = dados.rgEstado
+    if (dados.rgOrgao) createData.rgOrgao = dados.rgOrgao
+    if (dados.estadoCivil) createData.estadoCivil = dados.estadoCivil
+    if (dados.profissao) createData.profissao = dados.profissao
+    if (dados.rendaFamiliar != null) createData.rendaFamiliar = dados.rendaFamiliar
+    if (request.usuario.instituicaoId) createData.instituicaoId = request.usuario.instituicaoId
+
+    candidato = await prisma.candidato.create({ data: createData })
 
     await prisma.usuario.update({
       where: { id: request.usuario.id },
@@ -341,15 +377,22 @@ export async function atualizarMeusDados(request: FastifyRequest, reply: Fastify
     return reply.status(201).send(candidato)
   }
 
-  // Se alterando CPF, verificar duplicidade
+  // Candidato já existe — atualizar
+  if (dados.cpf) dados.cpf = dados.cpf.replace(/\D/g, '')
   if (dados.cpf && dados.cpf !== candidato.cpf) {
     const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: dados.cpf } })
     if (cpfExistente) throw new CpfJaCadastradoError()
   }
 
+  // Remover campos vazios para não sobrescrever com string vazia
+  const updateData: any = { ...dados }
+  Object.keys(updateData).forEach(key => {
+    if (updateData[key] === '' || updateData[key] === undefined) delete updateData[key]
+  })
+
   const atualizado = await prisma.candidato.update({
     where: { id: candidato.id },
-    data: dados,
+    data: updateData,
   })
 
   return reply.status(200).send(atualizado)

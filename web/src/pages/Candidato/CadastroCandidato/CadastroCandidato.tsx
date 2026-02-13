@@ -4,7 +4,7 @@ import { toast } from 'react-toastify'
 import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
-import { api, rendaService, despesaService } from '@/services/api'
+import { api, rendaService, despesaService, moradiaService, veiculoService } from '@/services/api'
 import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
 import { MembroDetalhe } from './MembroDetalhe'
 import styles from './CadastroCandidato.module.scss'
@@ -292,10 +292,25 @@ export function CadastroCandidato() {
           email: c.usuario?.email || '', rg: c.rg || '',
           rgEstado: c.rgEstado || '', rgOrgao: c.rgOrgao || '',
         })
-        if (c.cep) setEndereco({
-          cep: maskCEP(c.cep), rua: c.endereco || '', numero: c.numero || '',
+        if (c.cep || c.endereco) setEndereco({
+          cep: c.cep ? maskCEP(c.cep) : '', rua: c.endereco || '', numero: c.numero || '',
           bairro: c.bairro || '', cidade: c.cidade || '',
           complemento: c.complemento || '', uf: c.uf || '',
+        })
+        if (c.possuiComprovante !== null && c.possuiComprovante !== undefined) setPossuiComprovante(c.possuiComprovante)
+        setAdicionais({
+          nomeSocial: c.nomeSocial || '', sexo: c.sexo || '',
+          profissao: c.profissao || '', nacionalidade: c.nacionalidade || '',
+          naturalidade: c.naturalidade || '', estado: c.naturalidadeEstado || '',
+        })
+        if (c.estadoCivil) setEstadoCivil(c.estadoCivil)
+        setPessoaisExtra({
+          corRaca: c.corRaca || '', escolaridade: c.escolaridade || '',
+          religiao: c.religiao || '', necessidadesEspeciais: c.necessidadesEspeciais || false,
+        })
+        setBeneficios({
+          cadastroUnico: c.cadastroUnico || false, escolaPublica: c.escolaPublica || false,
+          bolsaCebasBasica: c.bolsaCebasBasica || false, bolsaCebasProfissional: c.bolsaCebasProfissional || false,
         })
         setRendaMedia(c.rendaFamiliar ? Number(c.rendaFamiliar).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00')
       } else {
@@ -324,24 +339,105 @@ export function CadastroCandidato() {
         }
         setDespesasPorMes(porMes)
       } catch {}
+      // Carregar moradia
+      try {
+        const mor = await moradiaService.buscar()
+        if (mor) {
+          setStatusMoradia(mor.statusMoradia || '')
+          setTipoMoradia(mor.tipoMoradia || '')
+          setTempoMoradia(mor.tempoMoradia || '')
+          setQtdComodos(mor.qtdComodos || '')
+          setQtdDormitorios(mor.qtdDormitorios?.toString() || '')
+        }
+      } catch {}
+      // Carregar veículos
+      try {
+        const v = await veiculoService.listar()
+        setVeiculos((v.veiculos || []).map((ve: any) => ({ id: ve.id, modelo: ve.modelo, placa: ve.placa || '', ano: ve.ano || '' })))
+      } catch {}
     } catch {}
     finally { setLoading(false) }
   }
 
   const handleSaveDados = async () => {
+    if (!dados.nome || !dados.cpf) return toast.error('Nome e CPF são obrigatórios')
     setSaving(true)
     try {
-      await api.put('/candidatos/me', {
-        nome: dados.nome, cpf: unmaskValue(dados.cpf),
-        dataNascimento: dados.dataNascimento, telefone: unmaskValue(dados.telefone),
-        rg: dados.rg, rgEstado: dados.rgEstado, rgOrgao: dados.rgOrgao,
-        cep: unmaskValue(endereco.cep), endereco: endereco.rua, numero: endereco.numero,
-        bairro: endereco.bairro, cidade: endereco.cidade, complemento: endereco.complemento, uf: endereco.uf,
-      })
+      // Montar payload removendo campos vazios
+      const payload: any = {}
+      // Dados pessoais (sempre enviados)
+      payload.nome = dados.nome
+      payload.cpf = unmaskValue(dados.cpf)
+      if (dados.dataNascimento) payload.dataNascimento = dados.dataNascimento
+      if (unmaskValue(dados.telefone)) payload.telefone = unmaskValue(dados.telefone)
+      if (dados.rg) payload.rg = dados.rg
+      if (dados.rgEstado) payload.rgEstado = dados.rgEstado
+      if (dados.rgOrgao) payload.rgOrgao = dados.rgOrgao
+      if (possuiComprovante !== undefined) payload.possuiComprovante = possuiComprovante
+      // Endereço
+      if (unmaskValue(endereco.cep)) payload.cep = unmaskValue(endereco.cep)
+      if (endereco.rua) payload.endereco = endereco.rua
+      if (endereco.numero) payload.numero = endereco.numero
+      if (endereco.bairro) payload.bairro = endereco.bairro
+      if (endereco.cidade) payload.cidade = endereco.cidade
+      if (endereco.complemento) payload.complemento = endereco.complemento
+      if (endereco.uf) payload.uf = endereco.uf
+      // Dados adicionais
+      if (adicionais.nomeSocial) payload.nomeSocial = adicionais.nomeSocial
+      if (adicionais.sexo) payload.sexo = adicionais.sexo
+      if (adicionais.profissao) payload.profissao = adicionais.profissao
+      if (adicionais.nacionalidade) payload.nacionalidade = adicionais.nacionalidade
+      if (adicionais.naturalidade) payload.naturalidade = adicionais.naturalidade
+      if (adicionais.estado) payload.naturalidadeEstado = adicionais.estado
+      // Estado civil
+      if (estadoCivil) payload.estadoCivil = estadoCivil
+      // Pessoais extra
+      if (pessoaisExtra.corRaca) payload.corRaca = pessoaisExtra.corRaca
+      if (pessoaisExtra.escolaridade) payload.escolaridade = pessoaisExtra.escolaridade
+      if (pessoaisExtra.religiao) payload.religiao = pessoaisExtra.religiao
+      if (pessoaisExtra.necessidadesEspeciais !== undefined) payload.necessidadesEspeciais = pessoaisExtra.necessidadesEspeciais
+      // Benefícios
+      if (beneficios.cadastroUnico !== undefined) payload.cadastroUnico = beneficios.cadastroUnico
+      if (beneficios.escolaPublica !== undefined) payload.escolaPublica = beneficios.escolaPublica
+      if (beneficios.bolsaCebasBasica !== undefined) payload.bolsaCebasBasica = beneficios.bolsaCebasBasica
+      if (beneficios.bolsaCebasProfissional !== undefined) payload.bolsaCebasProfissional = beneficios.bolsaCebasProfissional
+
+      await api.put('/candidatos/me', payload)
       toast.success('Dados salvos!')
       setEditMode(false)
-    } catch (error: any) { toast.error(error.response?.data?.message || 'Erro ao salvar') }
+      carregarDados()
+    } catch (error: any) {
+      const msg = error.response?.data?.errors?.join(', ') || error.response?.data?.message || 'Erro ao salvar'
+      toast.error(msg)
+    }
     finally { setSaving(false) }
+  }
+
+  const handleSaveMoradia = async () => {
+    try {
+      await moradiaService.salvar({
+        statusMoradia, tipoMoradia, tempoMoradia, qtdComodos,
+        qtdDormitorios: qtdDormitorios ? parseInt(qtdDormitorios) : undefined,
+      })
+      toast.success('Moradia salva!')
+    } catch { toast.error('Erro ao salvar moradia') }
+  }
+
+  const handleAddVeiculo = async () => {
+    if (!novoVeiculo.modelo) return toast.error('Informe o modelo')
+    try {
+      await veiculoService.criar({ modelo: novoVeiculo.modelo, placa: novoVeiculo.placa, ano: novoVeiculo.ano })
+      toast.success('Veículo adicionado!')
+      setNovoVeiculo({ modelo: '', placa: '', ano: '' })
+      setShowAddVeiculo(false)
+      carregarDados()
+    } catch (error: any) { toast.error(error.response?.data?.message || 'Erro') }
+  }
+
+  const handleRemoveVeiculo = async (id: string) => {
+    if (!confirm('Excluir este veículo?')) return
+    try { await veiculoService.excluir(id); toast.success('Removido'); carregarDados() }
+    catch { toast.error('Erro ao remover') }
   }
 
   const handleCEPChange = async (cep: string) => {
@@ -782,7 +878,7 @@ export function CadastroCandidato() {
               {subStepMoradia > 0
                 ? <button className={styles.btnArrow} onClick={() => setSubStepMoradia(0)}><FiArrowLeft size={20} /></button>
                 : <div />}
-              <button className={styles.btnOutline}>Editar</button>
+              <button className={styles.btnOutline} onClick={handleSaveMoradia}>Salvar</button>
               {subStepMoradia < 1
                 ? <button className={styles.btnArrow} onClick={() => setSubStepMoradia(1)}><FiArrowRight size={20} /></button>
                 : <button className={styles.btnArrow} onClick={goToNextSection}><FiArrowRight size={20} /></button>}
@@ -799,10 +895,9 @@ export function CadastroCandidato() {
             <h2 className={styles.sectionTitle}>Veículos</h2>
             <div className={styles.listItems}>
               {veiculos.map((v, i) => (
-                <div key={i} className={styles.listRow}>
-                  <span className={styles.listName}>{v.modelo}</span>
-                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
-                  <button className={styles.btnSmallDanger} onClick={() => { setVeiculos(veiculos.filter((_, j) => j !== i)); toast.success('Removido') }}><FiTrash2 size={14} /> Excluir</button>
+                <div key={v.id || i} className={styles.listRow}>
+                  <span className={styles.listName}>{v.modelo}{v.placa ? ` · ${v.placa}` : ''}{v.ano ? ` · ${v.ano}` : ''}</span>
+                  <button className={styles.btnSmallDanger} onClick={() => v.id ? handleRemoveVeiculo(v.id) : setVeiculos(veiculos.filter((_, j) => j !== i))}><FiTrash2 size={14} /> Excluir</button>
                 </div>
               ))}
             </div>
@@ -815,7 +910,7 @@ export function CadastroCandidato() {
                   <div className={styles.field}><label>Ano</label><input value={novoVeiculo.ano} onChange={e => setNovoVeiculo({ ...novoVeiculo, ano: e.target.value })} /></div>
                 </div>
                 <div className={styles.inlineActions}>
-                  <button className={styles.btnPrimary} onClick={() => { setVeiculos([...veiculos, novoVeiculo]); setNovoVeiculo({ modelo: '', placa: '', ano: '' }); setShowAddVeiculo(false); toast.success('Adicionado') }}>Salvar</button>
+                  <button className={styles.btnPrimary} onClick={handleAddVeiculo}>Salvar</button>
                   <button className={styles.btnGhost} onClick={() => setShowAddVeiculo(false)}>Cancelar</button>
                 </div>
               </div>

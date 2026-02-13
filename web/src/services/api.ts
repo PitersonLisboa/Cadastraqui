@@ -707,3 +707,43 @@ export const despesaService = {
     return response.data
   },
 }
+
+// ===========================================
+// MORADIA SERVICE
+// ===========================================
+
+export const moradiaService = {
+  buscar: async () => {
+    const response = await api.get('/moradia')
+    return response.data
+  },
+  salvar: async (data: {
+    statusMoradia?: string
+    tipoMoradia?: string
+    tempoMoradia?: string
+    qtdComodos?: string
+    qtdDormitorios?: number
+  }) => {
+    const response = await api.put('/moradia', data)
+    return response.data
+  },
+}
+
+// ===========================================
+// VEÍCULO SERVICE
+// ===========================================
+
+export const veiculoService = {
+  listar: async () => {
+    const response = await api.get('/veiculos')
+    return response.data
+  },
+  criar: async (data: { modelo: string; placa?: string; ano?: string }) => {
+    const response = await api.post('/veiculos', data)
+    return response.data
+  },
+  excluir: async (id: string) => {
+    const response = await api.delete(`/veiculos/${id}`)
+    return response.data
+  },
+}

@@ -145,26 +145,50 @@ model Candidato {
   id                String   @id @default(uuid())
   nome              String
   cpf               String   @unique
-  dataNascimento    DateTime
-  telefone          String
+  dataNascimento    DateTime?
+  telefone          String?
   celular           String?
   
   // Endereço
-  cep               String
-  endereco          String
-  numero            String
+  cep               String?
+  endereco          String?
+  numero            String?
   complemento       String?
-  bairro            String
-  cidade            String
-  uf                UF
+  bairro            String?
+  cidade            String?
+  uf                String?
 
-  // Dados adicionais
-  estadoCivil       String?
-  profissao         String?
-  rendaFamiliar     Decimal?
+  // Documentos
   rg                String?
   rgEstado          String?
   rgOrgao           String?
+  possuiComprovante Boolean?
+
+  // Dados adicionais
+  nomeSocial        String?
+  sexo              String?
+  profissao         String?
+  nacionalidade     String?
+  naturalidade      String?
+  naturalidadeEstado String?
+
+  // Estado civil
+  estadoCivil       String?
+
+  // Informações pessoais extra
+  corRaca           String?
+  escolaridade      String?
+  religiao          String?
+  necessidadesEspeciais Boolean? @default(false)
+
+  // Benefícios
+  cadastroUnico     Boolean? @default(false)
+  escolaPublica     Boolean? @default(false)
+  bolsaCebasBasica  Boolean? @default(false)
+  bolsaCebasProfissional Boolean? @default(false)
+
+  // Renda
+  rendaFamiliar     Decimal?
   
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
@@ -184,15 +208,57 @@ model Candidato {
   candidaturas      Candidatura[]
   membrosFamilia    MembroFamilia[]
   despesas          DespesaMensal[]
+  moradia           Moradia?
+  veiculos          Veiculo[]
 
   @@map("candidatos")
+}
+
+// ===========================================
+// MORADIA
+// ===========================================
+
+model Moradia {
+  id              String   @id @default(uuid())
+  statusMoradia   String?   // PROPRIA, ALUGADA, CEDIDA, FINANCIADA, etc.
+  tipoMoradia     String?   // CASA, APARTAMENTO, KITNET, etc.
+  tempoMoradia    String?   // MENOS_1_ANO, 1_A_3_ANOS, etc.
+  qtdComodos      String?
+  qtdDormitorios  Int?
+
+  candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId     String    @unique
+
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("moradias")
+}
+
+// ===========================================
+// VEÍCULO
+// ===========================================
+
+model Veiculo {
+  id              String   @id @default(uuid())
+  modelo          String
+  placa           String?
+  ano             String?
+
+  candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId     String
+
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("veiculos")
 }
 
 model MembroFamilia {
   id              String   @id @default(uuid())
   nome            String
-  cpf             String
-  dataNascimento  DateTime
+  cpf             String?
+  dataNascimento  DateTime?
   parentesco      String
   renda           Decimal?
   ocupacao        String?
