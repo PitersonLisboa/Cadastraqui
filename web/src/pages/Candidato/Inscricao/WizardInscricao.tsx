@@ -17,7 +17,7 @@ const DOCS_INFO: Record<string, string> = {
 }
 
 export function WizardInscricao() {
-  const { editalId } = useParams()
+  const { editalId, slug } = useParams()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -98,7 +98,7 @@ export function WizardInscricao() {
           {!candidato?.nome ? (
             <div className={styles.alert}>
               <FiAlertCircle /> Complete seu cadastro antes de se inscrever.
-              <Button onClick={() => navigate('/candidato/cadastro')}>Completar Cadastro</Button>
+              <Button onClick={() => navigate(slug ? `/${slug}/candidato/cadastro` : '/candidato/cadastro')}>Completar Cadastro</Button>
             </div>
           ) : (
             <div className={styles.dadosGrid}>

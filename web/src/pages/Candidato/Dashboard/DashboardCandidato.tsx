@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useRecoilValue } from 'recoil'
 import { 
   FiFileText, 
@@ -27,6 +27,7 @@ interface CandidatoData {
 export function DashboardCandidato() {
   const auth = useRecoilValue(authState)
   const navigate = useNavigate()
+  const { slug } = useParams<{ slug: string }>()
   const [candidato, setCandidato] = useState<CandidatoData | null>(null)
   const [loading, setLoading] = useState(true)
   const [needsRegistration, setNeedsRegistration] = useState(false)
@@ -69,7 +70,7 @@ export function DashboardCandidato() {
             com suas informações pessoais.
           </p>
           <Button 
-            onClick={() => navigate('/candidato/cadastro')}
+            onClick={() => navigate(slug ? `/${slug}/candidato/cadastro` : '/candidato/cadastro')}
             leftIcon={<FiPlus />}
           >
             Completar Cadastro
@@ -144,28 +145,28 @@ export function DashboardCandidato() {
         <div className={styles.quickActions}>
           <button 
             className={styles.quickAction}
-            onClick={() => navigate('/candidato/editais')}
+            onClick={() => navigate('editais')}
           >
             <FiFileText size={24} />
             <span>Ver Editais</span>
           </button>
           <button 
             className={styles.quickAction}
-            onClick={() => navigate('/candidato/candidaturas')}
+            onClick={() => navigate('candidaturas')}
           >
             <FiCheckCircle size={24} />
             <span>Minhas Candidaturas</span>
           </button>
           <button 
             className={styles.quickAction}
-            onClick={() => navigate('/candidato/documentos')}
+            onClick={() => navigate('documentos')}
           >
             <FiFolder size={24} />
             <span>Meus Documentos</span>
           </button>
           <button 
             className={styles.quickAction}
-            onClick={() => navigate('/candidato/agendamentos')}
+            onClick={() => navigate('agendamentos')}
           >
             <FiCalendar size={24} />
             <span>Agendamentos</span>
@@ -177,7 +178,7 @@ export function DashboardCandidato() {
       <Card 
         title="Candidaturas Recentes" 
         actions={
-          <Button variant="ghost" size="sm" onClick={() => navigate('/candidato/candidaturas')}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('candidaturas')}>
             Ver todas
           </Button>
         }
@@ -203,7 +204,7 @@ export function DashboardCandidato() {
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => navigate('/candidato/editais')}
+              onClick={() => navigate('editais')}
             >
               Ver editais disponíveis
             </Button>
