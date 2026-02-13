@@ -82,6 +82,7 @@ export const ROLES_DOCUMENTOS_CANDIDATOS: Role[] = [
   'SUPERVISAO',
   'OPERACIONAL',
   'ASSISTENTE_SOCIAL',
+  'CANDIDATO',
 ]
 
 // Roles que podem ver/gerenciar documentos INSTITUCIONAIS (certificação CEBAS)
