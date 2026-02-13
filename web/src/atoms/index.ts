@@ -47,3 +47,15 @@ export const themeState = atom<'light' | 'dark'>({
   default: 'light',
   effects_UNSTABLE: [persistAtom],
 })
+
+// Estado da camada de sidebar: 'menu' (padrão) ou 'cadastro' (seções do formulário)
+export const sidebarModeState = atom<{
+  mode: 'menu' | 'cadastro'
+  activeSection: string
+}>({
+  key: 'sidebarModeState',
+  default: {
+    mode: 'menu',
+    activeSection: 'candidato',
+  },
+})

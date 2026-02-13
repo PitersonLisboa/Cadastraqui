@@ -143,3 +143,79 @@
   background-color: var(--color-gray-300);
   border-radius: var(--radius-full);
 }
+
+// =============================================
+// SIDEBAR DE CADASTRO (seções do formulário)
+// Ícones circulares verdes fiéis ao 1.x
+// =============================================
+
+.sectionNav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem 0.5rem;
+  gap: 0.125rem;
+}
+
+.sectionBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.25rem;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: all 0.2s;
+
+  &:hover {
+    .sectionIconCircle {
+      transform: scale(1.08);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    }
+    .sectionLabel {
+      color: var(--color-primary-black);
+    }
+  }
+
+  &.sectionActive {
+    .sectionIconCircle {
+      border: 2px solid var(--color-primary);
+      box-shadow: 0 2px 8px rgba(31, 75, 115, 0.25);
+    }
+    .sectionLabel {
+      color: var(--color-primary-black);
+      font-weight: 700;
+    }
+  }
+}
+
+.sectionIconCircle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e8f5e9;
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.sectionIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.sectionLabel {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-gray-500);
+  text-align: center;
+  line-height: 1.2;
+  transition: all 0.15s;
+}
