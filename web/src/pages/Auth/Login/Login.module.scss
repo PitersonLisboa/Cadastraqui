@@ -122,14 +122,20 @@
   z-index: 100;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 2.5rem;
   padding: 0.625rem 1.5rem;
   min-height: 80px;
   background-color: var(--color-white);
   border-bottom: 2px solid var(--color-gray-200);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 
+  @media (max-width: 768px) {
+    gap: 1.5rem;
+  }
+
   @media (max-width: 640px) {
+    gap: 1rem;
     padding: 0.5rem 0.75rem;
     min-height: 64px;
   }
@@ -164,11 +170,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-
-  // Centralizar no header — posição absoluta  
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
 
   &:hover {
     opacity: 0.75;
