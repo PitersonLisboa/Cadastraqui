@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRecoilValue, useSetRecoilState } from 'recoil'
 import { toast } from 'react-toastify'
-import { FiArrowRight, FiTrash2, FiEye, FiPlus } from 'react-icons/fi'
+import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
 import { api } from '@/services/api'
-import { maskCPF, maskPhone, unmaskValue } from '@/utils/masks'
+import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
 import styles from './CadastroCandidato.module.scss'
 
 // ===========================================
@@ -15,6 +15,12 @@ import styles from './CadastroCandidato.module.scss'
 const SECTION_IDS = [
   'candidato', 'grupo-familiar', 'moradia', 'veiculo',
   'renda', 'gastos', 'saude', 'declaracoes',
+]
+
+const SUB_STEP_LABELS = [
+  'Dados Pessoais', 'Endereço', 'Comprovante de endereço',
+  'Informações Adicionais', 'Estado Civil', 'Informações Pessoais',
+  'Documento Adicional', 'Benefícios e Programas',
 ]
 
 const ESTADOS_EMISSOR = [
@@ -34,6 +40,46 @@ const ESTADOS_EMISSOR = [
   { value: 'TO', label: 'Tocantins' },
 ]
 
+const SEXO_OPTIONS = [
+  { value: 'MASCULINO', label: 'Masculino' },
+  { value: 'FEMININO', label: 'Feminino' },
+  { value: 'OUTRO', label: 'Outro' },
+]
+
+const ESTADO_CIVIL_OPTIONS = [
+  { value: 'SOLTEIRO', label: 'Solteiro(a)' },
+  { value: 'CASADO', label: 'Casado(a)' },
+  { value: 'DIVORCIADO', label: 'Divorciado(a)' },
+  { value: 'VIUVO', label: 'Viúvo(a)' },
+  { value: 'UNIAO_ESTAVEL', label: 'União Estável' },
+]
+
+const COR_RACA_OPTIONS = [
+  { value: 'BRANCA', label: 'Branca' },
+  { value: 'PRETA', label: 'Preta' },
+  { value: 'PARDA', label: 'Parda' },
+  { value: 'AMARELA', label: 'Amarela' },
+  { value: 'INDIGENA', label: 'Indígena' },
+]
+
+const ESCOLARIDADE_OPTIONS = [
+  { value: 'FUNDAMENTAL_INCOMPLETO', label: 'Ensino Fundamental Incompleto' },
+  { value: 'FUNDAMENTAL_COMPLETO', label: 'Ensino Fundamental Completo' },
+  { value: 'MEDIO_INCOMPLETO', label: 'Ensino Médio Incompleto' },
+  { value: 'MEDIO_COMPLETO', label: 'Ensino Médio' },
+  { value: 'SUPERIOR_INCOMPLETO', label: 'Superior Incompleto' },
+  { value: 'SUPERIOR_COMPLETO', label: 'Superior Completo' },
+  { value: 'POS_GRADUACAO', label: 'Pós-graduação' },
+]
+
+const RELIGIAO_OPTIONS = [
+  { value: 'CATOLICA', label: 'Católica' },
+  { value: 'EVANGELICA', label: 'Evangélica' },
+  { value: 'ESPIRITA', label: 'Espírita' },
+  { value: 'OUTRA', label: 'Outra' },
+  { value: 'SEM_RELIGIAO', label: 'Sem religião' },
+]
+
 const STATUS_MORADIA = [
   { value: 'PROPRIA_QUITADA', label: 'Própria e quitada' },
   { value: 'PROPRIA_FINANCIADA', label: 'Própria financiada' },
@@ -48,10 +94,31 @@ const MESES_LABEL: Record<number, string> = {
   9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro',
 }
 
-interface DadosCandidato {
+// ===========================================
+// TIPOS
+// ===========================================
+
+interface DadosPessoais {
   nome: string; cpf: string; dataNascimento: string; telefone: string
   email: string; rg: string; rgEstado: string; rgOrgao: string
 }
+interface DadosEndereco {
+  cep: string; rua: string; numero: string; bairro: string
+  cidade: string; complemento: string; uf: string
+}
+interface DadosAdicionais {
+  nomeSocial: string; sexo: string; profissao: string
+  nacionalidade: string; naturalidade: string; estado: string
+}
+interface DadosPessoaisExtra {
+  corRaca: string; escolaridade: string; religiao: string
+  necessidadesEspeciais: boolean
+}
+interface DadosBeneficios {
+  cadastroUnico: boolean; escolaPublica: boolean
+  bolsaCebasBasica: boolean; bolsaCebasProfissional: boolean
+}
+
 interface Membro { id?: string; nome: string; cpf: string; parentesco: string; renda?: number }
 interface Veiculo { id?: string; modelo: string; placa: string; ano: string }
 
@@ -60,7 +127,6 @@ interface Veiculo { id?: string; modelo: string; placa: string; ano: string }
 // ===========================================
 
 export function CadastroCandidato() {
-  // Lê seção ativa do atom global (sincronizado com sidebar)
   const sidebarMode = useRecoilValue(sidebarModeState)
   const setSidebarMode = useSetRecoilState(sidebarModeState)
   const activeSection = sidebarMode.activeSection
@@ -69,23 +135,63 @@ export function CadastroCandidato() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const [dados, setDados] = useState<DadosCandidato>({
+  // Sub-step dentro da seção Candidato (0-7)
+  const [subStep, setSubStep] = useState(0)
+
+  // --- Dados Pessoais (step 1) ---
+  const [dados, setDados] = useState<DadosPessoais>({
     nome: '', cpf: '', dataNascimento: '', telefone: '',
     email: '', rg: '', rgEstado: '', rgOrgao: '',
   })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // --- Endereço (step 2) ---
+  const [endereco, setEndereco] = useState<DadosEndereco>({
+    cep: '', rua: '', numero: '', bairro: '', cidade: '', complemento: '', uf: '',
+  })
+
+  // --- Comprovante endereço (step 3) ---
+  const [possuiComprovante, setPossuiComprovante] = useState(true)
+  const comprovanteRef = useRef<HTMLInputElement>(null)
+
+  // --- Info Adicionais (step 4) ---
+  const [adicionais, setAdicionais] = useState<DadosAdicionais>({
+    nomeSocial: '', sexo: '', profissao: '', nacionalidade: '', naturalidade: '', estado: '',
+  })
+
+  // --- Estado Civil (step 5) ---
+  const [estadoCivil, setEstadoCivil] = useState('')
+  const certidaoRef = useRef<HTMLInputElement>(null)
+
+  // --- Info Pessoais (step 6) ---
+  const [pessoaisExtra, setPessoaisExtra] = useState<DadosPessoaisExtra>({
+    corRaca: '', escolaridade: '', religiao: '', necessidadesEspeciais: false,
+  })
+
+  // --- Documento Adicional (step 7) ---
+  const [desejaDocAdicional, setDesejaDocAdicional] = useState(false)
+
+  // --- Benefícios (step 8) ---
+  const [beneficios, setBeneficios] = useState<DadosBeneficios>({
+    cadastroUnico: false, escolaPublica: false,
+    bolsaCebasBasica: false, bolsaCebasProfissional: false,
+  })
+
+  // --- Grupo Familiar ---
   const [membros, setMembros] = useState<Membro[]>([])
   const [showAddMembro, setShowAddMembro] = useState(false)
   const [novoMembro, setNovoMembro] = useState<Membro>({ nome: '', cpf: '', parentesco: '' })
 
+  // --- Moradia ---
   const [subStepMoradia, setSubStepMoradia] = useState(0)
   const [statusMoradia, setStatusMoradia] = useState('')
 
+  // --- Veículo ---
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [showAddVeiculo, setShowAddVeiculo] = useState(false)
   const [novoVeiculo, setNovoVeiculo] = useState<Veiculo>({ modelo: '', placa: '', ano: '' })
 
+  // --- Renda / Gastos ---
   const [rendaMedia, setRendaMedia] = useState('0,00')
   const [gastoUltimoMes] = useState('0,00')
   const [gastoMediaTrimestre] = useState('0,00')
@@ -94,10 +200,7 @@ export function CadastroCandidato() {
   useEffect(() => {
     setSidebarMode((prev) => ({ ...prev, mode: 'cadastro' }))
     carregarDados()
-    // Voltar ao menu ao desmontar
-    return () => {
-      setSidebarMode({ mode: 'menu', activeSection: 'candidato' })
-    }
+    return () => { setSidebarMode({ mode: 'menu', activeSection: 'candidato' }) }
   }, [])
 
   const carregarDados = async () => {
@@ -111,6 +214,11 @@ export function CadastroCandidato() {
           telefone: c.telefone ? maskPhone(c.telefone) : '',
           email: c.usuario?.email || '', rg: c.rg || '',
           rgEstado: c.rgEstado || '', rgOrgao: c.rgOrgao || '',
+        })
+        if (c.cep) setEndereco({
+          cep: maskCEP(c.cep), rua: c.endereco || '', numero: c.numero || '',
+          bairro: c.bairro || '', cidade: c.cidade || '',
+          complemento: c.complemento || '', uf: c.uf || '',
         })
         setRendaMedia(c.rendaFamiliar ? Number(c.rendaFamiliar).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00')
       }
@@ -126,11 +234,24 @@ export function CadastroCandidato() {
         nome: dados.nome, cpf: unmaskValue(dados.cpf),
         dataNascimento: dados.dataNascimento, telefone: unmaskValue(dados.telefone),
         rg: dados.rg, rgEstado: dados.rgEstado, rgOrgao: dados.rgOrgao,
+        cep: unmaskValue(endereco.cep), endereco: endereco.rua, numero: endereco.numero,
+        bairro: endereco.bairro, cidade: endereco.cidade, complemento: endereco.complemento, uf: endereco.uf,
       })
       toast.success('Dados salvos!')
       setEditMode(false)
     } catch (error: any) { toast.error(error.response?.data?.message || 'Erro ao salvar') }
     finally { setSaving(false) }
+  }
+
+  const handleCEPChange = async (cep: string) => {
+    const clean = unmaskValue(cep)
+    if (clean.length === 8) {
+      const addr = await fetchAddressByCEP(clean)
+      if (addr) {
+        setEndereco(prev => ({ ...prev, rua: addr.logradouro, bairro: addr.bairro, cidade: addr.localidade, uf: addr.uf }))
+        toast.success('Endereço encontrado!')
+      }
+    }
   }
 
   const handleAddMembro = async () => {
@@ -151,17 +272,11 @@ export function CadastroCandidato() {
   }
 
   const sectionIndex = SECTION_IDS.indexOf(activeSection)
-
   const goToNextSection = () => {
-    if (sectionIndex < SECTION_IDS.length - 1) {
-      setSidebarMode({ mode: 'cadastro', activeSection: SECTION_IDS[sectionIndex + 1] })
-    }
+    if (sectionIndex < SECTION_IDS.length - 1) setSidebarMode({ mode: 'cadastro', activeSection: SECTION_IDS[sectionIndex + 1] })
   }
-
   const goToSection = (i: number) => {
-    if (i >= 0 && i < SECTION_IDS.length) {
-      setSidebarMode({ mode: 'cadastro', activeSection: SECTION_IDS[i] })
-    }
+    if (i >= 0 && i < SECTION_IDS.length) setSidebarMode({ mode: 'cadastro', activeSection: SECTION_IDS[i] })
   }
 
   const getUltimosMeses = () => {
@@ -172,9 +287,37 @@ export function CadastroCandidato() {
     })
   }
 
-  if (loading) {
-    return <div className={styles.loadingContainer}><div className={styles.spinner} /><p>Carregando dados...</p></div>
-  }
+  if (loading) return <div className={styles.loadingContainer}><div className={styles.spinner} /><p>Carregando dados...</p></div>
+
+  // ===========================================
+  // HELPERS DE RENDER
+  // ===========================================
+
+  /** Rodapé padrão com ← Editar → */
+  const FooterNav = ({ onPrev, onNext, isLast }: { onPrev?: () => void; onNext?: () => void; isLast?: boolean }) => (
+    <div className={styles.footerSplit}>
+      {onPrev ? <button className={styles.btnArrow} onClick={onPrev}><FiArrowLeft size={20} /></button> : <div />}
+      <button className={styles.btnOutline} onClick={() => editMode ? handleSaveDados() : setEditMode(true)} disabled={saving}>
+        {editMode ? (saving ? 'Salvando...' : 'Salvar') : 'Editar'}
+      </button>
+      {onNext ? (
+        isLast
+          ? <button className={styles.btnOutlineArrow} onClick={onNext}>Próxima Etapa <FiArrowRight size={16} /></button>
+          : <button className={styles.btnArrow} onClick={onNext}><FiArrowRight size={20} /></button>
+      ) : <div />}
+    </div>
+  )
+
+  /** Radio Sim/Não */
+  const RadioSimNao = ({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) => (
+    <div className={styles.radioGroup}>
+      <span className={styles.radioLabel}>{label}</span>
+      <div className={styles.radioOptions}>
+        <label><input type="radio" checked={value} onChange={() => onChange(true)} /> Sim</label>
+        <label><input type="radio" checked={!value} onChange={() => onChange(false)} /> Não</label>
+      </div>
+    </div>
+  )
 
   // ===========================================
   // RENDER SEÇÕES
@@ -183,43 +326,194 @@ export function CadastroCandidato() {
   const renderSection = () => {
     switch (activeSection) {
 
-      case 'candidato':
+      // ════════════════════════════════════════
+      // CANDIDATO — 8 sub-steps
+      // ════════════════════════════════════════
+      case 'candidato': {
+        const stepContent = () => {
+          switch (subStep) {
+
+            // ─── 1. Dados Pessoais ───
+            case 0: return (
+              <>
+                <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
+                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>Nome completo</label><input value={dados.nome} disabled={!editMode} onChange={e => setDados({ ...dados, nome: e.target.value })} /></div>
+                  <div className={styles.field}><label>CPF</label><input value={dados.cpf} disabled={!editMode} onChange={e => setDados({ ...dados, cpf: maskCPF(e.target.value) })} /></div>
+                  <div className={styles.field}><label>Data de nascimento</label><input type="date" value={dados.dataNascimento} disabled={!editMode} onChange={e => setDados({ ...dados, dataNascimento: e.target.value })} /></div>
+                  <div className={styles.field}><label>Telefone</label><input value={dados.telefone} disabled={!editMode} onChange={e => setDados({ ...dados, telefone: maskPhone(e.target.value) })} /></div>
+                  <div className={styles.field}><label>Email</label><input value={dados.email} disabled /></div>
+                  <div className={styles.field}><label>RG/RNE</label><input value={dados.rg} disabled={!editMode} onChange={e => setDados({ ...dados, rg: e.target.value })} /></div>
+                  <div className={styles.field}><label>Estado emissor do RG/RNE</label>
+                    <select value={dados.rgEstado} disabled={!editMode} onChange={e => setDados({ ...dados, rgEstado: e.target.value })}>
+                      <option value="">Selecione...</option>{ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Órgão emissor do RG/RNE</label><input value={dados.rgOrgao} disabled={!editMode} placeholder="SSP" onChange={e => setDados({ ...dados, rgOrgao: e.target.value })} /></div>
+                </div>
+                <div className={styles.fieldWide}>
+                  <label>Documento de identificação</label>
+                  <div className={styles.fileUpload} onClick={() => editMode && fileInputRef.current?.click()}><span>Anexar arquivo</span><FiPlus size={16} /></div>
+                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} />
+                  <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
+                  <button type="button" className={styles.linkBtn}>VISUALIZAR DOCUMENTO</button>
+                </div>
+              </>
+            )
+
+            // ─── 2. Endereço ───
+            case 1: return (
+              <>
+                <h2 className={styles.sectionTitle}>Endereço</h2>
+                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>CEP</label><input value={endereco.cep} disabled={!editMode} onChange={e => { const v = maskCEP(e.target.value); setEndereco({ ...endereco, cep: v }); handleCEPChange(v) }} /></div>
+                  <div className={styles.field}><label>Rua</label><input value={endereco.rua} disabled={!editMode} onChange={e => setEndereco({ ...endereco, rua: e.target.value })} /></div>
+                  <div className={styles.field}><label>Número</label><input value={endereco.numero} disabled={!editMode} onChange={e => setEndereco({ ...endereco, numero: e.target.value })} /></div>
+                  <div className={styles.field}><label>Bairro</label><input value={endereco.bairro} disabled={!editMode} onChange={e => setEndereco({ ...endereco, bairro: e.target.value })} /></div>
+                  <div className={styles.field}><label>Cidade</label><input value={endereco.cidade} disabled={!editMode} onChange={e => setEndereco({ ...endereco, cidade: e.target.value })} /></div>
+                  <div className={styles.field}><label>Complemento</label><input value={endereco.complemento} disabled={!editMode} onChange={e => setEndereco({ ...endereco, complemento: e.target.value })} /></div>
+                  <div className={styles.field}><label>Unidade federativa</label>
+                    <select value={endereco.uf} disabled={!editMode} onChange={e => setEndereco({ ...endereco, uf: e.target.value })}>
+                      <option value="">Selecione...</option>{ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )
+
+            // ─── 3. Comprovante de endereço ───
+            case 2: return (
+              <>
+                <h2 className={styles.sectionTitle}>Comprovante de endereço</h2>
+                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+                <RadioSimNao label="Possui comprovante de residência?" value={possuiComprovante} onChange={setPossuiComprovante} />
+                {possuiComprovante && (
+                  <div className={styles.fieldWide}>
+                    <label>Comprovante</label>
+                    <div className={styles.fileUpload} onClick={() => editMode && comprovanteRef.current?.click()}><span>Anexar arquivo</span><FiPlus size={16} /></div>
+                    <input ref={comprovanteRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} />
+                    <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
+                    <button type="button" className={styles.linkBtn}>VER COMPROVANTE</button>
+                    <button type="button" className={styles.btnSmallDanger}>Excluir comprovante</button>
+                  </div>
+                )}
+              </>
+            )
+
+            // ─── 4. Informações Adicionais ───
+            case 3: return (
+              <>
+                <h2 className={styles.sectionTitle}>Informações Adicionais</h2>
+                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+                <div className={styles.formGridSingle}>
+                  <div className={styles.field}><label>Nome social (quando houver)</label><input value={adicionais.nomeSocial} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, nomeSocial: e.target.value })} /></div>
+                  <div className={styles.field}><label>Sexo</label>
+                    <select value={adicionais.sexo} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, sexo: e.target.value })}>
+                      <option value="">Selecione...</option>{SEXO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Profissão</label><input value={adicionais.profissao} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, profissao: e.target.value })} /></div>
+                  <div className={styles.field}><label>Nacionalidade</label><input value={adicionais.nacionalidade} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, nacionalidade: e.target.value })} /></div>
+                  <div className={styles.field}><label>Naturalidade</label><input value={adicionais.naturalidade} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, naturalidade: e.target.value })} /></div>
+                  <div className={styles.field}><label>Estado</label>
+                    <select value={adicionais.estado} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, estado: e.target.value })}>
+                      <option value="">Selecione...</option>{ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )
+
+            // ─── 5. Estado Civil ───
+            case 4: return (
+              <>
+                <h2 className={styles.sectionTitle}>Estado Civil</h2>
+                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+                <div className={styles.formGridSingle}>
+                  <div className={styles.field}><label>Estado civil</label>
+                    <select value={estadoCivil} disabled={!editMode} onChange={e => setEstadoCivil(e.target.value)}>
+                      <option value="">Selecione...</option>{ESTADO_CIVIL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className={styles.fieldWide}>
+                  <label>Certidão de casamento</label>
+                  <div className={styles.fileUpload} onClick={() => editMode && certidaoRef.current?.click()}><span>Anexar arquivo</span><FiPlus size={16} /></div>
+                  <input ref={certidaoRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} />
+                  <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
+                  <button type="button" className={styles.linkBtn}>VISUALIZAR DOCUMENTO</button>
+                </div>
+              </>
+            )
+
+            // ─── 6. Informações Pessoais ───
+            case 5: return (
+              <>
+                <h2 className={styles.sectionTitle}>Informações Pessoais</h2>
+                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>Cor e raça</label>
+                    <select value={pessoaisExtra.corRaca} disabled={!editMode} onChange={e => setPessoaisExtra({ ...pessoaisExtra, corRaca: e.target.value })}>
+                      <option value="">Selecione...</option>{COR_RACA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Escolaridade</label>
+                    <select value={pessoaisExtra.escolaridade} disabled={!editMode} onChange={e => setPessoaisExtra({ ...pessoaisExtra, escolaridade: e.target.value })}>
+                      <option value="">Selecione...</option>{ESCOLARIDADE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Religião</label>
+                    <select value={pessoaisExtra.religiao} disabled={!editMode} onChange={e => setPessoaisExtra({ ...pessoaisExtra, religiao: e.target.value })}>
+                      <option value="">Selecione...</option>{RELIGIAO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <RadioSimNao label="Necessidades especiais" value={pessoaisExtra.necessidadesEspeciais} onChange={v => setPessoaisExtra({ ...pessoaisExtra, necessidadesEspeciais: v })} />
+              </>
+            )
+
+            // ─── 7. Documento Adicional ───
+            case 6: return (
+              <>
+                <h2 className={styles.sectionTitle}>Documento Adicional</h2>
+                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+                <RadioSimNao label="Deseja adicionar outro documento?" value={desejaDocAdicional} onChange={setDesejaDocAdicional} />
+              </>
+            )
+
+            // ─── 8. Benefícios e Programas ───
+            case 7: return (
+              <>
+                <h2 className={styles.sectionTitle}>Benefícios e Programas</h2>
+                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+                <RadioSimNao label="Inscrito no cadastro único?" value={beneficios.cadastroUnico} onChange={v => setBeneficios({ ...beneficios, cadastroUnico: v })} />
+                <RadioSimNao label="Estudou em escola pública?" value={beneficios.escolaPublica} onChange={v => setBeneficios({ ...beneficios, escolaPublica: v })} />
+                <RadioSimNao label="Já recebeu bolsa CEBAS para educação básica?" value={beneficios.bolsaCebasBasica} onChange={v => setBeneficios({ ...beneficios, bolsaCebasBasica: v })} />
+                <RadioSimNao label="Já recebeu bolsa CEBAS para educação profissional?" value={beneficios.bolsaCebasProfissional} onChange={v => setBeneficios({ ...beneficios, bolsaCebasProfissional: v })} />
+              </>
+            )
+            default: return null
+          }
+        }
+
         return (
           <>
-            <StepperBar totalSteps={8} currentStep={sectionIndex} onStepClick={goToSection} />
-            <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
-            {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
-            <div className={styles.formGrid}>
-              <div className={styles.field}><label>Nome completo</label><input value={dados.nome} disabled={!editMode} onChange={(e) => setDados({ ...dados, nome: e.target.value })} /></div>
-              <div className={styles.field}><label>CPF</label><input value={dados.cpf} disabled={!editMode} onChange={(e) => setDados({ ...dados, cpf: maskCPF(e.target.value) })} /></div>
-              <div className={styles.field}><label>Data de nascimento</label><input type="date" value={dados.dataNascimento} disabled={!editMode} onChange={(e) => setDados({ ...dados, dataNascimento: e.target.value })} /></div>
-              <div className={styles.field}><label>Telefone</label><input value={dados.telefone} disabled={!editMode} onChange={(e) => setDados({ ...dados, telefone: maskPhone(e.target.value) })} /></div>
-              <div className={styles.field}><label>Email</label><input value={dados.email} disabled /></div>
-              <div className={styles.field}><label>RG/RNE</label><input value={dados.rg} disabled={!editMode} onChange={(e) => setDados({ ...dados, rg: e.target.value })} /></div>
-              <div className={styles.field}><label>Estado emissor do RG/RNE</label>
-                <select value={dados.rgEstado} disabled={!editMode} onChange={(e) => setDados({ ...dados, rgEstado: e.target.value })}>
-                  <option value="">Selecione...</option>
-                  {ESTADOS_EMISSOR.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
-                </select>
-              </div>
-              <div className={styles.field}><label>Órgão emissor do RG/RNE</label><input value={dados.rgOrgao} disabled={!editMode} placeholder="SSP" onChange={(e) => setDados({ ...dados, rgOrgao: e.target.value })} /></div>
-            </div>
-            <div className={styles.fieldWide}>
-              <label>Documento de identificação</label>
-              <div className={styles.fileUpload} onClick={() => editMode && fileInputRef.current?.click()}><span>Anexar arquivo</span><FiPlus size={16} /></div>
-              <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} />
-              <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
-              <button type="button" className={styles.linkBtn}>VISUALIZAR DOCUMENTO</button>
-            </div>
-            <div className={styles.footerSplit}>
-              <button className={styles.btnOutline} onClick={() => editMode ? handleSaveDados() : setEditMode(true)} disabled={saving}>
-                {editMode ? (saving ? 'Salvando...' : 'Salvar') : 'Editar'}
-              </button>
-              <button className={styles.btnArrow} onClick={goToNextSection}><FiArrowRight size={20} /></button>
-            </div>
+            <StepperBar totalSteps={8} currentStep={subStep} onStepClick={setSubStep} />
+            {stepContent()}
+            <FooterNav
+              onPrev={subStep > 0 ? () => setSubStep(s => s - 1) : undefined}
+              onNext={subStep < 7 ? () => setSubStep(s => s + 1) : () => goToNextSection()}
+              isLast={subStep === 7}
+            />
           </>
         )
+      }
 
+      // ════════════════════════════════════════
+      // GRUPO FAMILIAR
+      // ════════════════════════════════════════
       case 'grupo-familiar':
         return (
           <>
@@ -229,9 +523,9 @@ export function CadastroCandidato() {
             {showAddMembro && (
               <div className={styles.inlineForm}>
                 <div className={styles.formGrid}>
-                  <div className={styles.field}><label>Nome</label><input value={novoMembro.nome} onChange={(e) => setNovoMembro({ ...novoMembro, nome: e.target.value })} /></div>
-                  <div className={styles.field}><label>CPF</label><input value={novoMembro.cpf} onChange={(e) => setNovoMembro({ ...novoMembro, cpf: maskCPF(e.target.value) })} /></div>
-                  <div className={styles.field}><label>Parentesco</label><input value={novoMembro.parentesco} onChange={(e) => setNovoMembro({ ...novoMembro, parentesco: e.target.value })} placeholder="Cônjuge, Filho(a)..." /></div>
+                  <div className={styles.field}><label>Nome</label><input value={novoMembro.nome} onChange={e => setNovoMembro({ ...novoMembro, nome: e.target.value })} /></div>
+                  <div className={styles.field}><label>CPF</label><input value={novoMembro.cpf} onChange={e => setNovoMembro({ ...novoMembro, cpf: maskCPF(e.target.value) })} /></div>
+                  <div className={styles.field}><label>Parentesco</label><input value={novoMembro.parentesco} onChange={e => setNovoMembro({ ...novoMembro, parentesco: e.target.value })} placeholder="Cônjuge, Filho(a)..." /></div>
                 </div>
                 <div className={styles.inlineActions}>
                   <button className={styles.btnPrimary} onClick={handleAddMembro}>Salvar</button>
@@ -240,7 +534,7 @@ export function CadastroCandidato() {
               </div>
             )}
             <div className={styles.listItems}>
-              {membros.map((m) => (
+              {membros.map(m => (
                 <div key={m.id} className={styles.listRow}>
                   <span className={styles.listName}>{m.nome}</span>
                   <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
@@ -253,6 +547,9 @@ export function CadastroCandidato() {
           </>
         )
 
+      // ════════════════════════════════════════
+      // MORADIA
+      // ════════════════════════════════════════
       case 'moradia':
         return (
           <>
@@ -260,9 +557,8 @@ export function CadastroCandidato() {
             <h2 className={styles.sectionTitle}>Status da Propriedade</h2>
             <div className={styles.formGridSingle}>
               <div className={styles.field}><label>Status</label>
-                <select value={statusMoradia} onChange={(e) => setStatusMoradia(e.target.value)}>
-                  <option value="">Selecione...</option>
-                  {STATUS_MORADIA.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                <select value={statusMoradia} onChange={e => setStatusMoradia(e.target.value)}>
+                  <option value="">Selecione...</option>{STATUS_MORADIA.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </div>
             </div>
@@ -273,6 +569,9 @@ export function CadastroCandidato() {
           </>
         )
 
+      // ════════════════════════════════════════
+      // VEÍCULO
+      // ════════════════════════════════════════
       case 'veiculo':
         return (
           <>
@@ -290,9 +589,9 @@ export function CadastroCandidato() {
             {showAddVeiculo && (
               <div className={styles.inlineForm}>
                 <div className={styles.formGrid}>
-                  <div className={styles.field}><label>Modelo</label><input value={novoVeiculo.modelo} onChange={(e) => setNovoVeiculo({ ...novoVeiculo, modelo: e.target.value })} placeholder="Fiat Palio" /></div>
-                  <div className={styles.field}><label>Placa</label><input value={novoVeiculo.placa} onChange={(e) => setNovoVeiculo({ ...novoVeiculo, placa: e.target.value })} /></div>
-                  <div className={styles.field}><label>Ano</label><input value={novoVeiculo.ano} onChange={(e) => setNovoVeiculo({ ...novoVeiculo, ano: e.target.value })} /></div>
+                  <div className={styles.field}><label>Modelo</label><input value={novoVeiculo.modelo} onChange={e => setNovoVeiculo({ ...novoVeiculo, modelo: e.target.value })} placeholder="Fiat Palio" /></div>
+                  <div className={styles.field}><label>Placa</label><input value={novoVeiculo.placa} onChange={e => setNovoVeiculo({ ...novoVeiculo, placa: e.target.value })} /></div>
+                  <div className={styles.field}><label>Ano</label><input value={novoVeiculo.ano} onChange={e => setNovoVeiculo({ ...novoVeiculo, ano: e.target.value })} /></div>
                 </div>
                 <div className={styles.inlineActions}>
                   <button className={styles.btnPrimary} onClick={() => { setVeiculos([...veiculos, novoVeiculo]); setNovoVeiculo({ modelo: '', placa: '', ano: '' }); setShowAddVeiculo(false); toast.success('Adicionado') }}>Salvar</button>
@@ -304,13 +603,16 @@ export function CadastroCandidato() {
           </>
         )
 
+      // ════════════════════════════════════════
+      // RENDA
+      // ════════════════════════════════════════
       case 'renda':
         return (
           <>
             <h2 className={styles.sectionTitle}>Renda Familiar</h2>
             <div className={styles.rendaBadge}><span>Renda média familiar cadastrada</span><div className={styles.rendaValue}>R$ {rendaMedia}</div></div>
             <div className={styles.listItems}>
-              {membros.map((m) => (
+              {membros.map(m => (
                 <div key={m.id} className={styles.listRow}>
                   <span className={styles.listName}>{m.nome}</span>
                   <div className={styles.indicators}><span className={styles.indicatorGreen} /><span className={m.renda ? styles.indicatorGreen : styles.indicatorYellow} /></div>
@@ -323,6 +625,9 @@ export function CadastroCandidato() {
           </>
         )
 
+      // ════════════════════════════════════════
+      // GASTOS
+      // ════════════════════════════════════════
       case 'gastos':
         return (
           <>
@@ -333,9 +638,7 @@ export function CadastroCandidato() {
             </div>
             <p className={styles.sectionSub}>Agora realize o cadastro para cada um dos meses abaixo, inserindo as informações correspondentes.</p>
             <div className={styles.mesesList}>
-              {getUltimosMeses().map(({ month, year }) => (
-                <button key={`${month}-${year}`} className={styles.btnMes}>{MESES_LABEL[month]} de {year}</button>
-              ))}
+              {getUltimosMeses().map(({ month, year }) => (<button key={`${month}-${year}`} className={styles.btnMes}>{MESES_LABEL[month]} de {year}</button>))}
             </div>
             <div className={styles.footerSplit}>
               <button className={styles.btnOutline}>Salvar</button>
@@ -344,26 +647,32 @@ export function CadastroCandidato() {
           </>
         )
 
+      // ════════════════════════════════════════
+      // SAÚDE
+      // ════════════════════════════════════════
       case 'saude':
         return (
           <>
             <h2 className={styles.sectionTitle}>Saúde</h2>
             <p className={styles.sectionSub}>Cadastre dados sobre a saúde de seu grupo familiar</p>
             <div className={styles.listItems}>
-              {membros.map((m) => (<div key={m.id} className={styles.listRow}><span className={styles.listName}>{m.nome}</span><button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button></div>))}
+              {membros.map(m => (<div key={m.id} className={styles.listRow}><span className={styles.listName}>{m.nome}</span><button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button></div>))}
               {membros.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
             </div>
             <div className={styles.footerCenter}><button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button></div>
           </>
         )
 
+      // ════════════════════════════════════════
+      // DECLARAÇÕES
+      // ════════════════════════════════════════
       case 'declaracoes':
         return (
           <>
             <h2 className={styles.sectionTitle}>Declarações para fins de processo seletivo CEBAS</h2>
             <div className={styles.listItems}>
               {dados.nome && (<div className={styles.listRow}><span className={styles.listName}>{dados.nome}</span><button type="button" className={styles.linkBtn}>VER DECLARAÇÃO</button><button className={styles.btnSmallOutline}>Cadastrar</button></div>)}
-              {membros.map((m) => (<div key={m.id} className={styles.listRow}><span className={styles.listName}>{m.nome}</span><button type="button" className={styles.linkBtn}>VER DECLARAÇÃO</button><button className={styles.btnSmallOutline}>Cadastrar</button></div>))}
+              {membros.map(m => (<div key={m.id} className={styles.listRow}><span className={styles.listName}>{m.nome}</span><button type="button" className={styles.linkBtn}>VER DECLARAÇÃO</button><button className={styles.btnSmallOutline}>Cadastrar</button></div>))}
             </div>
           </>
         )

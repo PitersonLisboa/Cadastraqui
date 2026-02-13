@@ -410,3 +410,39 @@
   white-space: nowrap;
   &:hover { background-color: #b71c1c; }
 }
+
+// ===== RADIO SIM/NÃO =====
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.25rem 0;
+}
+
+.radioLabel {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-primary-black);
+}
+
+.radioOptions {
+  display: flex;
+  gap: 1.5rem;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.9375rem;
+    color: var(--color-gray-600);
+    cursor: pointer;
+
+    input[type="radio"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--color-primary);
+    }
+  }
+}
