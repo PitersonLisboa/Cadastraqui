@@ -269,3 +269,71 @@ export async function meuPerfil(request: FastifyRequest, reply: FastifyReply) {
 
   return reply.status(200).send({ candidato })
 }
+
+// GET /candidatos/me — mesma lógica do meuPerfil mas resposta direta (sem wrapper)
+export async function meusDados(request: FastifyRequest, reply: FastifyReply) {
+  const candidato = await prisma.candidato.findUnique({
+    where: { usuarioId: request.usuario.id },
+    include: {
+      usuario: {
+        select: { id: true, email: true, ativo: true, criadoEm: true },
+      },
+      membrosFamilia: true,
+    },
+  })
+
+  if (!candidato) {
+    // Retornar null em vez de erro — permite que o frontend saiba que precisa criar
+    return reply.status(200).send(null)
+  }
+
+  return reply.status(200).send(candidato)
+}
+
+// PUT /candidatos/me — atualizar dados do próprio candidato
+export async function atualizarMeusDados(request: FastifyRequest, reply: FastifyReply) {
+  const dados = atualizarCandidatoSchema.parse(request.body)
+
+  let candidato = await prisma.candidato.findUnique({
+    where: { usuarioId: request.usuario.id },
+  })
+
+  if (!candidato) {
+    // Se candidato não existe ainda, criar com os dados fornecidos
+    const dadosCriacao = criarCandidatoSchema.parse(request.body)
+
+    // Verificar CPF
+    if (dadosCriacao.cpf) {
+      const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: dadosCriacao.cpf } })
+      if (cpfExistente) throw new CpfJaCadastradoError()
+    }
+
+    candidato = await prisma.candidato.create({
+      data: {
+        ...dadosCriacao,
+        usuarioId: request.usuario.id,
+        instituicaoId: request.usuario.instituicaoId || undefined,
+      } as any,
+    })
+
+    await prisma.usuario.update({
+      where: { id: request.usuario.id },
+      data: { primeiroAcesso: false },
+    })
+
+    return reply.status(201).send(candidato)
+  }
+
+  // Se alterando CPF, verificar duplicidade
+  if (dados.cpf && dados.cpf !== candidato.cpf) {
+    const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: dados.cpf } })
+    if (cpfExistente) throw new CpfJaCadastradoError()
+  }
+
+  const atualizado = await prisma.candidato.update({
+    where: { id: candidato.id },
+    data: dados,
+  })
+
+  return reply.status(200).send(atualizado)
+}
