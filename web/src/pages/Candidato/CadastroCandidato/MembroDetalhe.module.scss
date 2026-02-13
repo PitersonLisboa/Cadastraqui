@@ -1,0 +1,294 @@
+// =============================================
+// MEMBRO DETALHE — Drawer lateral
+// =============================================
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.drawer {
+  width: 560px;
+  max-width: 100vw;
+  height: 100%;
+  background-color: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.25s ease-out;
+
+  @media (max-width: 640px) {
+    width: 100vw;
+  }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+// ── Header ──
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-gray-200);
+  background-color: var(--color-primary);
+
+  h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+// ── Tabs ──
+
+.tabBar {
+  display: flex;
+  border-bottom: 2px solid var(--color-gray-200);
+  padding: 0 1rem;
+  background-color: var(--color-gray-50);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-gray-500);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+
+  &.tabActive {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+  }
+}
+
+// ── Body ──
+
+.drawerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+// ── Footer ──
+
+.drawerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-gray-200);
+}
+
+// ── Loading ──
+
+.loadingInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 1rem;
+  color: var(--color-gray-400);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-gray-200);
+  border-top: 3px solid var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+// ── Form ──
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formGridSingle {
+  max-width: 100%;
+  margin-bottom: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  &.fieldFull {
+    grid-column: 1 / -1;
+  }
+
+  label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-gray-600);
+  }
+
+  input, select, textarea {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--color-gray-300);
+    border-radius: var(--radius);
+    color: var(--color-primary-black);
+    background-color: var(--color-white);
+    font-family: inherit;
+    transition: border-color 0.2s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(31, 75, 115, 0.1);
+    }
+
+    &:disabled {
+      background-color: var(--color-gray-50);
+      color: var(--color-gray-600);
+    }
+  }
+
+  textarea {
+    resize: vertical;
+  }
+}
+
+.subTitle {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-primary-black);
+  margin: 1.25rem 0 0.75rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+// ── Radio ──
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin: 0.75rem 0;
+}
+
+.radioLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-primary-black);
+}
+
+.radioOptions {
+  display: flex;
+  gap: 1.25rem;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.875rem;
+    color: var(--color-gray-600);
+    cursor: pointer;
+
+    input[type="radio"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--color-primary);
+    }
+  }
+}
+
+// ── Buttons ──
+
+.btnOutline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  background-color: var(--color-white);
+  color: var(--color-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover { background-color: var(--color-primary-lighter); }
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: var(--radius);
+  background-color: var(--color-primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { background-color: var(--color-primary-dark); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.btnGhost {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--color-gray-500);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  &:hover { color: var(--color-primary-black); }
+}

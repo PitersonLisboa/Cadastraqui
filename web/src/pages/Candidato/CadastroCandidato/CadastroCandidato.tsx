@@ -6,6 +6,7 @@ import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
 import { api } from '@/services/api'
 import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
+import { MembroDetalhe } from './MembroDetalhe'
 import styles from './CadastroCandidato.module.scss'
 
 // ===========================================
@@ -195,6 +196,9 @@ export function CadastroCandidato() {
   const [rendaMedia, setRendaMedia] = useState('0,00')
   const [gastoUltimoMes] = useState('0,00')
   const [gastoMediaTrimestre] = useState('0,00')
+
+  // Membro selecionado para visualizar no drawer
+  const [membroAberto, setMembroAberto] = useState<string | null>(null)
 
   // Ativar modo cadastro ao montar
   useEffect(() => {
@@ -537,7 +541,7 @@ export function CadastroCandidato() {
               {membros.map(m => (
                 <div key={m.id} className={styles.listRow}>
                   <span className={styles.listName}>{m.nome}</span>
-                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
+                  <button className={styles.btnSmallOutline} onClick={() => setMembroAberto(m.id!)}><FiEye size={14} /> Visualizar</button>
                   <button className={styles.btnSmallDanger} onClick={() => handleRemoveMembro(m.id!)}><FiTrash2 size={14} /> Excluir</button>
                 </div>
               ))}
@@ -580,7 +584,7 @@ export function CadastroCandidato() {
               {veiculos.map((v, i) => (
                 <div key={i} className={styles.listRow}>
                   <span className={styles.listName}>{v.modelo}</span>
-                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
+                  <button className={styles.btnSmallOutline} onClick={() => setMembroAberto(m.id!)}><FiEye size={14} /> Visualizar</button>
                   <button className={styles.btnSmallDanger} onClick={() => { setVeiculos(veiculos.filter((_, j) => j !== i)); toast.success('Removido') }}><FiTrash2 size={14} /> Excluir</button>
                 </div>
               ))}
@@ -616,7 +620,7 @@ export function CadastroCandidato() {
                 <div key={m.id} className={styles.listRow}>
                   <span className={styles.listName}>{m.nome}</span>
                   <div className={styles.indicators}><span className={styles.indicatorGreen} /><span className={m.renda ? styles.indicatorGreen : styles.indicatorYellow} /></div>
-                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
+                  <button className={styles.btnSmallOutline} onClick={() => setMembroAberto(m.id!)}><FiEye size={14} /> Visualizar</button>
                 </div>
               ))}
               {membros.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
@@ -656,7 +660,7 @@ export function CadastroCandidato() {
             <h2 className={styles.sectionTitle}>Saúde</h2>
             <p className={styles.sectionSub}>Cadastre dados sobre a saúde de seu grupo familiar</p>
             <div className={styles.listItems}>
-              {membros.map(m => (<div key={m.id} className={styles.listRow}><span className={styles.listName}>{m.nome}</span><button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button></div>))}
+              {membros.map(m => (<div key={m.id} className={styles.listRow}><span className={styles.listName}>{m.nome}</span><button className={styles.btnSmallOutline} onClick={() => setMembroAberto(m.id!)}><FiEye size={14} /> Visualizar</button></div>))}
               {membros.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
             </div>
             <div className={styles.footerCenter}><button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button></div>
@@ -684,6 +688,15 @@ export function CadastroCandidato() {
   return (
     <div className={styles.pageContent}>
       {renderSection()}
+
+      {/* Drawer de detalhe do membro */}
+      {membroAberto && (
+        <MembroDetalhe
+          membroId={membroAberto}
+          onClose={() => setMembroAberto(null)}
+          onUpdate={() => carregarDados()}
+        />
+      )}
     </div>
   )
 }
