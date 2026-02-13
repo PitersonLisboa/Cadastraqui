@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRecoilValue, useSetRecoilState } from 'recoil'
 import { toast } from 'react-toastify'
-import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus } from 'react-icons/fi'
+import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
-import { api } from '@/services/api'
+import { api, rendaService, despesaService } from '@/services/api'
 import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
 import { MembroDetalhe } from './MembroDetalhe'
 import styles from './CadastroCandidato.module.scss'
@@ -146,6 +146,32 @@ interface DadosBeneficios {
 
 interface Membro { id?: string; nome: string; cpf: string; parentesco: string; renda?: number }
 interface Veiculo { id?: string; modelo: string; placa: string; ano: string }
+interface RendaMensalItem { id: string; mes: number; ano: number; valor: number; fonte?: string; descricao?: string }
+interface DespesaItem { id: string; mes: number; ano: number; categoria: string; descricao?: string; valor: number }
+
+const CATEGORIAS_DESPESA = [
+  { value: 'MORADIA', label: 'Moradia (aluguel, condomínio, IPTU)' },
+  { value: 'ALIMENTACAO', label: 'Alimentação' },
+  { value: 'TRANSPORTE', label: 'Transporte' },
+  { value: 'SAUDE', label: 'Saúde (plano, medicamentos)' },
+  { value: 'EDUCACAO', label: 'Educação' },
+  { value: 'LAZER', label: 'Lazer' },
+  { value: 'VESTUARIO', label: 'Vestuário' },
+  { value: 'OUTROS', label: 'Outros' },
+]
+
+const FONTES_RENDA = [
+  { value: 'CLT', label: 'CLT (carteira assinada)' },
+  { value: 'AUTONOMO', label: 'Trabalho autônomo' },
+  { value: 'APOSENTADORIA', label: 'Aposentadoria' },
+  { value: 'PENSAO', label: 'Pensão' },
+  { value: 'ALUGUEL', label: 'Renda de aluguel' },
+  { value: 'BENEFICIO', label: 'Benefício social' },
+  { value: 'INFORMAL', label: 'Trabalho informal' },
+  { value: 'OUTRO', label: 'Outra fonte' },
+]
+
+const formatCurrency = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // ===========================================
 // COMPONENTE
@@ -222,8 +248,26 @@ export function CadastroCandidato() {
 
   // --- Renda / Gastos ---
   const [rendaMedia, setRendaMedia] = useState('0,00')
-  const [gastoUltimoMes] = useState('0,00')
-  const [gastoMediaTrimestre] = useState('0,00')
+  const [rendaPerCapita, setRendaPerCapita] = useState('0,00')
+  const [membrosRenda, setMembrosRenda] = useState<any[]>([])
+  const [rendaDrawerMembro, setRendaDrawerMembro] = useState<string | null>(null)
+  const [rendaDrawerData, setRendaDrawerData] = useState<{ membro: any; rendas: RendaMensalItem[]; resumo: any } | null>(null)
+  const [rendaDrawerLoading, setRendaDrawerLoading] = useState(false)
+  const [showRendaForm, setShowRendaForm] = useState<string | null>(null) // mesKey  
+  const [novaRenda, setNovaRenda] = useState({ valor: '', fonte: '', descricao: '' })
+  const [savingRenda, setSavingRenda] = useState(false)
+
+  // Gastos
+  const [gastoUltimoMes, setGastoUltimoMes] = useState(0)
+  const [gastoMediaTrimestre, setGastoMediaTrimestre] = useState(0)
+  const [despesasPorMes, setDespesasPorMes] = useState<Record<string, { total: number; despesas: DespesaItem[] }>>({})
+  const [despesaDrawerMes, setDespesaDrawerMes] = useState<{ mes: number; ano: number } | null>(null)
+  const [despesaDrawerData, setDespesaDrawerData] = useState<DespesaItem[]>([])
+  const [despesaDrawerTotal, setDespesaDrawerTotal] = useState(0)
+  const [despesaDrawerLoading, setDespesaDrawerLoading] = useState(false)
+  const [showDespesaForm, setShowDespesaForm] = useState(false)
+  const [novaDespesa, setNovaDespesa] = useState({ categoria: '', descricao: '', valor: '' })
+  const [savingDespesa, setSavingDespesa] = useState(false)
 
   // Membro selecionado para visualizar no drawer
   const [membroAberto, setMembroAberto] = useState<string | null>(null)
@@ -255,6 +299,27 @@ export function CadastroCandidato() {
         setRendaMedia(c.rendaFamiliar ? Number(c.rendaFamiliar).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00')
       }
       try { const m = await api.get('/familia/membros'); setMembros(m.data.membros || []) } catch {}
+      // Carregar rendas
+      try {
+        const r = await rendaService.listar()
+        setMembrosRenda(r.membros || [])
+        setRendaMedia(formatCurrency(r.resumo?.rendaMediaMensal || 0))
+        setRendaPerCapita(formatCurrency(r.resumo?.rendaPerCapita || 0))
+      } catch {}
+      // Carregar despesas
+      try {
+        const d = await despesaService.listar()
+        setGastoUltimoMes(d.resumo?.ultimoMes || 0)
+        setGastoMediaTrimestre(d.resumo?.mediaTrimestre || 0)
+        // Montar mapa por mês
+        const porMes: Record<string, { total: number; despesas: DespesaItem[] }> = {}
+        if (d.resumo?.porMes) {
+          Object.entries(d.resumo.porMes).forEach(([chave, val]: [string, any]) => {
+            porMes[chave] = { total: val.total, despesas: val.despesas }
+          })
+        }
+        setDespesasPorMes(porMes)
+      } catch {}
     } catch {}
     finally { setLoading(false) }
   }
@@ -309,6 +374,95 @@ export function CadastroCandidato() {
   }
   const goToSection = (i: number) => {
     if (i >= 0 && i < SECTION_IDS.length) setSidebarMode({ mode: 'cadastro', activeSection: SECTION_IDS[i] })
+  }
+
+  // ── Renda Drawer ──
+  const abrirRendaDrawer = async (membroId: string) => {
+    setRendaDrawerMembro(membroId)
+    setRendaDrawerLoading(true)
+    try {
+      const res = await rendaService.doMembro(membroId)
+      setRendaDrawerData({
+        membro: res.membro,
+        rendas: res.rendas || [],
+        resumo: res.resumo,
+      })
+    } catch { toast.error('Erro ao carregar rendas') }
+    finally { setRendaDrawerLoading(false) }
+  }
+
+  const handleSalvarRenda = async (membroId: string, mes: number, ano: number) => {
+    const valor = parseFloat(novaRenda.valor.replace(/\./g, '').replace(',', '.'))
+    if (isNaN(valor) || valor < 0) return toast.error('Informe um valor válido')
+    setSavingRenda(true)
+    try {
+      await rendaService.salvar({
+        membroId, mes, ano, valor,
+        fonte: novaRenda.fonte || undefined,
+        descricao: novaRenda.descricao || undefined,
+      })
+      toast.success('Renda salva!')
+      setNovaRenda({ valor: '', fonte: '', descricao: '' })
+      setShowRendaForm(null)
+      abrirRendaDrawer(membroId)
+      carregarDados()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao salvar') }
+    finally { setSavingRenda(false) }
+  }
+
+  const handleExcluirRenda = async (rendaId: string, membroId: string) => {
+    if (!confirm('Excluir este registro de renda?')) return
+    try {
+      await rendaService.excluir(rendaId)
+      toast.success('Removido')
+      abrirRendaDrawer(membroId)
+      carregarDados()
+    } catch { toast.error('Erro ao remover') }
+  }
+
+  // ── Despesa Drawer ──
+  const abrirDespesaDrawer = async (mes: number, ano: number) => {
+    setDespesaDrawerMes({ mes, ano })
+    setDespesaDrawerLoading(true)
+    try {
+      const res = await despesaService.resumoMes(ano, mes)
+      setDespesaDrawerData(res.despesas || [])
+      setDespesaDrawerTotal(res.total || 0)
+    } catch { toast.error('Erro ao carregar despesas') }
+    finally { setDespesaDrawerLoading(false) }
+  }
+
+  const handleSalvarDespesa = async () => {
+    if (!despesaDrawerMes) return
+    const valor = parseFloat(novaDespesa.valor.replace(/\./g, '').replace(',', '.'))
+    if (isNaN(valor) || valor <= 0) return toast.error('Informe um valor válido')
+    if (!novaDespesa.categoria) return toast.error('Selecione uma categoria')
+    setSavingDespesa(true)
+    try {
+      await despesaService.criar({
+        mes: despesaDrawerMes.mes,
+        ano: despesaDrawerMes.ano,
+        categoria: novaDespesa.categoria,
+        descricao: novaDespesa.descricao || undefined,
+        valor,
+      })
+      toast.success('Despesa adicionada!')
+      setNovaDespesa({ categoria: '', descricao: '', valor: '' })
+      setShowDespesaForm(false)
+      abrirDespesaDrawer(despesaDrawerMes.mes, despesaDrawerMes.ano)
+      carregarDados()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao salvar') }
+    finally { setSavingDespesa(false) }
+  }
+
+  const handleExcluirDespesa = async (despesaId: string) => {
+    if (!despesaDrawerMes || !confirm('Excluir esta despesa?')) return
+    try {
+      await despesaService.excluir(despesaId)
+      toast.success('Removida')
+      abrirDespesaDrawer(despesaDrawerMes.mes, despesaDrawerMes.ano)
+      carregarDados()
+    } catch { toast.error('Erro ao remover') }
   }
 
   const getUltimosMeses = () => {
@@ -674,18 +828,136 @@ export function CadastroCandidato() {
         return (
           <>
             <h2 className={styles.sectionTitle}>Renda Familiar</h2>
-            <div className={styles.rendaBadge}><span>Renda média familiar cadastrada</span><div className={styles.rendaValue}>R$ {rendaMedia}</div></div>
-            <div className={styles.listItems}>
-              {membros.map(m => (
-                <div key={m.id} className={styles.listRow}>
-                  <span className={styles.listName}>{m.nome}</span>
-                  <div className={styles.indicators}><span className={styles.indicatorGreen} /><span className={m.renda ? styles.indicatorGreen : styles.indicatorYellow} /></div>
-                  <button className={styles.btnSmallOutline} onClick={() => setMembroAberto(m.id!)}><FiEye size={14} /> Visualizar</button>
-                </div>
-              ))}
-              {membros.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
+            <div className={styles.rendaCards}>
+              <div className={styles.rendaCard}>
+                <span className={styles.rendaCardLabel}>Renda média mensal</span>
+                <span className={styles.rendaCardValue}>R$ {rendaMedia}</span>
+              </div>
+              <div className={styles.rendaCard}>
+                <span className={styles.rendaCardLabel}>Renda per capita</span>
+                <span className={styles.rendaCardValue}>R$ {rendaPerCapita}</span>
+              </div>
             </div>
-            <div className={styles.footerCenter}><button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button></div>
+
+            <p className={styles.sectionSub}>Clique em cada membro para registrar a renda mensal dos últimos 3 meses.</p>
+
+            <div className={styles.listItems}>
+              {membrosRenda.map((m: any) => {
+                const ultimaRenda = m.rendaMensal?.[0]
+                return (
+                  <div key={m.id} className={styles.membroRendaRow} onClick={() => abrirRendaDrawer(m.id)} style={{ cursor: 'pointer' }}>
+                    <FiDollarSign size={18} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                    <div className={styles.membroInfo}>
+                      <span className={styles.membroNome}>{m.nome}</span>
+                      <span className={styles.membroMeta}>{m.parentesco}{m.ocupacao ? ` · ${m.ocupacao}` : ''}</span>
+                    </div>
+                    <span className={styles.membroRenda}>
+                      {ultimaRenda ? `R$ ${formatCurrency(Number(ultimaRenda.valor))}` : 'Sem registro'}
+                    </span>
+                    <div className={styles.indicators}>
+                      <span className={m.rendaMensal?.length > 0 ? styles.indicatorGreen : styles.indicatorYellow} />
+                    </div>
+                  </div>
+                )
+              })}
+              {membrosRenda.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
+            </div>
+            <div className={styles.footerCenter}>
+              <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
+            </div>
+
+            {/* Drawer de Renda por Membro */}
+            {rendaDrawerMembro && (
+              <div className={styles.rendaDrawerOverlay} onClick={() => { setRendaDrawerMembro(null); setRendaDrawerData(null) }}>
+                <div className={styles.rendaDrawer} onClick={e => e.stopPropagation()}>
+                  <div className={styles.rendaDrawerHeader}>
+                    <h3>{rendaDrawerData?.membro?.nome || 'Renda'}</h3>
+                    <button className={styles.btnGhost} onClick={() => { setRendaDrawerMembro(null); setRendaDrawerData(null) }}><FiX size={20} /></button>
+                  </div>
+
+                  <div className={styles.rendaDrawerBody}>
+                    {rendaDrawerLoading ? (
+                      <div className={styles.loadingContainer}><div className={styles.spinner} /></div>
+                    ) : (
+                      <>
+                        {rendaDrawerData?.resumo && (
+                          <div className={styles.rendaBadge} style={{ marginBottom: '1.25rem' }}>
+                            <span>Média mensal:</span>
+                            <div className={styles.rendaValue}>R$ {formatCurrency(rendaDrawerData.resumo.mediaRenda)}</div>
+                          </div>
+                        )}
+
+                        {getUltimosMeses().map(({ month, year }) => {
+                          const mesKey = `${year}-${month}`
+                          const rendaExistente = rendaDrawerData?.rendas?.find(r => r.mes === month && r.ano === year)
+                          const expanded = showRendaForm === mesKey
+
+                          return (
+                            <div key={mesKey} className={styles.rendaMesCard}>
+                              <div className={styles.rendaMesHeader} onClick={() => setShowRendaForm(expanded ? null : mesKey)}>
+                                <span>{MESES_LABEL[month]} de {year}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {rendaExistente && (
+                                    <span className={styles.rendaMesValor}>R$ {formatCurrency(Number(rendaExistente.valor))}</span>
+                                  )}
+                                  {expanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                                </div>
+                              </div>
+
+                              {expanded && (
+                                <div className={styles.rendaMesBody}>
+                                  {rendaExistente && (
+                                    <div style={{ marginBottom: '0.75rem' }}>
+                                      <div className={styles.despesaItem}>
+                                        <div className={styles.despesaItemInfo}>
+                                          <span className={styles.despesaItemDesc}>{rendaExistente.fonte || 'Sem fonte especificada'}</span>
+                                          {rendaExistente.descricao && <span className={styles.membroMeta}>{rendaExistente.descricao}</span>}
+                                        </div>
+                                        <span className={styles.despesaItemValor}>R$ {formatCurrency(Number(rendaExistente.valor))}</span>
+                                        <button className={styles.btnSmallDanger} onClick={() => handleExcluirRenda(rendaExistente.id, rendaDrawerMembro!)}><FiTrash2 size={12} /></button>
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  <div className={styles.rendaInlineForm}>
+                                    <div className={styles.rendaInlineRow}>
+                                      <div className={styles.field}>
+                                        <label>Valor (R$)</label>
+                                        <input value={novaRenda.valor} placeholder="0,00" onChange={e => setNovaRenda({ ...novaRenda, valor: e.target.value })} />
+                                      </div>
+                                      <div className={styles.field}>
+                                        <label>Fonte de renda</label>
+                                        <select value={novaRenda.fonte} onChange={e => setNovaRenda({ ...novaRenda, fonte: e.target.value })}>
+                                          <option value="">Selecione...</option>
+                                          {FONTES_RENDA.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                                        </select>
+                                      </div>
+                                    </div>
+                                    <div className={styles.field}>
+                                      <label>Descrição (opcional)</label>
+                                      <input value={novaRenda.descricao} placeholder="Ex: Salário empresa X" onChange={e => setNovaRenda({ ...novaRenda, descricao: e.target.value })} />
+                                    </div>
+                                    <div className={styles.inlineActions}>
+                                      <button className={styles.btnPrimary} disabled={savingRenda} onClick={() => handleSalvarRenda(rendaDrawerMembro!, month, year)}>
+                                        {savingRenda ? 'Salvando...' : rendaExistente ? 'Atualizar' : 'Salvar'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </>
+                    )}
+                  </div>
+
+                  <div className={styles.rendaDrawerFooter}>
+                    <button className={styles.btnGhost} onClick={() => { setRendaDrawerMembro(null); setRendaDrawerData(null) }}>Fechar</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )
 
@@ -697,17 +969,125 @@ export function CadastroCandidato() {
           <>
             <h2 className={styles.sectionTitle}>Despesas Mensais</h2>
             <div className={styles.gastosCards}>
-              <div className={styles.gastoCard}><span className={styles.gastoLabel}>Último mês</span><span className={styles.gastoValor}>R$ {gastoUltimoMes}</span></div>
-              <div className={styles.gastoCard}><span className={styles.gastoLabel}>Média do trimestre</span><span className={styles.gastoValor}>R$ {gastoMediaTrimestre}</span></div>
+              <div className={styles.gastoCard}><span className={styles.gastoLabel}>Último mês</span><span className={styles.gastoValor}>R$ {formatCurrency(gastoUltimoMes)}</span></div>
+              <div className={styles.gastoCard}><span className={styles.gastoLabel}>Média do trimestre</span><span className={styles.gastoValor}>R$ {formatCurrency(gastoMediaTrimestre)}</span></div>
             </div>
-            <p className={styles.sectionSub}>Agora realize o cadastro para cada um dos meses abaixo, inserindo as informações correspondentes.</p>
+            <p className={styles.sectionSub}>Clique em cada mês para cadastrar suas despesas por categoria.</p>
             <div className={styles.mesesList}>
-              {getUltimosMeses().map(({ month, year }) => (<button key={`${month}-${year}`} className={styles.btnMes}>{MESES_LABEL[month]} de {year}</button>))}
+              {getUltimosMeses().map(({ month, year }) => {
+                const chave = `${year}-${String(month).padStart(2, '0')}`
+                const mesData = despesasPorMes[chave]
+                return (
+                  <button key={chave} className={styles.btnMes} onClick={() => abrirDespesaDrawer(month, year)}>
+                    <span>{MESES_LABEL[month]} de {year}</span>
+                    {mesData && <span className={styles.btnMesTotal}>R$ {formatCurrency(mesData.total)}</span>}
+                  </button>
+                )
+              })}
             </div>
             <div className={styles.footerSplit}>
-              <button className={styles.btnOutline}>Salvar</button>
+              <div />
               <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
             </div>
+
+            {/* Drawer de Despesas por Mês */}
+            {despesaDrawerMes && (
+              <div className={styles.despesaDrawerOverlay} onClick={() => { setDespesaDrawerMes(null); setDespesaDrawerData([]) }}>
+                <div className={styles.despesaDrawer} onClick={e => e.stopPropagation()}>
+                  <div className={styles.despesaDrawerHeader}>
+                    <h3>Despesas — {MESES_LABEL[despesaDrawerMes.mes]} de {despesaDrawerMes.ano}</h3>
+                    <button className={styles.btnGhost} onClick={() => { setDespesaDrawerMes(null); setDespesaDrawerData([]) }}><FiX size={20} /></button>
+                  </div>
+
+                  <div className={styles.despesaDrawerBody}>
+                    {despesaDrawerLoading ? (
+                      <div className={styles.loadingContainer}><div className={styles.spinner} /></div>
+                    ) : (
+                      <>
+                        <div className={styles.despesaTotalCard}>
+                          <span>Total do mês</span>
+                          <strong>R$ {formatCurrency(despesaDrawerTotal)}</strong>
+                        </div>
+
+                        {/* Despesas agrupadas por categoria */}
+                        {(() => {
+                          const porCat: Record<string, DespesaItem[]> = {}
+                          despesaDrawerData.forEach(d => {
+                            if (!porCat[d.categoria]) porCat[d.categoria] = []
+                            porCat[d.categoria].push(d)
+                          })
+                          return Object.entries(porCat).map(([cat, itens]) => {
+                            const catLabel = CATEGORIAS_DESPESA.find(c => c.value === cat)?.label || cat
+                            const catTotal = itens.reduce((acc, d) => acc + Number(d.valor), 0)
+                            return (
+                              <div key={cat} className={styles.categoriaGroup}>
+                                <div className={styles.categoriaHeader}>
+                                  <span className={styles.categoriaTitle}>{catLabel}</span>
+                                  <span className={styles.categoriaTotal}>R$ {formatCurrency(catTotal)}</span>
+                                </div>
+                                {itens.map(d => (
+                                  <div key={d.id} className={styles.despesaItem}>
+                                    <div className={styles.despesaItemInfo}>
+                                      <span className={styles.despesaItemDesc}>{d.descricao || catLabel}</span>
+                                    </div>
+                                    <span className={styles.despesaItemValor}>R$ {formatCurrency(Number(d.valor))}</span>
+                                    <button className={styles.btnSmallDanger} onClick={() => handleExcluirDespesa(d.id)}><FiTrash2 size={12} /></button>
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          })
+                        })()}
+
+                        {despesaDrawerData.length === 0 && <p className={styles.emptyMsg}>Nenhuma despesa cadastrada para este mês.</p>}
+
+                        {/* Botão adicionar */}
+                        {!showDespesaForm && (
+                          <div className={styles.centeredActions} style={{ marginTop: '1rem' }}>
+                            <button className={styles.btnOutline} onClick={() => setShowDespesaForm(true)}>
+                              <FiPlus size={14} /> Adicionar Despesa
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Form inline */}
+                        {showDespesaForm && (
+                          <div className={styles.despesaInlineForm}>
+                            <div className={styles.despesaFormRow}>
+                              <div className={styles.field}>
+                                <label>Categoria</label>
+                                <select value={novaDespesa.categoria} onChange={e => setNovaDespesa({ ...novaDespesa, categoria: e.target.value })}>
+                                  <option value="">Selecione...</option>
+                                  {CATEGORIAS_DESPESA.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                                </select>
+                              </div>
+                              <div className={styles.field}>
+                                <label>Valor (R$)</label>
+                                <input value={novaDespesa.valor} placeholder="0,00" onChange={e => setNovaDespesa({ ...novaDespesa, valor: e.target.value })} />
+                              </div>
+                            </div>
+                            <div className={styles.field}>
+                              <label>Descrição (opcional)</label>
+                              <input value={novaDespesa.descricao} placeholder="Ex: Aluguel apartamento" onChange={e => setNovaDespesa({ ...novaDespesa, descricao: e.target.value })} />
+                            </div>
+                            <div className={styles.inlineActions}>
+                              <button className={styles.btnPrimary} disabled={savingDespesa} onClick={handleSalvarDespesa}>
+                                {savingDespesa ? 'Salvando...' : 'Salvar'}
+                              </button>
+                              <button className={styles.btnGhost} onClick={() => setShowDespesaForm(false)}>Cancelar</button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  <div className={styles.despesaDrawerFooter}>
+                    <button className={styles.btnGhost} onClick={() => { setDespesaDrawerMes(null); setDespesaDrawerData([]) }}>Fechar</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )
 

@@ -637,3 +637,73 @@ export const tenantService = {
     return response.data
   },
 }
+
+// ===========================================
+// SERVIÇOS DE RENDA
+// ===========================================
+
+export const rendaService = {
+  listar: async (params?: { mes?: number; ano?: number }) => {
+    const response = await api.get('/rendas', { params })
+    return response.data
+  },
+
+  salvar: async (data: {
+    membroId: string
+    mes: number
+    ano: number
+    valor: number
+    fonte?: string
+    descricao?: string
+  }) => {
+    const response = await api.post('/rendas', data)
+    return response.data
+  },
+
+  excluir: async (id: string) => {
+    const response = await api.delete(`/rendas/${id}`)
+    return response.data
+  },
+
+  doMembro: async (membroId: string) => {
+    const response = await api.get(`/rendas/membro/${membroId}`)
+    return response.data
+  },
+}
+
+// ===========================================
+// SERVIÇOS DE DESPESA
+// ===========================================
+
+export const despesaService = {
+  listar: async (params?: { mes?: number; ano?: number }) => {
+    const response = await api.get('/despesas', { params })
+    return response.data
+  },
+
+  criar: async (data: {
+    mes: number
+    ano: number
+    categoria: string
+    descricao?: string
+    valor: number
+  }) => {
+    const response = await api.post('/despesas', data)
+    return response.data
+  },
+
+  atualizar: async (id: string, data: any) => {
+    const response = await api.put(`/despesas/${id}`, data)
+    return response.data
+  },
+
+  excluir: async (id: string) => {
+    const response = await api.delete(`/despesas/${id}`)
+    return response.data
+  },
+
+  resumoMes: async (ano: number, mes: number) => {
+    const response = await api.get(`/despesas/${ano}/${mes}`)
+    return response.data
+  },
+}

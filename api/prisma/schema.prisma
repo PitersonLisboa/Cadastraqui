@@ -180,6 +180,7 @@ model Candidato {
   documentos        Documento[]
   candidaturas      Candidatura[]
   membrosFamilia    MembroFamilia[]
+  despesas          DespesaMensal[]
 
   @@map("candidatos")
 }
@@ -192,6 +193,54 @@ model MembroFamilia {
   parentesco      String
   renda           Decimal?
   ocupacao        String?
+  fonteRenda      String?
+  
+  candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId     String
+  
+  rendaMensal     RendaMensal[]
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("membros_familia")
+}
+
+// ===========================================
+// RENDA MENSAL (detalhamento por mês/membro)
+// ===========================================
+
+model RendaMensal {
+  id              String   @id @default(uuid())
+  mes             Int      // 1-12
+  ano             Int
+  valor           Decimal
+  fonte           String?  // CLT, Autônomo, Aposentadoria, Pensão, etc.
+  descricao       String?
+  comprovante     String?  // URL do comprovante
+  
+  membro          MembroFamilia @relation(fields: [membroId], references: [id], onDelete: Cascade)
+  membroId        String
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@unique([membroId, mes, ano])
+  @@map("rendas_mensais")
+}
+
+// ===========================================
+// DESPESA MENSAL (gastos familiares por mês)
+// ===========================================
+
+model DespesaMensal {
+  id              String   @id @default(uuid())
+  mes             Int      // 1-12
+  ano             Int
+  categoria       String   // MORADIA, ALIMENTACAO, TRANSPORTE, SAUDE, EDUCACAO, LAZER, VESTUARIO, OUTROS
+  descricao       String?
+  valor           Decimal
+  comprovante     String?  // URL do comprovante
   
   candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
   candidatoId     String
@@ -199,7 +248,7 @@ model MembroFamilia {
   criadoEm        DateTime @default(now())
   atualizadoEm    DateTime @updatedAt
 
-  @@map("membros_familia")
+  @@map("despesas_mensais")
 }
 
 // ===========================================

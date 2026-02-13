@@ -20,6 +20,8 @@ import { familiaRoutes } from './familia.routes'
 import { conviteRoutes } from './convite.routes'
 import { tenantRoutes } from './tenant.routes'
 import { painelRoutes } from './painel.routes'
+import { rendaRoutes } from './renda.routes'
+import { despesaRoutes } from './despesa.routes'
 
 export async function registerRoutes(app: FastifyInstance) {
   // Rota de health check
@@ -51,4 +53,6 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(familiaRoutes)
   await app.register(conviteRoutes)
   await app.register(painelRoutes)
+  await app.register(rendaRoutes)
+  await app.register(despesaRoutes)
 }
