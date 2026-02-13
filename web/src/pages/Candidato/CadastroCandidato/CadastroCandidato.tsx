@@ -195,6 +195,7 @@ export function CadastroCandidato() {
     email: '', rg: '', rgEstado: '', rgOrgao: '',
   })
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [docFile, setDocFile] = useState<File | null>(null)
 
   // --- Endereço (step 2) ---
   const [endereco, setEndereco] = useState<DadosEndereco>({
@@ -532,7 +533,6 @@ export function CadastroCandidato() {
                   <div className={styles.field}><label>CPF</label><input value={dados.cpf} disabled={!editMode} onChange={e => setDados({ ...dados, cpf: maskCPF(e.target.value) })} /></div>
                   <div className={styles.field}><label>Data de nascimento</label><input type="date" value={dados.dataNascimento} disabled={!editMode} onChange={e => setDados({ ...dados, dataNascimento: e.target.value })} /></div>
                   <div className={styles.field}><label>Telefone</label><input value={dados.telefone} disabled={!editMode} onChange={e => setDados({ ...dados, telefone: maskPhone(e.target.value) })} /></div>
-                  <div className={styles.field}><label>Email</label><input value={dados.email} disabled /></div>
                   <div className={styles.field}><label>RG/RNE</label><input value={dados.rg} disabled={!editMode} onChange={e => setDados({ ...dados, rg: e.target.value })} /></div>
                   <div className={styles.field}><label>Estado emissor do RG/RNE</label>
                     <select value={dados.rgEstado} disabled={!editMode} onChange={e => setDados({ ...dados, rgEstado: e.target.value })}>
@@ -543,8 +543,8 @@ export function CadastroCandidato() {
                 </div>
                 <div className={styles.fieldWide}>
                   <label>Documento de identificação</label>
-                  <div className={styles.fileUpload} onClick={() => editMode && fileInputRef.current?.click()}><span>Anexar arquivo</span><FiPlus size={16} /></div>
-                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} />
+                  <div className={styles.fileUpload} onClick={() => editMode && fileInputRef.current?.click()}><span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiPlus size={16} /></div>
+                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setDocFile(e.target.files[0]) }} />
                   <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
                   <button type="button" className={styles.linkBtn}>VISUALIZAR DOCUMENTO</button>
                 </div>

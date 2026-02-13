@@ -162,6 +162,9 @@ model Candidato {
   estadoCivil       String?
   profissao         String?
   rendaFamiliar     Decimal?
+  rg                String?
+  rgEstado          String?
+  rgOrgao           String?
   
   criadoEm          DateTime @default(now())
   atualizadoEm      DateTime @updatedAt
