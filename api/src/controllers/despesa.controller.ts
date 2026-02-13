@@ -95,7 +95,7 @@ export async function criarDespesa(request: FastifyRequest, reply: FastifyReply)
       categoria: dados.categoria,
       descricao: dados.descricao,
       valor: dados.valor,
-      candidatoId: candidato.id,
+      candidato: { connect: { id: candidato.id } },
     },
   })
 

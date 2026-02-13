@@ -56,7 +56,13 @@ export async function listarMembros(request: FastifyRequest, reply: FastifyReply
 
 // Adicionar membro
 export async function adicionarMembro(request: FastifyRequest, reply: FastifyReply) {
-  const dados = criarMembroSchema.parse(request.body)
+  let dados: any
+  try {
+    dados = criarMembroSchema.parse(request.body)
+  } catch (err: any) {
+    const issues = err.issues?.map((i: any) => `${i.path.join('.')}: ${i.message}`) || []
+    return reply.status(400).send({ message: 'Erro de validação', errors: issues })
+  }
 
   const candidato = await prisma.candidato.findUnique({
     where: { usuarioId: request.usuario.id },
@@ -66,14 +72,24 @@ export async function adicionarMembro(request: FastifyRequest, reply: FastifyRep
     throw new CandidatoNaoEncontradoError()
   }
 
-  const membro = await prisma.membroFamilia.create({
-    data: {
-      ...dados,
-      candidatoId: candidato.id,
-    } as any,
-  })
+  try {
+    const membro = await prisma.membroFamilia.create({
+      data: {
+        nome: dados.nome,
+        parentesco: dados.parentesco,
+        cpf: dados.cpf || undefined,
+        dataNascimento: dados.dataNascimento || undefined,
+        renda: dados.renda != null ? dados.renda : undefined,
+        ocupacao: dados.ocupacao || undefined,
+        candidato: { connect: { id: candidato.id } },
+      },
+    })
 
-  return reply.status(201).send({ membro })
+    return reply.status(201).send({ membro })
+  } catch (error: any) {
+    console.error('Erro ao adicionar membro:', error.message, error.code, error.meta)
+    return reply.status(500).send({ message: 'Erro ao adicionar membro', detail: error.message })
+  }
 }
 
 // Buscar membro

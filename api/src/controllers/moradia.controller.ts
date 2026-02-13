@@ -24,11 +24,19 @@ export async function salvarMoradia(request: FastifyRequest, reply: FastifyReply
   const candidato = await prisma.candidato.findUnique({ where: { usuarioId: request.usuario.id } })
   if (!candidato) throw new CandidatoNaoEncontradoError()
 
-  const moradia = await prisma.moradia.upsert({
-    where: { candidatoId: candidato.id },
-    update: dados,
-    create: { ...dados, candidatoId: candidato.id },
-  })
+  try {
+    const moradia = await prisma.moradia.upsert({
+      where: { candidatoId: candidato.id },
+      update: dados,
+      create: {
+        ...dados,
+        candidato: { connect: { id: candidato.id } },
+      },
+    })
 
-  return reply.status(200).send(moradia)
+    return reply.status(200).send(moradia)
+  } catch (error: any) {
+    console.error('Erro ao salvar moradia:', error.message, error.code, error.meta)
+    return reply.status(500).send({ message: 'Erro ao salvar moradia', detail: error.message })
+  }
 }

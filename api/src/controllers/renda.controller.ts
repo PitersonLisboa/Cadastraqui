@@ -108,12 +108,12 @@ export async function salvarRenda(request: FastifyRequest, reply: FastifyReply) 
     },
     update: { valor: dados.valor, fonte: dados.fonte, descricao: dados.descricao },
     create: {
-      membroId: dados.membroId,
       mes: dados.mes,
       ano: dados.ano,
       valor: dados.valor,
       fonte: dados.fonte,
       descricao: dados.descricao,
+      membro: { connect: { id: dados.membroId } },
     },
   })
 
