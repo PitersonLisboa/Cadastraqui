@@ -45,6 +45,13 @@ app.register(multipart, {
   },
 })
 
+// Servir arquivos estáticos (uploads de logos, documentos, etc.)
+app.register(fastifyStatic, {
+  root: path.resolve(process.cwd(), 'uploads'),
+  prefix: '/uploads/',
+  decorateReply: false,
+})
+
 // Registrar rotas
 app.register(registerRoutes)
 

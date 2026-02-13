@@ -54,6 +54,22 @@ async function main() {
   console.log(`   ✓ Admin criado: ${admin.email}`)
 
   // =============================================
+  // 1b. EQUIPE CADASTRAQUI (gestão do portfólio)
+  // =============================================
+  console.log('\n🔧 Criando Equipe Cadastraqui...')
+  const equipeCadastraqui = await prisma.usuario.create({
+    data: {
+      nome: 'Equipe Cadastraqui',
+      email: 'instituicao@cadastraqui.com.br',
+      senha: senhaHash,
+      role: 'INSTITUICAO',
+      ativo: true,
+      instituicaoId: null, // Sem vínculo — vê todas as instituições
+    },
+  })
+  console.log(`   ✓ Equipe Cadastraqui: ${equipeCadastraqui.email}`)
+
+  // =============================================
   // 2. INSTITUIÇÃO + TENANT (PUCMinas)
   // =============================================
   console.log('\n🏛️  Criando Instituição PUCMinas...')
@@ -571,6 +587,7 @@ async function main() {
   console.log(`   🏛️  Tenant 1: ${tenant.slug} (${tenant.nome})`)
   console.log(`   🏛️  Tenant 2: ${tenantMetodista.slug} (${tenantMetodista.nome})`)
   console.log(`   👤 Admin: admin@teste.com`)
+  console.log(`   🔧 Equipe Cadastraqui: instituicao@cadastraqui.com.br`)
   console.log(`   🏛️  Instituição 1: instituicao@pucminas.br`)
   console.log(`   🏛️  Instituição 2: instituicao@metodista.br`)
   console.log(`   ⚖️  Advogado: advogado@teste.com`)
