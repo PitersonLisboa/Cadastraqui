@@ -14,6 +14,10 @@ import { GestaoInstituicoes } from './pages/Admin/Instituicoes/GestaoInstituicoe
 import { LogsAtividade } from './pages/Admin/Logs/LogsAtividade'
 import { Configuracoes } from './pages/Admin/Configuracoes/Configuracoes'
 
+// Painel Cadastraqui (gestão do portfólio)
+import { LoginPainel } from './pages/Painel/Login/LoginPainel'
+import { DashboardPainel } from './pages/Painel/Dashboard/DashboardPainel'
+
 // Candidato
 import { DashboardCandidato } from './pages/Candidato/Dashboard/DashboardCandidato'
 import { CadastroCandidato } from './pages/Candidato/CadastroCandidato/CadastroCandidato'
@@ -82,7 +86,7 @@ function AlunoEmBreve() {
         style={{
           display: 'inline-block',
           padding: '0.625rem 1.5rem',
-          backgroundColor: '#1e40af',
+          backgroundColor: '#1F4B73',
           color: '#fff',
           borderRadius: '0.375rem',
           textDecoration: 'none',
@@ -133,7 +137,7 @@ const candidatoChildren = [
   { path: 'perfil', element: <Perfil /> },
 ]
 
-const instituicaoChildren = [
+const instituicaoTenantChildren = [
   { index: true, element: <DashboardInstituicao /> },
   { path: 'cadastro', element: <CadastroInstituicao /> },
   { path: 'editais', element: <ListaEditais /> },
@@ -186,7 +190,17 @@ export const router = createBrowserRouter([
   { path: '/esqueci-senha', element: <EsqueciSenha /> },
   { path: '/redefinir-senha', element: <RedefinirSenha /> },
 
-  // Admin (acesso global, sem tenant)
+  // =========================================
+  // PAINEL CADASTRAQUI (gestão do portfólio)
+  // /instituicao → login da equipe
+  // /painel → dashboard panorâmica
+  // =========================================
+  { path: '/instituicao', element: <LoginPainel /> },
+  { path: '/painel', element: <DashboardPainel /> },
+
+  // =========================================
+  // ADMIN (acesso global, sem tenant)
+  // =========================================
   {
     path: '/admin',
     element: <Layout />,
@@ -221,11 +235,11 @@ export const router = createBrowserRouter([
       // Candidato
       { path: 'candidato', element: <Layout />, children: candidatoChildren },
 
-      // Aluno (em breve — redireciona de volta ao login)
+      // Aluno (em breve)
       { path: 'aluno', element: <AlunoEmBreve /> },
 
-      // Instituição
-      { path: 'instituicao', element: <Layout />, children: instituicaoChildren },
+      // Instituição (dentro do tenant)
+      { path: 'instituicao', element: <Layout />, children: instituicaoTenantChildren },
 
       // Assistente Social
       { path: 'assistente-social', element: <Layout />, children: assistenteSocialChildren },
@@ -241,14 +255,14 @@ export const router = createBrowserRouter([
   {
     path: '*',
     element: (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
         height: '100vh',
         textAlign: 'center',
-        padding: '2rem'
+        padding: '2rem',
       }}>
         <h1 style={{ fontSize: '4rem', marginBottom: '1rem' }}>404</h1>
         <p style={{ fontSize: '1.25rem', color: '#6b7280', marginBottom: '2rem' }}>
