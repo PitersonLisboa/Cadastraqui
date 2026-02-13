@@ -3,6 +3,7 @@ import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { prisma } from '../lib/prisma'
 import { NaoAutorizadoError } from '../errors/index'
+import { UF } from '@prisma/client'
 
 // ===========================================
 // HELPER: Verificar se é equipe Cadastraqui
@@ -270,7 +271,7 @@ const editarInstituicaoSchema = z.object({
   complemento: z.string().optional(),
   bairro: z.string().optional(),
   cidade: z.string().optional(),
-  uf: z.string().optional(),
+  uf: z.nativeEnum(UF).optional(),
   codigoMEC: z.string().optional(),
   tipoInstituicao: z.string().optional(),
   status: z.string().optional(),
