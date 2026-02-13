@@ -89,6 +89,30 @@ const STATUS_MORADIA = [
   { value: 'OUTROS', label: 'Outros' },
 ]
 
+const TIPO_MORADIA = [
+  { value: 'CASA', label: 'Casa' },
+  { value: 'APARTAMENTO', label: 'Apartamento' },
+  { value: 'KITNET', label: 'Kitnet' },
+  { value: 'QUARTO', label: 'Quarto' },
+  { value: 'OUTROS', label: 'Outros' },
+]
+
+const TEMPO_MORADIA = [
+  { value: 'MENOS_1', label: 'Menos de 1 ano' },
+  { value: '1_A_5', label: 'De 1 a 5 anos' },
+  { value: '5_A_10', label: 'De 5 a 10 anos' },
+  { value: '10_A_20', label: 'De 10 a 20 anos' },
+  { value: 'MAIS_20', label: 'Mais de 20 anos' },
+]
+
+const QTD_COMODOS = [
+  { value: '1', label: 'Um' }, { value: '2', label: 'Dois' },
+  { value: '3', label: 'Três' }, { value: '4', label: 'Quatro' },
+  { value: '5', label: 'Cinco' }, { value: '6', label: 'Seis' },
+  { value: '7', label: 'Sete' }, { value: '8', label: 'Oito' },
+  { value: '9', label: 'Nove' }, { value: '10+', label: 'Dez ou mais' },
+]
+
 const MESES_LABEL: Record<number, string> = {
   1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
   5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
@@ -186,6 +210,10 @@ export function CadastroCandidato() {
   // --- Moradia ---
   const [subStepMoradia, setSubStepMoradia] = useState(0)
   const [statusMoradia, setStatusMoradia] = useState('')
+  const [tipoMoradia, setTipoMoradia] = useState('')
+  const [tempoMoradia, setTempoMoradia] = useState('')
+  const [qtdComodos, setQtdComodos] = useState('')
+  const [qtdDormitorios, setQtdDormitorios] = useState('')
 
   // --- Veículo ---
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
@@ -559,16 +587,48 @@ export function CadastroCandidato() {
           <>
             <StepperBar totalSteps={2} currentStep={subStepMoradia} onStepClick={setSubStepMoradia} />
             <h2 className={styles.sectionTitle}>Status da Propriedade</h2>
-            <div className={styles.formGridSingle}>
-              <div className={styles.field}><label>Status</label>
-                <select value={statusMoradia} onChange={e => setStatusMoradia(e.target.value)}>
-                  <option value="">Selecione...</option>{STATUS_MORADIA.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
+
+            {subStepMoradia === 0 ? (
+              /* ─── Step 1: Status da propriedade ─── */
+              <div className={styles.formGridSingle}>
+                <div className={styles.field}><label>Status</label>
+                  <select value={statusMoradia} onChange={e => setStatusMoradia(e.target.value)}>
+                    <option value="">Selecione...</option>{STATUS_MORADIA.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* ─── Step 2: Detalhes da moradia ─── */
+              <div className={styles.formGridSingle}>
+                <div className={styles.field}><label>Status</label>
+                  <select value={tipoMoradia} onChange={e => setTipoMoradia(e.target.value)}>
+                    <option value="">Selecione...</option>{TIPO_MORADIA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div className={styles.field}><label>Tempo vivendo na propriedade</label>
+                  <select value={tempoMoradia} onChange={e => setTempoMoradia(e.target.value)}>
+                    <option value="">Selecione...</option>{TEMPO_MORADIA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div className={styles.field}><label>Quantidade de cômodos</label>
+                  <select value={qtdComodos} onChange={e => setQtdComodos(e.target.value)}>
+                    <option value="">Selecione...</option>{QTD_COMODOS.map(q => <option key={q.value} value={q.value}>{q.label}</option>)}
+                  </select>
+                </div>
+                <div className={styles.field}><label>Quantos cômodos estão servindo permanentemente como dormitórios?</label>
+                  <input type="number" min="0" value={qtdDormitorios} onChange={e => setQtdDormitorios(e.target.value)} placeholder="0" />
+                </div>
+              </div>
+            )}
+
             <div className={styles.footerSplit}>
+              {subStepMoradia > 0
+                ? <button className={styles.btnArrow} onClick={() => setSubStepMoradia(0)}><FiArrowLeft size={20} /></button>
+                : <div />}
               <button className={styles.btnOutline}>Editar</button>
-              <button className={styles.btnArrow} onClick={goToNextSection}><FiArrowRight size={20} /></button>
+              {subStepMoradia < 1
+                ? <button className={styles.btnArrow} onClick={() => setSubStepMoradia(1)}><FiArrowRight size={20} /></button>
+                : <button className={styles.btnArrow} onClick={goToNextSection}><FiArrowRight size={20} /></button>}
             </div>
           </>
         )
