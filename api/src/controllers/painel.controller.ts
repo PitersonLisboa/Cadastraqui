@@ -71,7 +71,7 @@ export async function dashboardPainel(request: FastifyRequest, reply: FastifyRep
         select: {
           candidatos: true,
           editais: true,
-          candidaturas: true,
+
           usuarios: true,
         },
       },
@@ -126,7 +126,7 @@ export async function listarInstituicoesPainel(request: FastifyRequest, reply: F
         select: {
           candidatos: true,
           editais: true,
-          candidaturas: true,
+
           usuarios: true,
         },
       },
@@ -159,7 +159,7 @@ export async function detalhesInstituicaoPainel(request: FastifyRequest, reply: 
         select: {
           candidatos: true,
           editais: true,
-          candidaturas: true,
+
           usuarios: true,
           assistentesSociais: true,
           advogados: true,
