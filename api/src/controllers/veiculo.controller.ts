@@ -26,7 +26,12 @@ export async function criarVeiculo(request: FastifyRequest, reply: FastifyReply)
   if (!candidato) throw new CandidatoNaoEncontradoError()
 
   const veiculo = await prisma.veiculo.create({
-    data: { ...dados, candidatoId: candidato.id },
+    data: {
+      modelo: dados.modelo,
+      placa: dados.placa,
+      ano: dados.ano,
+      candidato: { connect: { id: candidato.id } },
+    },
   })
   return reply.status(201).send({ veiculo })
 }
