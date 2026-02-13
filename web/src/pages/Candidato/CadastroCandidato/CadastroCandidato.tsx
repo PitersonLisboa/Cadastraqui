@@ -584,7 +584,7 @@ export function CadastroCandidato() {
               {veiculos.map((v, i) => (
                 <div key={i} className={styles.listRow}>
                   <span className={styles.listName}>{v.modelo}</span>
-                  <button className={styles.btnSmallOutline} onClick={() => setMembroAberto(m.id!)}><FiEye size={14} /> Visualizar</button>
+                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
                   <button className={styles.btnSmallDanger} onClick={() => { setVeiculos(veiculos.filter((_, j) => j !== i)); toast.success('Removido') }}><FiTrash2 size={14} /> Excluir</button>
                 </div>
               ))}
