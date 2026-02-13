@@ -297,6 +297,9 @@ export function CadastroCandidato() {
           complemento: c.complemento || '', uf: c.uf || '',
         })
         setRendaMedia(c.rendaFamiliar ? Number(c.rendaFamiliar).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00')
+      } else {
+        // Candidato novo — ativar modo edição automaticamente
+        setEditMode(true)
       }
       try { const m = await api.get('/familia/membros'); setMembros(m.data.membros || []) } catch {}
       // Carregar rendas
