@@ -42,6 +42,7 @@ const menusByRole: Record<Role, MenuItem[]> = {
   ],
   CANDIDATO: [
     { label: 'Início', path: '/candidato', icon: <FiHome /> },
+    { label: 'Meu Cadastro', path: '/candidato/cadastro', icon: <FiFileText /> },
     { label: 'Editais Disponíveis', path: '/candidato/editais', icon: <FiBookOpen /> },
     { label: 'Minhas Candidaturas', path: '/candidato/candidaturas', icon: <FiClipboard /> },
     { label: 'Meus Documentos', path: '/candidato/documentos', icon: <FiFolder /> },
