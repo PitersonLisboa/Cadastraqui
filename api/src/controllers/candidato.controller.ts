@@ -331,69 +331,81 @@ export async function atualizarMeusDados(request: FastifyRequest, reply: Fastify
     return reply.status(400).send({ message: 'Erro de validação', errors: issues })
   }
 
-  let candidato = await prisma.candidato.findUnique({
-    where: { usuarioId: request.usuario.id },
-  })
+  // Campos válidos da tabela candidatos (whitelist)
+  const CAMPOS_VALIDOS = [
+    'nome', 'cpf', 'dataNascimento', 'telefone', 'celular',
+    'cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'uf',
+    'rg', 'rgEstado', 'rgOrgao', 'possuiComprovante',
+    'nomeSocial', 'sexo', 'profissao', 'nacionalidade', 'naturalidade', 'naturalidadeEstado',
+    'estadoCivil', 'corRaca', 'escolaridade', 'religiao', 'necessidadesEspeciais',
+    'cadastroUnico', 'escolaPublica', 'bolsaCebasBasica', 'bolsaCebasProfissional',
+    'rendaFamiliar',
+  ]
 
-  if (!candidato) {
-    if (!dados.nome || !dados.cpf) {
-      return reply.status(400).send({ message: 'Nome e CPF são obrigatórios para o primeiro cadastro' })
+  // Filtrar: só campos válidos, remover strings vazias (mas manter booleanos e números)
+  const filtrar = (obj: any) => {
+    const result: any = {}
+    for (const key of CAMPOS_VALIDOS) {
+      if (obj[key] === undefined || obj[key] === null) continue
+      if (typeof obj[key] === 'string' && obj[key] === '') continue
+      result[key] = obj[key]
     }
+    return result
+  }
 
-    const cpfLimpo = dados.cpf.replace(/\D/g, '')
-    const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: cpfLimpo } })
-    if (cpfExistente) throw new CpfJaCadastradoError()
-
-    const createData: any = {
-      nome: dados.nome,
-      cpf: cpfLimpo,
-      usuarioId: request.usuario.id,
-    }
-    if (dados.dataNascimento) createData.dataNascimento = dados.dataNascimento
-    if (dados.telefone) createData.telefone = dados.telefone
-    if (dados.celular) createData.celular = dados.celular
-    if (dados.cep) createData.cep = dados.cep
-    if (dados.endereco) createData.endereco = dados.endereco
-    if (dados.numero) createData.numero = dados.numero
-    if (dados.complemento) createData.complemento = dados.complemento
-    if (dados.bairro) createData.bairro = dados.bairro
-    if (dados.cidade) createData.cidade = dados.cidade
-    if (dados.uf) createData.uf = dados.uf
-    if (dados.rg) createData.rg = dados.rg
-    if (dados.rgEstado) createData.rgEstado = dados.rgEstado
-    if (dados.rgOrgao) createData.rgOrgao = dados.rgOrgao
-    if (dados.estadoCivil) createData.estadoCivil = dados.estadoCivil
-    if (dados.profissao) createData.profissao = dados.profissao
-    if (dados.rendaFamiliar != null) createData.rendaFamiliar = dados.rendaFamiliar
-    if (request.usuario.instituicaoId) createData.instituicaoId = request.usuario.instituicaoId
-
-    candidato = await prisma.candidato.create({ data: createData })
-
-    await prisma.usuario.update({
-      where: { id: request.usuario.id },
-      data: { primeiroAcesso: false },
+  try {
+    let candidato = await prisma.candidato.findUnique({
+      where: { usuarioId: request.usuario.id },
     })
 
-    return reply.status(201).send(candidato)
+    if (!candidato) {
+      if (!dados.nome || !dados.cpf) {
+        return reply.status(400).send({ message: 'Nome e CPF são obrigatórios para o primeiro cadastro' })
+      }
+
+      const cpfLimpo = dados.cpf.replace(/\D/g, '')
+      const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: cpfLimpo } })
+      if (cpfExistente) throw new CpfJaCadastradoError()
+
+      const createData = filtrar(dados)
+      createData.cpf = cpfLimpo
+      createData.usuarioId = request.usuario.id
+      if (request.usuario.instituicaoId) createData.instituicaoId = request.usuario.instituicaoId
+
+      candidato = await prisma.candidato.create({ data: createData })
+
+      await prisma.usuario.update({
+        where: { id: request.usuario.id },
+        data: { primeiroAcesso: false },
+      })
+
+      return reply.status(201).send(candidato)
+    }
+
+    // Candidato já existe — atualizar
+    if (dados.cpf) dados.cpf = dados.cpf.replace(/\D/g, '')
+    if (dados.cpf && dados.cpf !== candidato.cpf) {
+      const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: dados.cpf } })
+      if (cpfExistente) throw new CpfJaCadastradoError()
+    }
+
+    const updateData = filtrar(dados)
+
+    const atualizado = await prisma.candidato.update({
+      where: { id: candidato.id },
+      data: updateData,
+    })
+
+    return reply.status(200).send(atualizado)
+  } catch (error: any) {
+    // Se já é um erro nosso (CPF duplicado etc), relancar
+    if (error.statusCode) throw error
+    // Erro do Prisma ou inesperado — logar e retornar detalhes
+    console.error('Erro ao salvar candidato:', error.message, error.code, error.meta)
+    return reply.status(500).send({
+      message: 'Erro ao salvar dados',
+      detail: error.message || 'Erro interno',
+      code: error.code,
+    })
   }
-
-  // Candidato já existe — atualizar
-  if (dados.cpf) dados.cpf = dados.cpf.replace(/\D/g, '')
-  if (dados.cpf && dados.cpf !== candidato.cpf) {
-    const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: dados.cpf } })
-    if (cpfExistente) throw new CpfJaCadastradoError()
-  }
-
-  // Remover campos vazios para não sobrescrever com string vazia
-  const updateData: any = { ...dados }
-  Object.keys(updateData).forEach(key => {
-    if (updateData[key] === '' || updateData[key] === undefined) delete updateData[key]
-  })
-
-  const atualizado = await prisma.candidato.update({
-    where: { id: candidato.id },
-    data: updateData,
-  })
-
-  return reply.status(200).send(atualizado)
 }
