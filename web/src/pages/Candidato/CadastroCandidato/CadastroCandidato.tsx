@@ -839,7 +839,11 @@ export function CadastroCandidato() {
               </div>
             </div>
 
-            <p className={styles.sectionSub}>Clique em cada membro para registrar a renda mensal dos últimos 3 meses.</p>
+            <p className={styles.sectionSub}>
+              {membrosRenda.length > 0
+                ? 'Clique em cada membro para registrar a renda mensal dos últimos 3 meses.'
+                : ''}
+            </p>
 
             <div className={styles.listItems}>
               {membrosRenda.map((m: any) => {
@@ -860,7 +864,15 @@ export function CadastroCandidato() {
                   </div>
                 )
               })}
-              {membrosRenda.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
+              {membrosRenda.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                  <p className={styles.emptyMsg}>Nenhum membro do grupo familiar cadastrado ainda.</p>
+                  <p className={styles.emptyMsg} style={{ marginTop: '0.5rem' }}>
+                    Para registrar renda, primeiro cadastre os membros na seção{' '}
+                    <button className={styles.linkBtn} onClick={() => goToSection(1)}>Grupo Familiar</button>.
+                  </p>
+                </div>
+              )}
             </div>
             <div className={styles.footerCenter}>
               <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>

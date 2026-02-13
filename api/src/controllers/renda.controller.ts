@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma'
 import { CandidatoNaoEncontradoError, RecursoNaoEncontradoError, NaoAutorizadoError } from '../errors/index'
 
 // ===========================================
-// SCHEMAS DE VALIDAÇÃO
+// SCHEMAS
 // ===========================================
 
 const criarRendaSchema = z.object({
@@ -16,17 +16,10 @@ const criarRendaSchema = z.object({
   descricao: z.string().optional(),
 })
 
-const atualizarRendaSchema = z.object({
-  valor: z.number().min(0).optional(),
-  fonte: z.string().optional(),
-  descricao: z.string().optional(),
-})
-
 // ===========================================
 // CONTROLLERS
 // ===========================================
 
-// Listar rendas do candidato (todos os membros)
 export async function listarRendas(request: FastifyRequest, reply: FastifyReply) {
   const { mes, ano } = z.object({
     mes: z.coerce.number().min(1).max(12).optional(),
@@ -35,29 +28,31 @@ export async function listarRendas(request: FastifyRequest, reply: FastifyReply)
 
   const candidato = await prisma.candidato.findUnique({
     where: { usuarioId: request.usuario.id },
-    include: {
-      membrosFamilia: {
-        include: {
-          rendaMensal: {
-            where: {
-              ...(mes ? { mes } : {}),
-              ...(ano ? { ano } : {}),
-            },
-            orderBy: [{ ano: 'desc' }, { mes: 'desc' }],
-          },
-        },
-        orderBy: { criadoEm: 'asc' },
-      },
-    },
   })
 
-  if (!candidato) throw new CandidatoNaoEncontradoError()
+  // Candidato ainda não completou cadastro — retornar vazio
+  if (!candidato) {
+    return reply.status(200).send({
+      membros: [],
+      resumo: { rendaMediaMensal: 0, rendaPerCapita: 0, totalPessoas: 1, totalMembros: 0 },
+    })
+  }
 
-  // Calcular renda total e per capita
-  const todasRendas = candidato.membrosFamilia.flatMap(m => m.rendaMensal)
-  const rendaTotal = todasRendas.reduce((acc, r) => acc + r.valor.toNumber(), 0)
-  
-  // Média mensal considerando últimos 3 meses
+  const membros = await prisma.membroFamilia.findMany({
+    where: { candidatoId: candidato.id },
+    include: {
+      rendaMensal: {
+        where: {
+          ...(mes ? { mes } : {}),
+          ...(ano ? { ano } : {}),
+        },
+        orderBy: [{ ano: 'desc' }, { mes: 'desc' }],
+      },
+    },
+    orderBy: { criadoEm: 'asc' },
+  })
+
+  const todasRendas = membros.flatMap(m => m.rendaMensal)
   const now = new Date()
   let somaTrimestre = 0
   let mesesComDados = 0
@@ -71,11 +66,11 @@ export async function listarRendas(request: FastifyRequest, reply: FastifyReply)
     if (rendasMes.length > 0) mesesComDados++
   }
   const mediaRendaMensal = mesesComDados > 0 ? somaTrimestre / mesesComDados : 0
-  const totalPessoas = candidato.membrosFamilia.length + 1
+  const totalPessoas = membros.length + 1
   const rendaPerCapita = totalPessoas > 0 ? mediaRendaMensal / totalPessoas : 0
 
   return reply.status(200).send({
-    membros: candidato.membrosFamilia.map(m => ({
+    membros: membros.map(m => ({
       id: m.id,
       nome: m.nome,
       parentesco: m.parentesco,
@@ -87,12 +82,11 @@ export async function listarRendas(request: FastifyRequest, reply: FastifyReply)
       rendaMediaMensal: Math.round(mediaRendaMensal * 100) / 100,
       rendaPerCapita: Math.round(rendaPerCapita * 100) / 100,
       totalPessoas,
-      totalMembros: candidato.membrosFamilia.length,
+      totalMembros: membros.length,
     },
   })
 }
 
-// Criar/atualizar renda mensal de um membro
 export async function salvarRenda(request: FastifyRequest, reply: FastifyReply) {
   const dados = criarRendaSchema.parse(request.body)
 
@@ -101,15 +95,9 @@ export async function salvarRenda(request: FastifyRequest, reply: FastifyReply) 
   })
   if (!candidato) throw new CandidatoNaoEncontradoError()
 
-  // Verificar se o membro pertence ao candidato
-  const membro = await prisma.membroFamilia.findUnique({
-    where: { id: dados.membroId },
-  })
-  if (!membro || membro.candidatoId !== candidato.id) {
-    throw new NaoAutorizadoError()
-  }
+  const membro = await prisma.membroFamilia.findUnique({ where: { id: dados.membroId } })
+  if (!membro || membro.candidatoId !== candidato.id) throw new NaoAutorizadoError()
 
-  // Upsert: cria ou atualiza
   const renda = await prisma.rendaMensal.upsert({
     where: {
       membroId_mes_ano: {
@@ -118,11 +106,7 @@ export async function salvarRenda(request: FastifyRequest, reply: FastifyReply) 
         ano: dados.ano,
       },
     },
-    update: {
-      valor: dados.valor,
-      fonte: dados.fonte,
-      descricao: dados.descricao,
-    },
+    update: { valor: dados.valor, fonte: dados.fonte, descricao: dados.descricao },
     create: {
       membroId: dados.membroId,
       mes: dados.mes,
@@ -133,7 +117,7 @@ export async function salvarRenda(request: FastifyRequest, reply: FastifyReply) 
     },
   })
 
-  // Recalcular renda familiar média e atualizar no candidato
+  // Recalcular rendaFamiliar
   const todasRendas = await prisma.rendaMensal.findMany({
     where: { membro: { candidatoId: candidato.id } },
   })
@@ -142,41 +126,31 @@ export async function salvarRenda(request: FastifyRequest, reply: FastifyReply) 
   let mesesComDados = 0
   for (let i = 0; i < 3; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    const mesRef = d.getMonth() + 1
-    const anoRef = d.getFullYear()
-    const rendasMes = todasRendas.filter(r => r.mes === mesRef && r.ano === anoRef)
+    const rendasMes = todasRendas.filter(r => r.mes === d.getMonth() + 1 && r.ano === d.getFullYear())
     const totalMes = rendasMes.reduce((acc, r) => acc + r.valor.toNumber(), 0)
     somaTrimestre += totalMes
     if (rendasMes.length > 0) mesesComDados++
   }
-  const mediaRendaMensal = mesesComDados > 0 ? somaTrimestre / mesesComDados : 0
-
   await prisma.candidato.update({
     where: { id: candidato.id },
-    data: { rendaFamiliar: mediaRendaMensal },
+    data: { rendaFamiliar: mesesComDados > 0 ? somaTrimestre / mesesComDados : 0 },
   })
 
   return reply.status(201).send({ renda })
 }
 
-// Excluir renda mensal
 export async function excluirRenda(request: FastifyRequest, reply: FastifyReply) {
   const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-
   const renda = await prisma.rendaMensal.findUnique({
     where: { id },
     include: { membro: { include: { candidato: true } } },
   })
-
   if (!renda) throw new RecursoNaoEncontradoError('Renda')
   if (renda.membro.candidato.usuarioId !== request.usuario.id) throw new NaoAutorizadoError()
-
   await prisma.rendaMensal.delete({ where: { id } })
-
   return reply.status(204).send()
 }
 
-// Listar rendas de um membro específico
 export async function rendasDoMembro(request: FastifyRequest, reply: FastifyReply) {
   const { membroId } = z.object({ membroId: z.string().uuid() }).parse(request.params)
 
@@ -187,14 +161,9 @@ export async function rendasDoMembro(request: FastifyRequest, reply: FastifyRepl
 
   const membro = await prisma.membroFamilia.findUnique({
     where: { id: membroId },
-    include: {
-      rendaMensal: { orderBy: [{ ano: 'desc' }, { mes: 'desc' }] },
-    },
+    include: { rendaMensal: { orderBy: [{ ano: 'desc' }, { mes: 'desc' }] } },
   })
-
-  if (!membro || membro.candidatoId !== candidato.id) {
-    throw new NaoAutorizadoError()
-  }
+  if (!membro || membro.candidatoId !== candidato.id) throw new NaoAutorizadoError()
 
   const totalRendas = membro.rendaMensal.reduce((acc, r) => acc + r.valor.toNumber(), 0)
   const mediaRenda = membro.rendaMensal.length > 0 ? totalRendas / membro.rendaMensal.length : 0
@@ -202,9 +171,6 @@ export async function rendasDoMembro(request: FastifyRequest, reply: FastifyRepl
   return reply.status(200).send({
     membro: { id: membro.id, nome: membro.nome, parentesco: membro.parentesco, ocupacao: membro.ocupacao },
     rendas: membro.rendaMensal,
-    resumo: {
-      totalRegistros: membro.rendaMensal.length,
-      mediaRenda: Math.round(mediaRenda * 100) / 100,
-    },
+    resumo: { totalRegistros: membro.rendaMensal.length, mediaRenda: Math.round(mediaRenda * 100) / 100 },
   })
 }
