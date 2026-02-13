@@ -299,18 +299,32 @@ export async function atualizarMeusDados(request: FastifyRequest, reply: Fastify
   })
 
   if (!candidato) {
-    // Se candidato não existe ainda, criar com os dados fornecidos
-    const dadosCriacao = criarCandidatoSchema.parse(request.body)
+    // Candidato não existe ainda — criar com os dados disponíveis + defaults
+    if (!dados.nome || !dados.cpf) {
+      return reply.status(400).send({ message: 'Nome e CPF são obrigatórios para o primeiro cadastro' })
+    }
 
     // Verificar CPF
-    if (dadosCriacao.cpf) {
-      const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: dadosCriacao.cpf } })
-      if (cpfExistente) throw new CpfJaCadastradoError()
-    }
+    const cpfExistente = await prisma.candidato.findUnique({ where: { cpf: dados.cpf } })
+    if (cpfExistente) throw new CpfJaCadastradoError()
 
     candidato = await prisma.candidato.create({
       data: {
-        ...dadosCriacao,
+        nome: dados.nome,
+        cpf: dados.cpf,
+        dataNascimento: dados.dataNascimento || new Date('2000-01-01'),
+        telefone: dados.telefone || '',
+        celular: dados.celular || undefined,
+        cep: dados.cep || '00000000',
+        endereco: dados.endereco || '',
+        numero: dados.numero || '',
+        bairro: dados.bairro || '',
+        cidade: dados.cidade || '',
+        uf: dados.uf || 'SP',
+        complemento: dados.complemento || undefined,
+        estadoCivil: dados.estadoCivil || undefined,
+        profissao: dados.profissao || undefined,
+        rendaFamiliar: dados.rendaFamiliar || undefined,
         usuarioId: request.usuario.id,
         instituicaoId: request.usuario.instituicaoId || undefined,
       } as any,
