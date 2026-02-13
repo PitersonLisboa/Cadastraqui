@@ -90,9 +90,10 @@ export async function uploadLogoTenant(request: FastifyRequest, reply: FastifyRe
     return reply.status(404).send({ message: 'Tenant não encontrado' })
   }
 
-  // Permissão: ADMIN ou INSTITUICAO vinculada
+  // Permissão: ADMIN, equipe Cadastraqui (INSTITUICAO sem vínculo), ou INSTITUICAO vinculada
   const { role, instituicaoId } = request.usuario
-  if (role !== 'ADMIN' && instituicaoId !== tenant.instituicaoId) {
+  const isEquipe = role === 'ADMIN' || (role === 'INSTITUICAO' && !instituicaoId)
+  if (!isEquipe && instituicaoId !== tenant.instituicaoId) {
     throw new NaoAutorizadoError('Sem permissão para alterar o logo desta instituição')
   }
 
@@ -161,7 +162,8 @@ export async function removerLogoTenant(request: FastifyRequest, reply: FastifyR
   }
 
   const { role, instituicaoId } = request.usuario
-  if (role !== 'ADMIN' && instituicaoId !== tenant.instituicaoId) {
+  const isEquipe = role === 'ADMIN' || (role === 'INSTITUICAO' && !instituicaoId)
+  if (!isEquipe && instituicaoId !== tenant.instituicaoId) {
     throw new NaoAutorizadoError('Sem permissão')
   }
 
@@ -204,7 +206,8 @@ export async function atualizarTenant(request: FastifyRequest, reply: FastifyRep
   }
 
   const { role, instituicaoId } = request.usuario
-  if (role !== 'ADMIN' && instituicaoId !== tenant.instituicaoId) {
+  const isEquipe = role === 'ADMIN' || (role === 'INSTITUICAO' && !instituicaoId)
+  if (!isEquipe && instituicaoId !== tenant.instituicaoId) {
     throw new NaoAutorizadoError('Sem permissão')
   }
 

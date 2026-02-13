@@ -3,6 +3,7 @@ import {
   dashboardPainel,
   listarInstituicoesPainel,
   detalhesInstituicaoPainel,
+  editarInstituicaoPainel,
   alterarContaPainel,
 } from '../controllers/painel.controller'
 import {
@@ -22,6 +23,7 @@ export async function painelRoutes(app: FastifyInstance) {
   // CRUD de instituições (visão panorâmica)
   app.get('/painel/instituicoes', auth, listarInstituicoesPainel)
   app.get('/painel/instituicoes/:id', auth, detalhesInstituicaoPainel)
+  app.put('/painel/instituicoes/:id', auth, editarInstituicaoPainel)
 
   // Gestão visual do tenant (logo + cores)
   app.patch('/painel/tenant/:slug/logo', auth, uploadLogoTenant)

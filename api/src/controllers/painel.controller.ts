@@ -1,5 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
+import bcrypt from 'bcryptjs'
 import { prisma } from '../lib/prisma'
 import { NaoAutorizadoError } from '../errors/index'
 
@@ -233,7 +234,6 @@ export async function alterarContaPainel(request: FastifyRequest, reply: Fastify
 
   // Alterar senha
   if (dados.novaSenha && dados.senhaAtual) {
-    const bcrypt = require('bcryptjs')
     const senhaCorreta = await bcrypt.compare(dados.senhaAtual, usuario.senha)
     if (!senhaCorreta) {
       return reply.status(400).send({ message: 'Senha atual incorreta' })
@@ -251,4 +251,53 @@ export async function alterarContaPainel(request: FastifyRequest, reply: Fastify
   })
 
   return reply.status(200).send({ message: 'Conta atualizada com sucesso' })
+}
+
+// ===========================================
+// EDITAR DADOS DA INSTITUIÇÃO
+// PUT /painel/instituicoes/:id
+// ===========================================
+
+const editarInstituicaoSchema = z.object({
+  razaoSocial: z.string().min(3).optional(),
+  nomeFantasia: z.string().optional(),
+  cnpj: z.string().optional(),
+  telefone: z.string().optional(),
+  email: z.string().email().optional(),
+  cep: z.string().optional(),
+  endereco: z.string().optional(),
+  numero: z.string().optional(),
+  complemento: z.string().optional(),
+  bairro: z.string().optional(),
+  cidade: z.string().optional(),
+  uf: z.string().optional(),
+  codigoMEC: z.string().optional(),
+  tipoInstituicao: z.string().optional(),
+  status: z.string().optional(),
+})
+
+export async function editarInstituicaoPainel(request: FastifyRequest, reply: FastifyReply) {
+  verificarEquipeCadastraqui(request)
+
+  const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+  const dados = editarInstituicaoSchema.parse(request.body)
+
+  const instituicao = await prisma.instituicao.findUnique({ where: { id } })
+
+  if (!instituicao) {
+    return reply.status(404).send({ message: 'Instituição não encontrada' })
+  }
+
+  const atualizada = await prisma.instituicao.update({
+    where: { id },
+    data: dados,
+    include: {
+      tenant: { select: { slug: true, nome: true, logoUrl: true } },
+    },
+  })
+
+  return reply.status(200).send({
+    message: 'Instituição atualizada com sucesso',
+    instituicao: atualizada,
+  })
 }
