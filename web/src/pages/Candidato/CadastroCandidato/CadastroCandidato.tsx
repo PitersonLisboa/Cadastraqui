@@ -1,500 +1,501 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useForm, Controller } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'react-toastify'
-import { FiArrowLeft, FiArrowRight, FiSave } from 'react-icons/fi'
-
-import { FormStepper, FormStep } from '@/components/common/FormStepper/FormStepper'
-import { Input } from '@/components/common/Input/Input'
-import { Select } from '@/components/common/Select/Select'
-import { Button } from '@/components/common/Button/Button'
-import { candidatoService } from '@/services/api'
-import { 
-  maskCPF, 
-  maskPhone, 
-  maskCEP, 
-  unmaskValue, 
-  fetchAddressByCEP,
-  isValidCPF 
-} from '@/utils/masks'
-import { UF_OPTIONS } from '@/types'
-
+import { FiArrowRight, FiTrash2, FiEye, FiPlus } from 'react-icons/fi'
+import { SectionSidebar, SectionItem } from '@/components/common/SectionSidebar/SectionSidebar'
+import { StepperBar } from '@/components/common/StepperBar/StepperBar'
+import { api } from '@/services/api'
+import { maskCPF, maskPhone, unmaskValue } from '@/utils/masks'
 import styles from './CadastroCandidato.module.scss'
 
 // ===========================================
-// SCHEMA DE VALIDAÇÃO
+// SEÇÕES DO FORMULÁRIO (fiéis ao 1.x)
 // ===========================================
 
-const candidatoSchema = z.object({
-  // Dados Pessoais
-  nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
-  cpf: z.string().min(14, 'CPF inválido').refine(
-    (val) => isValidCPF(val),
-    'CPF inválido'
-  ),
-  dataNascimento: z.string().min(1, 'Data de nascimento é obrigatória'),
-  telefone: z.string().min(14, 'Telefone inválido'),
-  celular: z.string().optional(),
-  estadoCivil: z.string().min(1, 'Selecione o estado civil'),
-  profissao: z.string().optional(),
-  
-  // Endereço
-  cep: z.string().min(9, 'CEP inválido'),
-  endereco: z.string().min(3, 'Endereço é obrigatório'),
-  numero: z.string().min(1, 'Número é obrigatório'),
-  complemento: z.string().optional(),
-  bairro: z.string().min(2, 'Bairro é obrigatório'),
-  cidade: z.string().min(2, 'Cidade é obrigatória'),
-  uf: z.string().min(2, 'UF é obrigatória'),
-  
-  // Dados Socioeconômicos
-  rendaFamiliar: z.string().optional(),
-})
-
-type CandidatoForm = z.infer<typeof candidatoSchema>
-
-// ===========================================
-// OPÇÕES DE SELECT
-// ===========================================
-
-const ESTADO_CIVIL_OPTIONS = [
-  { value: 'solteiro', label: 'Solteiro(a)' },
-  { value: 'casado', label: 'Casado(a)' },
-  { value: 'divorciado', label: 'Divorciado(a)' },
-  { value: 'viuvo', label: 'Viúvo(a)' },
-  { value: 'uniao_estavel', label: 'União Estável' },
+const SECTIONS: SectionItem[] = [
+  { id: 'candidato', label: 'Candidato', icon: '/icons/user.svg' },
+  { id: 'grupo-familiar', label: 'Grupo Familiar', icon: '/icons/family.svg' },
+  { id: 'moradia', label: 'Moradia', icon: '/icons/house.svg' },
+  { id: 'veiculo', label: 'Veículo', icon: '/icons/car.svg' },
+  { id: 'renda', label: 'Renda', icon: '/icons/currency.svg' },
+  { id: 'gastos', label: 'Gastos', icon: '/icons/money.svg' },
+  { id: 'saude', label: 'Saúde', icon: '/icons/doctor.svg' },
+  { id: 'declaracoes', label: 'Declarações', icon: '/icons/document.svg' },
 ]
 
-const STEPS = [
-  { title: 'Dados Pessoais', description: 'Informações básicas' },
-  { title: 'Endereço', description: 'Onde você mora' },
-  { title: 'Socioeconômico', description: 'Situação financeira' },
-  { title: 'Confirmação', description: 'Revise os dados' },
+const ESTADOS_EMISSOR = [
+  { value: 'AC', label: 'Acre' }, { value: 'AL', label: 'Alagoas' },
+  { value: 'AP', label: 'Amapá' }, { value: 'AM', label: 'Amazonas' },
+  { value: 'BA', label: 'Bahia' }, { value: 'CE', label: 'Ceará' },
+  { value: 'DF', label: 'Distrito Federal' }, { value: 'ES', label: 'Espírito Santo' },
+  { value: 'GO', label: 'Goiás' }, { value: 'MA', label: 'Maranhão' },
+  { value: 'MT', label: 'Mato Grosso' }, { value: 'MS', label: 'Mato Grosso do Sul' },
+  { value: 'MG', label: 'Minas Gerais' }, { value: 'PA', label: 'Pará' },
+  { value: 'PB', label: 'Paraíba' }, { value: 'PR', label: 'Paraná' },
+  { value: 'PE', label: 'Pernambuco' }, { value: 'PI', label: 'Piauí' },
+  { value: 'RJ', label: 'Rio de Janeiro' }, { value: 'RN', label: 'Rio Grande do Norte' },
+  { value: 'RS', label: 'Rio Grande do Sul' }, { value: 'RO', label: 'Rondônia' },
+  { value: 'RR', label: 'Roraima' }, { value: 'SC', label: 'Santa Catarina' },
+  { value: 'SP', label: 'São Paulo' }, { value: 'SE', label: 'Sergipe' },
+  { value: 'TO', label: 'Tocantins' },
 ]
+
+const STATUS_MORADIA = [
+  { value: 'PROPRIA_QUITADA', label: 'Própria e quitada' },
+  { value: 'PROPRIA_FINANCIADA', label: 'Própria financiada' },
+  { value: 'ALUGADA', label: 'Alugada' },
+  { value: 'CEDIDA', label: 'Cedida' },
+  { value: 'OUTROS', label: 'Outros' },
+]
+
+const MESES_LABEL: Record<number, string> = {
+  1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+  5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+  9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro',
+}
+
+// ===========================================
+// TIPOS
+// ===========================================
+
+interface DadosCandidato {
+  nome: string; cpf: string; dataNascimento: string; telefone: string
+  email: string; rg: string; rgEstado: string; rgOrgao: string
+}
+
+interface Membro { id?: string; nome: string; cpf: string; parentesco: string; renda?: number }
+interface Veiculo { id?: string; modelo: string; placa: string; ano: string }
 
 // ===========================================
 // COMPONENTE PRINCIPAL
 // ===========================================
 
 export function CadastroCandidato() {
-  const [currentStep, setCurrentStep] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [loadingCEP, setLoadingCEP] = useState(false)
-  const navigate = useNavigate()
+  const [activeSection, setActiveSection] = useState('candidato')
+  const [editMode, setEditMode] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    watch,
-    setValue,
-    trigger,
-    formState: { errors },
-  } = useForm<CandidatoForm>({
-    resolver: zodResolver(candidatoSchema),
-    defaultValues: {
-      nome: '',
-      cpf: '',
-      dataNascimento: '',
-      telefone: '',
-      celular: '',
-      estadoCivil: '',
-      profissao: '',
-      cep: '',
-      endereco: '',
-      numero: '',
-      complemento: '',
-      bairro: '',
-      cidade: '',
-      uf: '',
-      rendaFamiliar: '',
-    },
+  // ===== SEÇÃO: Candidato =====
+  const [dados, setDados] = useState<DadosCandidato>({
+    nome: '', cpf: '', dataNascimento: '', telefone: '',
+    email: '', rg: '', rgEstado: '', rgOrgao: '',
   })
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const watchedValues = watch()
+  // ===== SEÇÃO: Grupo Familiar =====
+  const [membros, setMembros] = useState<Membro[]>([])
+  const [showAddMembro, setShowAddMembro] = useState(false)
+  const [novoMembro, setNovoMembro] = useState<Membro>({ nome: '', cpf: '', parentesco: '' })
 
-  // Buscar endereço pelo CEP
-  const handleCEPChange = async (cep: string) => {
-    const cleanCEP = unmaskValue(cep)
-    
-    if (cleanCEP.length === 8) {
-      setLoadingCEP(true)
-      const address = await fetchAddressByCEP(cleanCEP)
-      
-      if (address) {
-        setValue('endereco', address.logradouro)
-        setValue('bairro', address.bairro)
-        setValue('cidade', address.localidade)
-        setValue('uf', address.uf)
-        toast.success('Endereço encontrado!')
-      } else {
-        toast.error('CEP não encontrado')
-      }
-      
-      setLoadingCEP(false)
-    }
-  }
+  // ===== SEÇÃO: Moradia =====
+  const [subStepMoradia, setSubStepMoradia] = useState(0)
+  const [statusMoradia, setStatusMoradia] = useState('')
 
-  // Validar etapa atual antes de avançar
-  const validateCurrentStep = async (): Promise<boolean> => {
-    const fieldsToValidate: (keyof CandidatoForm)[][] = [
-      ['nome', 'cpf', 'dataNascimento', 'telefone', 'estadoCivil'], // Step 0
-      ['cep', 'endereco', 'numero', 'bairro', 'cidade', 'uf'],       // Step 1
-      [],                                                              // Step 2 (opcional)
-      [],                                                              // Step 3 (confirmação)
-    ]
+  // ===== SEÇÃO: Veículo =====
+  const [veiculos, setVeiculos] = useState<Veiculo[]>([])
+  const [showAddVeiculo, setShowAddVeiculo] = useState(false)
+  const [novoVeiculo, setNovoVeiculo] = useState<Veiculo>({ modelo: '', placa: '', ano: '' })
 
-    const fields = fieldsToValidate[currentStep]
-    if (fields.length === 0) return true
+  // ===== SEÇÃO: Renda =====
+  const [rendaMedia, setRendaMedia] = useState('0,00')
 
-    const result = await trigger(fields)
-    return result
-  }
+  // ===== SEÇÃO: Gastos =====
+  const [gastoUltimoMes] = useState('0,00')
+  const [gastoMediaTrimestre] = useState('0,00')
 
-  const handleNext = async () => {
-    const isValid = await validateCurrentStep()
-    if (isValid) {
-      setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1))
-    }
-  }
+  useEffect(() => {
+    carregarDados()
+  }, [])
 
-  const handlePrevious = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0))
-  }
-
-  const onSubmit = async (data: CandidatoForm) => {
-    setLoading(true)
-    
+  const carregarDados = async () => {
     try {
-      // Preparar dados para envio
-      const payload = {
-        ...data,
-        cpf: unmaskValue(data.cpf),
-        telefone: unmaskValue(data.telefone),
-        celular: data.celular ? unmaskValue(data.celular) : undefined,
-        cep: unmaskValue(data.cep),
-        rendaFamiliar: data.rendaFamiliar 
-          ? parseFloat(data.rendaFamiliar.replace(/\D/g, '')) / 100 
-          : undefined,
+      const res = await api.get('/candidatos/me')
+      const c = res.data
+      if (c) {
+        setDados({
+          nome: c.nome || '',
+          cpf: c.cpf ? maskCPF(c.cpf) : '',
+          dataNascimento: c.dataNascimento ? c.dataNascimento.split('T')[0] : '',
+          telefone: c.telefone ? maskPhone(c.telefone) : '',
+          email: c.usuario?.email || '',
+          rg: c.rg || '',
+          rgEstado: c.rgEstado || '',
+          rgOrgao: c.rgOrgao || '',
+        })
+        setRendaMedia(c.rendaFamiliar ? Number(c.rendaFamiliar).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00')
       }
 
-      await candidatoService.criar(payload)
-      
-      toast.success('Cadastro realizado com sucesso!')
-      navigate('/candidato')
+      try {
+        const memRes = await api.get('/familia/membros')
+        setMembros(memRes.data.membros || [])
+      } catch { /* sem membros */ }
+    } catch { /* candidato não cadastrado */ }
+    finally { setLoading(false) }
+  }
+
+  const handleSaveDados = async () => {
+    setSaving(true)
+    try {
+      await api.put('/candidatos/me', {
+        nome: dados.nome,
+        cpf: unmaskValue(dados.cpf),
+        dataNascimento: dados.dataNascimento,
+        telefone: unmaskValue(dados.telefone),
+        rg: dados.rg,
+        rgEstado: dados.rgEstado,
+        rgOrgao: dados.rgOrgao,
+      })
+      toast.success('Dados salvos!')
+      setEditMode(false)
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao realizar cadastro')
-    } finally {
-      setLoading(false)
+      toast.error(error.response?.data?.message || 'Erro ao salvar')
+    } finally { setSaving(false) }
+  }
+
+  const handleAddMembro = async () => {
+    if (!novoMembro.nome || !novoMembro.parentesco) return toast.error('Preencha nome e parentesco')
+    try {
+      await api.post('/familia/membros', {
+        nome: novoMembro.nome,
+        cpf: unmaskValue(novoMembro.cpf),
+        parentesco: novoMembro.parentesco,
+      })
+      toast.success('Membro adicionado!')
+      setNovoMembro({ nome: '', cpf: '', parentesco: '' })
+      setShowAddMembro(false)
+      carregarDados()
+    } catch (error: any) { toast.error(error.response?.data?.message || 'Erro') }
+  }
+
+  const handleRemoveMembro = async (id: string) => {
+    if (!confirm('Excluir este membro?')) return
+    try {
+      await api.delete(`/familia/membros/${id}`)
+      toast.success('Membro removido')
+      carregarDados()
+    } catch { toast.error('Erro ao remover') }
+  }
+
+  const goToNextSection = () => {
+    const idx = SECTIONS.findIndex((s) => s.id === activeSection)
+    if (idx < SECTIONS.length - 1) setActiveSection(SECTIONS[idx + 1].id)
+  }
+
+  const sectionIndex = SECTIONS.findIndex((s) => s.id === activeSection)
+
+  const getUltimosMeses = () => {
+    const now = new Date()
+    return Array.from({ length: 3 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      return { month: d.getMonth() + 1, year: d.getFullYear() }
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className={styles.loadingContainer}>
+        <div className={styles.spinner} />
+        <p>Carregando dados...</p>
+      </div>
+    )
+  }
+
+  // ===========================================
+  // RENDER
+  // ===========================================
+
+  const renderSection = () => {
+    switch (activeSection) {
+
+      // ───────────── 1. CANDIDATO ─────────────
+      case 'candidato':
+        return (
+          <>
+            <StepperBar totalSteps={8} currentStep={sectionIndex} onStepClick={(i) => setActiveSection(SECTIONS[i].id)} />
+            <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
+            {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+
+            <div className={styles.formGrid}>
+              <div className={styles.field}>
+                <label>Nome completo</label>
+                <input value={dados.nome} disabled={!editMode} onChange={(e) => setDados({ ...dados, nome: e.target.value })} />
+              </div>
+              <div className={styles.field}>
+                <label>CPF</label>
+                <input value={dados.cpf} disabled={!editMode} onChange={(e) => setDados({ ...dados, cpf: maskCPF(e.target.value) })} />
+              </div>
+              <div className={styles.field}>
+                <label>Data de nascimento</label>
+                <input type="date" value={dados.dataNascimento} disabled={!editMode} onChange={(e) => setDados({ ...dados, dataNascimento: e.target.value })} />
+              </div>
+              <div className={styles.field}>
+                <label>Telefone</label>
+                <input value={dados.telefone} disabled={!editMode} onChange={(e) => setDados({ ...dados, telefone: maskPhone(e.target.value) })} />
+              </div>
+              <div className={styles.field}>
+                <label>Email</label>
+                <input value={dados.email} disabled />
+              </div>
+              <div className={styles.field}>
+                <label>RG/RNE</label>
+                <input value={dados.rg} disabled={!editMode} onChange={(e) => setDados({ ...dados, rg: e.target.value })} />
+              </div>
+              <div className={styles.field}>
+                <label>Estado emissor do RG/RNE</label>
+                <select value={dados.rgEstado} disabled={!editMode} onChange={(e) => setDados({ ...dados, rgEstado: e.target.value })}>
+                  <option value="">Selecione...</option>
+                  {ESTADOS_EMISSOR.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
+                </select>
+              </div>
+              <div className={styles.field}>
+                <label>Órgão emissor do RG/RNE</label>
+                <input value={dados.rgOrgao} disabled={!editMode} placeholder="SSP" onChange={(e) => setDados({ ...dados, rgOrgao: e.target.value })} />
+              </div>
+            </div>
+
+            <div className={styles.fieldWide}>
+              <label>Documento de identificação</label>
+              <div className={styles.fileUpload} onClick={() => editMode && fileInputRef.current?.click()}>
+                <span>Anexar arquivo</span>
+                <FiPlus size={16} />
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} />
+              <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
+              <button type="button" className={styles.linkBtn}>VISUALIZAR DOCUMENTO</button>
+            </div>
+
+            <div className={styles.footerSplit}>
+              <button className={styles.btnOutline} onClick={() => editMode ? handleSaveDados() : setEditMode(true)} disabled={saving}>
+                {editMode ? (saving ? 'Salvando...' : 'Salvar') : 'Editar'}
+              </button>
+              <button className={styles.btnArrow} onClick={goToNextSection}><FiArrowRight size={20} /></button>
+            </div>
+          </>
+        )
+
+      // ───────────── 2. GRUPO FAMILIAR ─────────────
+      case 'grupo-familiar':
+        return (
+          <>
+            <h2 className={styles.sectionTitle}>Integrantes do Grupo Familiar</h2>
+            <p className={styles.sectionSub}>Selecione um parente ou cadastre um novo</p>
+
+            <div className={styles.centeredActions}>
+              <button className={styles.btnOutline} onClick={() => setShowAddMembro(true)}>Adicionar</button>
+            </div>
+
+            {showAddMembro && (
+              <div className={styles.inlineForm}>
+                <div className={styles.formGrid}>
+                  <div className={styles.field}>
+                    <label>Nome</label>
+                    <input value={novoMembro.nome} onChange={(e) => setNovoMembro({ ...novoMembro, nome: e.target.value })} />
+                  </div>
+                  <div className={styles.field}>
+                    <label>CPF</label>
+                    <input value={novoMembro.cpf} onChange={(e) => setNovoMembro({ ...novoMembro, cpf: maskCPF(e.target.value) })} />
+                  </div>
+                  <div className={styles.field}>
+                    <label>Parentesco</label>
+                    <input value={novoMembro.parentesco} onChange={(e) => setNovoMembro({ ...novoMembro, parentesco: e.target.value })} placeholder="Cônjuge, Filho(a)..." />
+                  </div>
+                </div>
+                <div className={styles.inlineActions}>
+                  <button className={styles.btnPrimary} onClick={handleAddMembro}>Salvar</button>
+                  <button className={styles.btnGhost} onClick={() => setShowAddMembro(false)}>Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            <div className={styles.listItems}>
+              {membros.map((m) => (
+                <div key={m.id} className={styles.listRow}>
+                  <span className={styles.listName}>{m.nome}</span>
+                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
+                  <button className={styles.btnSmallDanger} onClick={() => handleRemoveMembro(m.id!)}><FiTrash2 size={14} /> Excluir</button>
+                </div>
+              ))}
+              {membros.length === 0 && <p className={styles.emptyMsg}>Nenhum membro cadastrado ainda.</p>}
+            </div>
+
+            <div className={styles.footerCenter}>
+              <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
+            </div>
+          </>
+        )
+
+      // ───────────── 3. MORADIA ─────────────
+      case 'moradia':
+        return (
+          <>
+            <StepperBar totalSteps={2} currentStep={subStepMoradia} onStepClick={setSubStepMoradia} />
+            <h2 className={styles.sectionTitle}>Status da Propriedade</h2>
+            <div className={styles.formGridSingle}>
+              <div className={styles.field}>
+                <label>Status</label>
+                <select value={statusMoradia} onChange={(e) => setStatusMoradia(e.target.value)}>
+                  <option value="">Selecione...</option>
+                  {STATUS_MORADIA.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className={styles.footerSplit}>
+              <button className={styles.btnOutline}>Editar</button>
+              <button className={styles.btnArrow} onClick={goToNextSection}><FiArrowRight size={20} /></button>
+            </div>
+          </>
+        )
+
+      // ───────────── 4. VEÍCULO ─────────────
+      case 'veiculo':
+        return (
+          <>
+            <h2 className={styles.sectionTitle}>Veículos</h2>
+            <div className={styles.listItems}>
+              {veiculos.map((v, i) => (
+                <div key={i} className={styles.listRow}>
+                  <span className={styles.listName}>{v.modelo}</span>
+                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
+                  <button className={styles.btnSmallDanger} onClick={() => { setVeiculos(veiculos.filter((_, j) => j !== i)); toast.success('Removido') }}><FiTrash2 size={14} /> Excluir</button>
+                </div>
+              ))}
+            </div>
+            <div className={styles.centeredActions}>
+              <button className={styles.btnOutline} onClick={() => setShowAddVeiculo(!showAddVeiculo)}>Novo veículo</button>
+            </div>
+            {showAddVeiculo && (
+              <div className={styles.inlineForm}>
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>Modelo</label><input value={novoVeiculo.modelo} onChange={(e) => setNovoVeiculo({ ...novoVeiculo, modelo: e.target.value })} placeholder="Fiat Palio" /></div>
+                  <div className={styles.field}><label>Placa</label><input value={novoVeiculo.placa} onChange={(e) => setNovoVeiculo({ ...novoVeiculo, placa: e.target.value })} /></div>
+                  <div className={styles.field}><label>Ano</label><input value={novoVeiculo.ano} onChange={(e) => setNovoVeiculo({ ...novoVeiculo, ano: e.target.value })} /></div>
+                </div>
+                <div className={styles.inlineActions}>
+                  <button className={styles.btnPrimary} onClick={() => { setVeiculos([...veiculos, novoVeiculo]); setNovoVeiculo({ modelo: '', placa: '', ano: '' }); setShowAddVeiculo(false); toast.success('Veículo adicionado') }}>Salvar</button>
+                  <button className={styles.btnGhost} onClick={() => setShowAddVeiculo(false)}>Cancelar</button>
+                </div>
+              </div>
+            )}
+            <div className={styles.footerCenter}>
+              <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
+            </div>
+          </>
+        )
+
+      // ───────────── 5. RENDA ─────────────
+      case 'renda':
+        return (
+          <>
+            <h2 className={styles.sectionTitle}>Renda Familiar</h2>
+            <div className={styles.rendaBadge}>
+              <span>Renda média familiar cadastrada</span>
+              <div className={styles.rendaValue}>R$ {rendaMedia}</div>
+            </div>
+            <div className={styles.listItems}>
+              {membros.map((m) => (
+                <div key={m.id} className={styles.listRow}>
+                  <span className={styles.listName}>{m.nome}</span>
+                  <div className={styles.indicators}>
+                    <span className={styles.indicatorGreen} />
+                    <span className={m.renda ? styles.indicatorGreen : styles.indicatorYellow} />
+                  </div>
+                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
+                </div>
+              ))}
+              {membros.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
+            </div>
+            <div className={styles.footerCenter}>
+              <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
+            </div>
+          </>
+        )
+
+      // ───────────── 6. GASTOS ─────────────
+      case 'gastos':
+        return (
+          <>
+            <h2 className={styles.sectionTitle}>Despesas Mensais</h2>
+            <div className={styles.gastosCards}>
+              <div className={styles.gastoCard}>
+                <span className={styles.gastoLabel}>Último mês</span>
+                <span className={styles.gastoValor}>R$ {gastoUltimoMes}</span>
+              </div>
+              <div className={styles.gastoCard}>
+                <span className={styles.gastoLabel}>Média do trimestre</span>
+                <span className={styles.gastoValor}>R$ {gastoMediaTrimestre}</span>
+              </div>
+            </div>
+            <p className={styles.sectionSub}>Agora realize o cadastro para cada um dos meses abaixo, inserindo as informações correspondentes.</p>
+            <div className={styles.mesesList}>
+              {getUltimosMeses().map(({ month, year }) => (
+                <button key={`${month}-${year}`} className={styles.btnMes}>{MESES_LABEL[month]} de {year}</button>
+              ))}
+            </div>
+            <div className={styles.footerSplit}>
+              <button className={styles.btnOutline}>Salvar</button>
+              <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
+            </div>
+          </>
+        )
+
+      // ───────────── 7. SAÚDE ─────────────
+      case 'saude':
+        return (
+          <>
+            <h2 className={styles.sectionTitle}>Saúde</h2>
+            <p className={styles.sectionSub}>Cadastre dados sobre a saúde de seu grupo familiar</p>
+            <div className={styles.listItems}>
+              {membros.map((m) => (
+                <div key={m.id} className={styles.listRow}>
+                  <span className={styles.listName}>{m.nome}</span>
+                  <button className={styles.btnSmallOutline}><FiEye size={14} /> Visualizar</button>
+                </div>
+              ))}
+              {membros.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
+            </div>
+            <div className={styles.footerCenter}>
+              <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
+            </div>
+          </>
+        )
+
+      // ───────────── 8. DECLARAÇÕES ─────────────
+      case 'declaracoes':
+        return (
+          <>
+            <h2 className={styles.sectionTitle}>Declarações para fins de processo seletivo CEBAS</h2>
+            <div className={styles.listItems}>
+              {dados.nome && (
+                <div className={styles.listRow}>
+                  <span className={styles.listName}>{dados.nome}</span>
+                  <button type="button" className={styles.linkBtn}>VER DECLARAÇÃO</button>
+                  <button className={styles.btnSmallOutline}>Cadastrar</button>
+                </div>
+              )}
+              {membros.map((m) => (
+                <div key={m.id} className={styles.listRow}>
+                  <span className={styles.listName}>{m.nome}</span>
+                  <button type="button" className={styles.linkBtn}>VER DECLARAÇÃO</button>
+                  <button className={styles.btnSmallOutline}>Cadastrar</button>
+                </div>
+              ))}
+            </div>
+          </>
+        )
+
+      default:
+        return null
     }
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Completar Cadastro</h1>
-        <p>Preencha seus dados para acessar o sistema</p>
+    <div className={styles.pageLayout}>
+      <SectionSidebar sections={SECTIONS} activeSection={activeSection} onSectionClick={setActiveSection} />
+      <div className={styles.mainArea}>
+        <div className={styles.sectionContent}>
+          {renderSection()}
+        </div>
       </div>
-
-      <FormStepper steps={STEPS} currentStep={currentStep}>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {/* ETAPA 1: Dados Pessoais */}
-          {currentStep === 0 && (
-            <FormStep 
-              title="Dados Pessoais" 
-              description="Informe seus dados básicos de identificação"
-            >
-              <div className={styles.formGrid}>
-                <div className={styles.fullWidth}>
-                  <Input
-                    label="Nome Completo"
-                    placeholder="Digite seu nome completo"
-                    error={errors.nome?.message}
-                    required
-                    {...register('nome')}
-                  />
-                </div>
-
-                <Controller
-                  name="cpf"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      label="CPF"
-                      placeholder="000.000.000-00"
-                      error={errors.cpf?.message}
-                      required
-                      value={field.value}
-                      onChange={(e) => field.onChange(maskCPF(e.target.value))}
-                    />
-                  )}
-                />
-
-                <Input
-                  label="Data de Nascimento"
-                  type="date"
-                  error={errors.dataNascimento?.message}
-                  required
-                  {...register('dataNascimento')}
-                />
-
-                <Controller
-                  name="telefone"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      label="Telefone"
-                      placeholder="(00) 00000-0000"
-                      error={errors.telefone?.message}
-                      required
-                      value={field.value}
-                      onChange={(e) => field.onChange(maskPhone(e.target.value))}
-                    />
-                  )}
-                />
-
-                <Controller
-                  name="celular"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      label="Celular (opcional)"
-                      placeholder="(00) 00000-0000"
-                      value={field.value}
-                      onChange={(e) => field.onChange(maskPhone(e.target.value))}
-                    />
-                  )}
-                />
-
-                <Select
-                  label="Estado Civil"
-                  placeholder="Selecione..."
-                  options={ESTADO_CIVIL_OPTIONS}
-                  error={errors.estadoCivil?.message}
-                  required
-                  {...register('estadoCivil')}
-                />
-
-                <Input
-                  label="Profissão (opcional)"
-                  placeholder="Ex: Estudante, Autônomo..."
-                  {...register('profissao')}
-                />
-              </div>
-            </FormStep>
-          )}
-
-          {/* ETAPA 2: Endereço */}
-          {currentStep === 1 && (
-            <FormStep 
-              title="Endereço" 
-              description="Informe seu endereço residencial"
-            >
-              <div className={styles.formGrid}>
-                <Controller
-                  name="cep"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      label="CEP"
-                      placeholder="00000-000"
-                      error={errors.cep?.message}
-                      required
-                      value={field.value}
-                      onChange={(e) => {
-                        const masked = maskCEP(e.target.value)
-                        field.onChange(masked)
-                        handleCEPChange(masked)
-                      }}
-                      disabled={loadingCEP}
-                    />
-                  )}
-                />
-
-                <div className={styles.fullWidth}>
-                  <Input
-                    label="Endereço"
-                    placeholder="Rua, Avenida..."
-                    error={errors.endereco?.message}
-                    required
-                    disabled={loadingCEP}
-                    {...register('endereco')}
-                  />
-                </div>
-
-                <Input
-                  label="Número"
-                  placeholder="123"
-                  error={errors.numero?.message}
-                  required
-                  {...register('numero')}
-                />
-
-                <Input
-                  label="Complemento (opcional)"
-                  placeholder="Apto, Bloco..."
-                  {...register('complemento')}
-                />
-
-                <Input
-                  label="Bairro"
-                  placeholder="Nome do bairro"
-                  error={errors.bairro?.message}
-                  required
-                  disabled={loadingCEP}
-                  {...register('bairro')}
-                />
-
-                <Input
-                  label="Cidade"
-                  placeholder="Nome da cidade"
-                  error={errors.cidade?.message}
-                  required
-                  disabled={loadingCEP}
-                  {...register('cidade')}
-                />
-
-                <Select
-                  label="UF"
-                  placeholder="Selecione..."
-                  options={UF_OPTIONS}
-                  error={errors.uf?.message}
-                  required
-                  disabled={loadingCEP}
-                  {...register('uf')}
-                />
-              </div>
-            </FormStep>
-          )}
-
-          {/* ETAPA 3: Dados Socioeconômicos */}
-          {currentStep === 2 && (
-            <FormStep 
-              title="Dados Socioeconômicos" 
-              description="Informe sua situação financeira (opcional nesta etapa)"
-            >
-              <div className={styles.formGrid}>
-                <Input
-                  label="Renda Familiar Mensal (opcional)"
-                  placeholder="R$ 0,00"
-                  helperText="Some a renda de todos os membros da família"
-                  {...register('rendaFamiliar')}
-                />
-              </div>
-
-              <div className={styles.infoBox}>
-                <p>
-                  <strong>💡 Dica:</strong> Você poderá completar os dados 
-                  socioeconômicos mais tarde, incluindo informações sobre 
-                  membros da família, despesas e documentos.
-                </p>
-              </div>
-            </FormStep>
-          )}
-
-          {/* ETAPA 4: Confirmação */}
-          {currentStep === 3 && (
-            <FormStep 
-              title="Confirmação" 
-              description="Revise seus dados antes de finalizar"
-            >
-              <div className={styles.reviewSection}>
-                <h4>Dados Pessoais</h4>
-                <div className={styles.reviewGrid}>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>Nome:</span>
-                    <span className={styles.reviewValue}>{watchedValues.nome}</span>
-                  </div>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>CPF:</span>
-                    <span className={styles.reviewValue}>{watchedValues.cpf}</span>
-                  </div>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>Data de Nascimento:</span>
-                    <span className={styles.reviewValue}>
-                      {watchedValues.dataNascimento && 
-                        new Date(watchedValues.dataNascimento + 'T00:00:00').toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>Telefone:</span>
-                    <span className={styles.reviewValue}>{watchedValues.telefone}</span>
-                  </div>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>Estado Civil:</span>
-                    <span className={styles.reviewValue}>
-                      {ESTADO_CIVIL_OPTIONS.find(o => o.value === watchedValues.estadoCivil)?.label}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.reviewSection}>
-                <h4>Endereço</h4>
-                <div className={styles.reviewGrid}>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>CEP:</span>
-                    <span className={styles.reviewValue}>{watchedValues.cep}</span>
-                  </div>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>Endereço:</span>
-                    <span className={styles.reviewValue}>
-                      {watchedValues.endereco}, {watchedValues.numero}
-                      {watchedValues.complemento && ` - ${watchedValues.complemento}`}
-                    </span>
-                  </div>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>Bairro:</span>
-                    <span className={styles.reviewValue}>{watchedValues.bairro}</span>
-                  </div>
-                  <div className={styles.reviewItem}>
-                    <span className={styles.reviewLabel}>Cidade/UF:</span>
-                    <span className={styles.reviewValue}>
-                      {watchedValues.cidade}/{watchedValues.uf}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </FormStep>
-          )}
-
-          {/* Botões de Navegação */}
-          <div className={styles.actions}>
-            {currentStep > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePrevious}
-                leftIcon={<FiArrowLeft />}
-              >
-                Voltar
-              </Button>
-            )}
-
-            <div className={styles.actionsRight}>
-              {currentStep < STEPS.length - 1 ? (
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  rightIcon={<FiArrowRight />}
-                >
-                  Próximo
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  loading={loading}
-                  leftIcon={<FiSave />}
-                >
-                  Finalizar Cadastro
-                </Button>
-              )}
-            </div>
-          </div>
-        </form>
-      </FormStepper>
     </div>
   )
 }
