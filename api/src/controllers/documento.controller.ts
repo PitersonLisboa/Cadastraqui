@@ -24,7 +24,7 @@ export async function listarDocumentos(request: FastifyRequest, reply: FastifyRe
   })
 
   if (!candidato) {
-    throw new CandidatoNaoEncontradoError()
+    return reply.status(200).send({ documentos: [] })
   }
 
   const documentos = await prisma.documento.findMany({
@@ -86,7 +86,7 @@ export async function uploadDocumento(request: FastifyRequest, reply: FastifyRep
       tamanho: stats.size,
       mimeType: mimetype,
       status: 'ENVIADO',
-      candidatoId: candidato.id,
+      candidato: { connect: { id: candidato.id } },
     },
   })
 
@@ -142,9 +142,9 @@ export async function downloadDocumento(request: FastifyRequest, reply: FastifyR
   // Verificar permissão (dono, instituição, analistas ou admin)
   const isOwner = documento.candidato.usuarioId === request.usuario.id
   const isAdmin = request.usuario.role === 'ADMIN'
-  const isAnalyst = ['ASSISTENTE_SOCIAL', 'ADVOGADO', 'INSTITUICAO'].includes(request.usuario.role)
+  const isStaff = ['ASSISTENTE_SOCIAL', 'ADVOGADO', 'INSTITUICAO', 'SUPERVISAO', 'OPERACIONAL'].includes(request.usuario.role)
 
-  if (!isOwner && !isAdmin && !isAnalyst) {
+  if (!isOwner && !isAdmin && !isStaff) {
     throw new NaoAutorizadoError()
   }
 

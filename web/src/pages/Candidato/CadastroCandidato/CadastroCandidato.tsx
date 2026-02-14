@@ -224,6 +224,7 @@ export function CadastroCandidato() {
   // --- Estado Civil (step 5) ---
   const [estadoCivil, setEstadoCivil] = useState('')
   const certidaoRef = useRef<HTMLInputElement>(null)
+  const [certidaoFile, setCertidaoFile] = useState<File | null>(null)
 
   // --- Info Pessoais (step 6) ---
   const [pessoaisExtra, setPessoaisExtra] = useState<DadosPessoaisExtra>({
@@ -616,6 +617,18 @@ export function CadastroCandidato() {
     } catch { toast.error('Erro ao remover documento') }
   }
 
+  const handleViewDoc = async (docId: string) => {
+    try {
+      const response = await api.get(`/documentos/${docId}/download`, { responseType: 'blob' })
+      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (err: any) {
+      toast.error('Erro ao visualizar documento')
+    }
+  }
+
   const getUltimosMeses = () => {
     const now = new Date()
     return Array.from({ length: 3 }, (_, i) => {
@@ -690,7 +703,7 @@ export function CadastroCandidato() {
                 </div>
                 <div className={styles.fieldWide}>
                   <label>Documento de identificação</label>
-                  <div className={styles.fileUpload} onClick={() => editMode && fileInputRef.current?.click()}>
+                  <div className={styles.fileUpload} onClick={() => fileInputRef.current?.click()}>
                     <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
                   </div>
                   <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setDocFile(e.target.files[0]) }} />
@@ -713,7 +726,7 @@ export function CadastroCandidato() {
                   )}
                   {documentos.filter(d => d.tipo === 'RG').map(doc => (
                     <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button type="button" className={styles.linkBtn} onClick={() => window.open(`${api.defaults.baseURL}/documentos/${doc.id}/download`, '_blank')}>VISUALIZAR DOCUMENTO</button>
+                      <button type="button" className={styles.linkBtn} onClick={() => handleViewDoc(doc.id)}>VISUALIZAR DOCUMENTO</button>
                       {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
                       <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
                     </div>
@@ -755,7 +768,7 @@ export function CadastroCandidato() {
                 {possuiComprovante && (
                   <div className={styles.fieldWide}>
                     <label>Comprovante</label>
-                    <div className={styles.fileUpload} onClick={() => editMode && comprovanteRef.current?.click()}>
+                    <div className={styles.fileUpload} onClick={() => comprovanteRef.current?.click()}>
                       <span>{comprovanteFile ? comprovanteFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
                     </div>
                     <input ref={comprovanteRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setComprovanteFile(e.target.files[0]) }} />
@@ -778,7 +791,7 @@ export function CadastroCandidato() {
                     )}
                     {documentos.filter(d => d.tipo === 'COMPROVANTE_RESIDENCIA').map(doc => (
                       <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                        <button type="button" className={styles.linkBtn} onClick={() => window.open(`${api.defaults.baseURL}/documentos/${doc.id}/download`, '_blank')}>VER COMPROVANTE</button>
+                        <button type="button" className={styles.linkBtn} onClick={() => handleViewDoc(doc.id)}>VER COMPROVANTE</button>
                         {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
                         <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
                       </div>
@@ -826,10 +839,34 @@ export function CadastroCandidato() {
                 </div>
                 <div className={styles.fieldWide}>
                   <label>Certidão de casamento</label>
-                  <div className={styles.fileUpload} onClick={() => editMode && certidaoRef.current?.click()}><span>Anexar arquivo</span><FiPlus size={16} /></div>
-                  <input ref={certidaoRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} />
+                  <div className={styles.fileUpload} onClick={() => certidaoRef.current?.click()}>
+                    <span>{certidaoFile ? certidaoFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
+                  </div>
+                  <input ref={certidaoRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setCertidaoFile(e.target.files[0]) }} />
                   <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
-                  <button type="button" className={styles.linkBtn}>VISUALIZAR DOCUMENTO</button>
+                  {certidaoFile && (
+                    <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
+                      setUploadingDoc(true)
+                      try {
+                        const formData = new FormData()
+                        formData.append('file', certidaoFile)
+                        formData.append('tipo', 'CERTIDAO_CASAMENTO')
+                        await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+                        toast.success('Certidão enviada!')
+                        setCertidaoFile(null)
+                        if (certidaoRef.current) certidaoRef.current.value = ''
+                        carregarDados()
+                      } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
+                      finally { setUploadingDoc(false) }
+                    }}>{uploadingDoc ? 'Enviando...' : 'Enviar Certidão'}</button>
+                  )}
+                  {documentos.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').map(doc => (
+                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <button type="button" className={styles.linkBtn} onClick={() => handleViewDoc(doc.id)}>VISUALIZAR DOCUMENTO</button>
+                      {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
+                      <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
+                    </div>
+                  ))}
                 </div>
               </>
             )
@@ -902,7 +939,7 @@ export function CadastroCandidato() {
                           </span>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button className={styles.btnSmall} onClick={() => window.open(`${api.defaults.baseURL}/documentos/${doc.id}/download`, '_blank')}>
+                          <button className={styles.btnSmall} onClick={() => handleViewDoc(doc.id)}>
                             <FiFileText size={14} /> Ver
                           </button>
                           {doc.status !== 'APROVADO' && (
@@ -1380,7 +1417,7 @@ export function CadastroCandidato() {
                   <span className={styles.listName}>{dados.nome}</span>
                   {documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').length > 0
                     ? documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').map(doc => (
-                        <button key={doc.id} type="button" className={styles.linkBtn} onClick={() => window.open(`${api.defaults.baseURL}/documentos/${doc.id}/download`, '_blank')}>VER DECLARAÇÃO</button>
+                        <button key={doc.id} type="button" className={styles.linkBtn} onClick={() => handleViewDoc(doc.id)}>VER DECLARAÇÃO</button>
                       ))
                     : <span style={{ fontSize: '0.8rem', color: '#999' }}>Nenhuma declaração enviada</span>
                   }
