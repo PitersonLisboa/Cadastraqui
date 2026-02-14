@@ -23,7 +23,9 @@ export function Header() {
   const roleConfig = auth.usuario ? ROLES_CONFIG[auth.usuario.role] : null
   const apiBase = api.defaults.baseURL || ''
   const tenantLogoSrc = tenant?.logoUrl
-    ? (tenant.logoUrl.startsWith('http') ? tenant.logoUrl : `${apiBase}${tenant.logoUrl}`)
+    ? (tenant.logoUrl.startsWith('http') ? tenant.logoUrl
+      : tenant.logoUrl.startsWith('/uploads') ? `${apiBase}${tenant.logoUrl}`
+      : tenant.logoUrl)
     : null
 
   const handleToggle = () => {
