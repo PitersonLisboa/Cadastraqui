@@ -2,7 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import fs from 'fs'
 import path from 'path'
-import { pipeline } from 'stream/promises'
+
 import { prisma } from '../lib/prisma'
 import { 
   CandidatoNaoEncontradoError, 
@@ -45,32 +45,39 @@ export async function uploadDocumento(request: FastifyRequest, reply: FastifyRep
     throw new CandidatoNaoEncontradoError()
   }
 
-  // Processar multipart
-  const data = await request.file()
+  // Processar multipart via parts() — mais confiável que file()
+  let tipo = 'OUTROS'
+  let filename = ''
+  let mimetype = ''
+  let fileBuffer: Buffer | null = null
 
-  if (!data) {
-    throw new ArquivoInvalidoError('Nenhum arquivo enviado')
+  const parts = request.parts()
+  for await (const part of parts) {
+    if (part.type === 'field') {
+      if (part.fieldname === 'tipo' && typeof part.value === 'string') {
+        tipo = part.value
+      }
+    } else if (part.type === 'file' && part.fieldname === 'file') {
+      filename = part.filename
+      mimetype = part.mimetype
+      const chunks: Buffer[] = []
+      for await (const chunk of part.file) {
+        chunks.push(chunk as Buffer)
+      }
+      fileBuffer = Buffer.concat(chunks)
+    }
   }
 
-  const { file, filename, mimetype, fields } = data
+  if (!fileBuffer || !filename) {
+    throw new ArquivoInvalidoError('Nenhum arquivo enviado')
+  }
 
   // Validar tipo de arquivo
   if (!validarTipoArquivo(mimetype, filename)) {
     throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use PDF, JPG ou PNG.')
   }
 
-  // Obter tipo do documento do campo do form
-  const tipoField = fields.tipo as any
-  let tipo = 'OUTROS'
-  if (typeof tipoField === 'string') {
-    tipo = tipoField
-  } else if (tipoField?.value) {
-    tipo = tipoField.value
-  } else if (Array.isArray(tipoField) && tipoField[0]?.value) {
-    tipo = tipoField[0].value
-  }
-
-  console.log('📄 Upload doc - tipo extraído:', tipo, '| tipoField raw:', JSON.stringify(tipoField))
+  console.log('📄 Upload doc - tipo:', tipo, '| filename:', filename)
 
   if (!(TIPOS_DOCUMENTO as readonly string[]).includes(tipo)) {
     throw new ArquivoInvalidoError('Tipo de documento inválido')
@@ -81,7 +88,7 @@ export async function uploadDocumento(request: FastifyRequest, reply: FastifyRep
   const caminhoArquivo = path.join(UPLOADS_DIR, nomeArquivo)
 
   // Salvar arquivo no disco
-  await pipeline(file, fs.createWriteStream(caminhoArquivo))
+  fs.writeFileSync(caminhoArquivo, fileBuffer)
 
   // Obter tamanho do arquivo
   const stats = fs.statSync(caminhoArquivo)
