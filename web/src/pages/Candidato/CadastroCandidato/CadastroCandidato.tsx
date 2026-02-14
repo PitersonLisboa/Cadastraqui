@@ -156,6 +156,7 @@ const TIPOS_DOCUMENTO = [
   { value: 'IDENTIDADE_MILITAR', label: 'Identidade Militar' },
   { value: 'PASSAPORTE', label: 'Passaporte' },
   { value: 'CARTEIRA_TRABALHO', label: 'Carteira de Trabalho' },
+  { value: 'OUTROS_EDITAL', label: 'Outro(s) - Conforme Edital' },
 ]
 
 const CATEGORIAS_DESPESA = [
@@ -238,6 +239,9 @@ export function CadastroCandidato() {
   const [docArquivo, setDocArquivo] = useState<File | null>(null)
   const docInputRef = useRef<HTMLInputElement>(null)
   const [uploadingDoc, setUploadingDoc] = useState(false)
+  const [outrosQtd, setOutrosQtd] = useState(1)
+  const [outrosArquivos, setOutrosArquivos] = useState<(File | null)[]>([null])
+  const outrosRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // --- Benefícios (step 8) ---
   const [beneficios, setBeneficios] = useState<DadosBeneficios>({
@@ -589,6 +593,7 @@ export function CadastroCandidato() {
   // --- Documento handlers ---
   const handleUploadDoc = async () => {
     if (!docTipo) return toast.error('Selecione o tipo de documento')
+    if (docTipo === 'OUTROS_EDITAL') return // handled separately
     if (!docArquivo) return toast.error('Selecione um arquivo')
     setUploadingDoc(true)
     try {
@@ -606,6 +611,33 @@ export function CadastroCandidato() {
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao enviar documento')
     } finally { setUploadingDoc(false) }
+  }
+
+  const handleUploadOutros = async () => {
+    const arquivosValidos = outrosArquivos.filter(f => f !== null) as File[]
+    if (arquivosValidos.length === 0) return toast.error('Selecione ao menos um arquivo')
+    setUploadingDoc(true)
+    let enviados = 0
+    for (let i = 0; i < outrosArquivos.length; i++) {
+      const arquivo = outrosArquivos[i]
+      if (!arquivo) continue
+      try {
+        const formData = new FormData()
+        formData.append('file', arquivo)
+        formData.append('tipo', 'OUTROS_EDITAL')
+        await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+        enviados++
+      } catch (err: any) {
+        toast.error(`Erro no arquivo ${i + 1}: ${err.response?.data?.message || 'Erro'}`)
+      }
+    }
+    if (enviados > 0) {
+      toast.success(`${enviados} documento(s) enviado(s)!`)
+      setOutrosArquivos(Array(outrosQtd).fill(null))
+      outrosRefs.current.forEach(ref => { if (ref) ref.value = '' })
+      carregarDados()
+    }
+    setUploadingDoc(false)
   }
 
   const handleExcluirDoc = async (docId: string) => {
@@ -726,7 +758,7 @@ export function CadastroCandidato() {
                   )}
                   {documentos.filter(d => d.tipo === 'RG').map(doc => (
                     <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button type="button" className={styles.linkBtn} onClick={() => handleViewDoc(doc.id)}>VISUALIZAR DOCUMENTO</button>
+                      <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
                       {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
                       <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
                     </div>
@@ -791,7 +823,7 @@ export function CadastroCandidato() {
                     )}
                     {documentos.filter(d => d.tipo === 'COMPROVANTE_RESIDENCIA').map(doc => (
                       <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                        <button type="button" className={styles.linkBtn} onClick={() => handleViewDoc(doc.id)}>VER COMPROVANTE</button>
+                        <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
                         {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
                         <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
                       </div>
@@ -862,7 +894,7 @@ export function CadastroCandidato() {
                   )}
                   {documentos.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').map(doc => (
                     <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button type="button" className={styles.linkBtn} onClick={() => handleViewDoc(doc.id)}>VISUALIZAR DOCUMENTO</button>
+                      <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
                       {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
                       <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
                     </div>
@@ -898,7 +930,10 @@ export function CadastroCandidato() {
             )
 
             // ─── 7. Documento Adicional ───
-            case 6: return (
+            case 6: {
+              const TIPOS_CAMPO7 = TIPOS_DOCUMENTO.map(t => t.value)
+              const docsCampo7 = documentos.filter(d => TIPOS_CAMPO7.includes(d.tipo))
+              return (
               <>
                 <h2 className={styles.sectionTitle}>Documento Adicional</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
@@ -908,28 +943,77 @@ export function CadastroCandidato() {
                     <div className={styles.formGrid}>
                       <div className={styles.field}>
                         <label>Tipo de documento</label>
-                        <select value={docTipo} onChange={e => setDocTipo(e.target.value)}>
+                        <select value={docTipo} onChange={e => {
+                          setDocTipo(e.target.value)
+                          if (e.target.value !== 'OUTROS_EDITAL') {
+                            setOutrosQtd(1)
+                            setOutrosArquivos([null])
+                          }
+                        }}>
                           <option value="">Selecione</option>
                           {TIPOS_DOCUMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                       </div>
-                      <div className={styles.field}>
-                        <label>Arquivo (PDF, JPG, PNG — máx 10MB)</label>
-                        <input ref={docInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => { if (e.target.files?.[0]) setDocArquivo(e.target.files[0]) }} />
+                      {docTipo === 'OUTROS_EDITAL' && (
+                        <div className={styles.field}>
+                          <label>Quantidade de documentos</label>
+                          <select value={outrosQtd} onChange={e => {
+                            const qtd = Number(e.target.value)
+                            setOutrosQtd(qtd)
+                            setOutrosArquivos(Array(qtd).fill(null))
+                          }}>
+                            {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
+                    {docTipo && docTipo !== 'OUTROS_EDITAL' && (
+                      <>
+                        <div className={styles.field} style={{ marginTop: '0.75rem' }}>
+                          <label>Arquivo (PDF, JPG, PNG — máx 10MB)</label>
+                          <input ref={docInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => { if (e.target.files?.[0]) setDocArquivo(e.target.files[0]) }} />
+                        </div>
+                        {docArquivo && <p style={{ fontSize: '0.85rem', color: '#666', margin: '0.5rem 0' }}>Arquivo: {docArquivo.name} ({(docArquivo.size / 1024 / 1024).toFixed(2)} MB)</p>}
+                        <div className={styles.inlineActions}>
+                          <button className={styles.btnPrimary} onClick={handleUploadDoc} disabled={uploadingDoc}>
+                            {uploadingDoc ? 'Enviando...' : 'Enviar Documento'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {docTipo === 'OUTROS_EDITAL' && (
+                      <div style={{ marginTop: '0.75rem' }}>
+                        {Array.from({ length: outrosQtd }, (_, i) => (
+                          <div key={i} className={styles.field} style={{ marginBottom: '0.5rem' }}>
+                            <label>Documento {i + 1}</label>
+                            <input
+                              ref={el => { outrosRefs.current[i] = el }}
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.webp"
+                              onChange={e => {
+                                const newArr = [...outrosArquivos]
+                                newArr[i] = e.target.files?.[0] || null
+                                setOutrosArquivos(newArr)
+                              }}
+                            />
+                          </div>
+                        ))}
+                        <div className={styles.inlineActions}>
+                          <button className={styles.btnPrimary} onClick={handleUploadOutros} disabled={uploadingDoc}>
+                            {uploadingDoc ? 'Enviando...' : `Enviar ${outrosArquivos.filter(f => f).length} Documento(s)`}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    {docArquivo && <p style={{ fontSize: '0.85rem', color: '#666', margin: '0.5rem 0' }}>Arquivo selecionado: {docArquivo.name} ({(docArquivo.size / 1024 / 1024).toFixed(2)} MB)</p>}
-                    <div className={styles.inlineActions}>
-                      <button className={styles.btnPrimary} onClick={handleUploadDoc} disabled={uploadingDoc}>
-                        {uploadingDoc ? 'Enviando...' : 'Enviar Documento'}
-                      </button>
-                    </div>
+                    )}
                   </div>
                 )}
-                {documentos.length > 0 && (
+
+                {docsCampo7.length > 0 && (
                   <div style={{ marginTop: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Documentos enviados</h3>
-                    {documentos.map(doc => (
+                    <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Documentos enviados nesta seção</h3>
+                    {docsCampo7.map(doc => (
                       <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', borderBottom: '1px solid #eee' }}>
                         <div>
                           <strong>{TIPOS_DOCUMENTO.find(t => t.value === doc.tipo)?.label || doc.tipo}</strong>
@@ -939,8 +1023,8 @@ export function CadastroCandidato() {
                           </span>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button className={styles.btnSmall} onClick={() => handleViewDoc(doc.id)}>
-                            <FiFileText size={14} /> Ver
+                          <button className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>
+                            Visualizar Documento
                           </button>
                           {doc.status !== 'APROVADO' && (
                             <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}>
@@ -953,7 +1037,7 @@ export function CadastroCandidato() {
                   </div>
                 )}
               </>
-            )
+            )}
 
             // ─── 8. Benefícios e Programas ───
             case 7: return (
@@ -1417,7 +1501,7 @@ export function CadastroCandidato() {
                   <span className={styles.listName}>{dados.nome}</span>
                   {documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').length > 0
                     ? documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').map(doc => (
-                        <button key={doc.id} type="button" className={styles.linkBtn} onClick={() => handleViewDoc(doc.id)}>VER DECLARAÇÃO</button>
+                        <button key={doc.id} type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
                       ))
                     : <span style={{ fontSize: '0.8rem', color: '#999' }}>Nenhuma declaração enviada</span>
                   }

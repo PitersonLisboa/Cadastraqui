@@ -41,6 +41,7 @@ export const TIPOS_DOCUMENTO = [
   'PASSAPORTE',
   'CERTIDAO_CASAMENTO',
   'DECLARACAO_CEBAS',
+  'OUTROS_EDITAL',
   'OUTROS',
 ] as const
 

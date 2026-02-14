@@ -1,5 +1,5 @@
 import { useRecoilValue, useSetRecoilState } from 'recoil'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { FiMenu, FiX, FiLogOut, FiUser } from 'react-icons/fi'
 import { authState, sidebarState, sidebarModeState } from '@/atoms'
 import { ROLES_CONFIG } from '@/types'
@@ -15,6 +15,7 @@ export function Header() {
   const setAuth = useSetRecoilState(authState)
   const navigate = useNavigate()
   const { slug } = useParams<{ slug: string }>()
+  const location = useLocation()
 
   const roleConfig = auth.usuario ? ROLES_CONFIG[auth.usuario.role] : null
 
@@ -24,8 +25,14 @@ export function Header() {
       setSidebarMode({ mode: 'menu', activeSection: sidebarMode.activeSection })
       setSidebar((prev) => ({ ...prev, isOpen: true }))
     } else {
-      // Estamos no menu padrão → toggle abrir/fechar
-      setSidebar((prev) => ({ ...prev, isOpen: !prev.isOpen }))
+      // Estamos no menu padrão → fechar e voltar para cadastro se estiver na página de cadastro
+      const isCadastroPage = location.pathname.includes('/cadastro')
+      if (isCadastroPage) {
+        setSidebar((prev) => ({ ...prev, isOpen: false }))
+        setSidebarMode({ mode: 'cadastro', activeSection: sidebarMode.activeSection || 'candidato' })
+      } else {
+        setSidebar((prev) => ({ ...prev, isOpen: !prev.isOpen }))
+      }
     }
   }
 
