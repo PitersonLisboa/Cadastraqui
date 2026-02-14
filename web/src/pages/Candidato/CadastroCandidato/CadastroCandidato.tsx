@@ -608,6 +608,9 @@ export function CadastroCandidato() {
     if (!docTipo) return toast.error('Selecione o tipo de documento')
     if (docTipo === 'OUTROS_EDITAL') return // handled separately
     if (!docArquivo) return toast.error('Selecione um arquivo')
+    if (documentos.some(d => d.tipo === docTipo)) {
+      return toast.error('Já existe um documento deste tipo. Exclua o atual para enviar outro.')
+    }
     setUploadingDoc(true)
     try {
       const formData = new FormData()
@@ -783,6 +786,8 @@ export function CadastroCandidato() {
                 </div>
                 <div className={styles.fieldWide}>
                   <label>Documento de identificação</label>
+                  {documentos.filter(d => d.tipo === 'RG').length === 0 ? (
+                  <>
                   <div className={styles.fileUpload} onClick={() => fileInputRef.current?.click()}>
                     <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
                   </div>
@@ -803,6 +808,10 @@ export function CadastroCandidato() {
                       } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
                       finally { setUploadingDoc(false) }
                     }}>{uploadingDoc ? 'Enviando...' : 'Enviar Documento'}</button>
+                  )}
+                  </>
+                  ) : (
+                    <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.25rem' }}>Documento já enviado. Exclua o atual para enviar outro.</p>
                   )}
                 </div>
                 <DocListBlock tipos={['RG']} titulo="Documento(s) RG enviado(s)" />
@@ -839,6 +848,8 @@ export function CadastroCandidato() {
                 {possuiComprovante && (
                   <div className={styles.fieldWide}>
                     <label>Comprovante</label>
+                    {documentos.filter(d => d.tipo === 'COMPROVANTE_RESIDENCIA').length === 0 ? (
+                    <>
                     <div className={styles.fileUpload} onClick={() => comprovanteRef.current?.click()}>
                       <span>{comprovanteFile ? comprovanteFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
                     </div>
@@ -859,6 +870,10 @@ export function CadastroCandidato() {
                         } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
                         finally { setUploadingDoc(false) }
                       }}>{uploadingDoc ? 'Enviando...' : 'Enviar Comprovante'}</button>
+                    )}
+                    </>
+                    ) : (
+                      <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.25rem' }}>Documento já enviado. Exclua o atual para enviar outro.</p>
                     )}
                   </div>
                 )}
@@ -904,6 +919,8 @@ export function CadastroCandidato() {
                 </div>
                 <div className={styles.fieldWide}>
                   <label>Certidão de casamento</label>
+                  {documentos.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').length === 0 ? (
+                  <>
                   <div className={styles.fileUpload} onClick={() => certidaoRef.current?.click()}>
                     <span>{certidaoFile ? certidaoFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
                   </div>
@@ -924,6 +941,10 @@ export function CadastroCandidato() {
                       } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
                       finally { setUploadingDoc(false) }
                     }}>{uploadingDoc ? 'Enviando...' : 'Enviar Certidão'}</button>
+                  )}
+                  </>
+                  ) : (
+                    <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.25rem' }}>Documento já enviado. Exclua o atual para enviar outro.</p>
                   )}
                 </div>
                 <DocListBlock tipos={['CERTIDAO_CASAMENTO']} titulo="Certidão(ões) enviada(s)" />
