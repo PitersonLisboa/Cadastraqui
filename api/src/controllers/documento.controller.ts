@@ -72,7 +72,7 @@ export async function uploadDocumento(request: FastifyRequest, reply: FastifyRep
 
   console.log('📄 Upload doc - tipo extraído:', tipo, '| tipoField raw:', JSON.stringify(tipoField))
 
-  if (!TIPOS_DOCUMENTO.includes(tipo)) {
+  if (!(TIPOS_DOCUMENTO as readonly string[]).includes(tipo)) {
     throw new ArquivoInvalidoError('Tipo de documento inválido')
   }
 
