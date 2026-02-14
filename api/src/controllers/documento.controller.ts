@@ -61,7 +61,16 @@ export async function uploadDocumento(request: FastifyRequest, reply: FastifyRep
 
   // Obter tipo do documento do campo do form
   const tipoField = fields.tipo as any
-  const tipo = tipoField?.value || 'OUTROS'
+  let tipo = 'OUTROS'
+  if (typeof tipoField === 'string') {
+    tipo = tipoField
+  } else if (tipoField?.value) {
+    tipo = tipoField.value
+  } else if (Array.isArray(tipoField) && tipoField[0]?.value) {
+    tipo = tipoField[0].value
+  }
+
+  console.log('📄 Upload doc - tipo extraído:', tipo, '| tipoField raw:', JSON.stringify(tipoField))
 
   if (!TIPOS_DOCUMENTO.includes(tipo)) {
     throw new ArquivoInvalidoError('Tipo de documento inválido')

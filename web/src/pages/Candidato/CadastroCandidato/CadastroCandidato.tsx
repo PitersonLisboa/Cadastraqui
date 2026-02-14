@@ -609,8 +609,8 @@ export function CadastroCandidato() {
     setUploadingDoc(true)
     try {
       const formData = new FormData()
-      formData.append('file', docArquivo)
       formData.append('tipo', docTipo)
+      formData.append('file', docArquivo)
       await api.post('/documentos', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
@@ -634,8 +634,8 @@ export function CadastroCandidato() {
       if (!arquivo) continue
       try {
         const formData = new FormData()
-        formData.append('file', arquivo)
         formData.append('tipo', 'OUTROS_EDITAL')
+        formData.append('file', arquivo)
         await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
         enviados++
       } catch (err: any) {
@@ -795,8 +795,8 @@ export function CadastroCandidato() {
                       setUploadingDoc(true)
                       try {
                         const formData = new FormData()
-                        formData.append('file', docFile)
                         formData.append('tipo', 'RG')
+                        formData.append('file', docFile)
                         await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
                         toast.success('Documento enviado!')
                         setDocFile(null)
@@ -861,8 +861,8 @@ export function CadastroCandidato() {
                         setUploadingDoc(true)
                         try {
                           const formData = new FormData()
-                          formData.append('file', comprovanteFile)
                           formData.append('tipo', 'COMPROVANTE_RESIDENCIA')
+                          formData.append('file', comprovanteFile)
                           await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
                           toast.success('Comprovante enviado!')
                           setComprovanteFile(null)
@@ -933,8 +933,8 @@ export function CadastroCandidato() {
                       setUploadingDoc(true)
                       try {
                         const formData = new FormData()
-                        formData.append('file', certidaoFile)
                         formData.append('tipo', 'CERTIDAO_CASAMENTO')
+                        formData.append('file', certidaoFile)
                         await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
                         toast.success('Certidão enviada!')
                         setCertidaoFile(null)
