@@ -50,6 +50,8 @@ const criarCandidatoSchema = z.object({
   escolaridade: z.string().optional(),
   religiao: z.string().optional(),
   necessidadesEspeciais: z.boolean().optional(),
+  tipoNecessidadesEspeciais: z.string().optional(),
+  descricaoNecessidadesEspeciais: z.string().optional(),
 
   // Benefícios
   cadastroUnico: z.boolean().optional(),
@@ -390,6 +392,7 @@ export async function atualizarMeusDados(request: FastifyRequest, reply: Fastify
     }
 
     const updateData = filtrar(dados)
+    console.log('📝 updateData necessidades:', { necessidadesEspeciais: updateData.necessidadesEspeciais, tipoNecessidadesEspeciais: updateData.tipoNecessidadesEspeciais, descricaoNecessidadesEspeciais: updateData.descricaoNecessidadesEspeciais })
 
     const atualizado = await prisma.candidato.update({
       where: { id: candidato.id },
