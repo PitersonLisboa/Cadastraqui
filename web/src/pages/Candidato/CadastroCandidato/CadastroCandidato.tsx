@@ -214,6 +214,7 @@ export function CadastroCandidato() {
   // --- Comprovante endereço (step 3) ---
   const [possuiComprovante, setPossuiComprovante] = useState(true)
   const comprovanteRef = useRef<HTMLInputElement>(null)
+  const [comprovanteFile, setComprovanteFile] = useState<File | null>(null)
 
   // --- Info Adicionais (step 4) ---
   const [adicionais, setAdicionais] = useState<DadosAdicionais>({
@@ -689,10 +690,37 @@ export function CadastroCandidato() {
                 </div>
                 <div className={styles.fieldWide}>
                   <label>Documento de identificação</label>
-                  <div className={styles.fileUpload} onClick={() => editMode && fileInputRef.current?.click()}><span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiPlus size={16} /></div>
+                  <div className={styles.fileUpload} onClick={() => editMode && fileInputRef.current?.click()}>
+                    <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
+                  </div>
                   <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setDocFile(e.target.files[0]) }} />
                   <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
-                  <button type="button" className={styles.linkBtn}>VISUALIZAR DOCUMENTO</button>
+                  {docFile && (
+                    <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
+                      setUploadingDoc(true)
+                      try {
+                        const formData = new FormData()
+                        formData.append('file', docFile)
+                        formData.append('tipo', 'RG')
+                        await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+                        toast.success('Documento enviado!')
+                        setDocFile(null)
+                        if (fileInputRef.current) fileInputRef.current.value = ''
+                        carregarDados()
+                      } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
+                      finally { setUploadingDoc(false) }
+                    }}>{uploadingDoc ? 'Enviando...' : 'Enviar Documento'}</button>
+                  )}
+                  {documentos.filter(d => d.tipo === 'RG').map(doc => (
+                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <button type="button" className={styles.linkBtn} onClick={() => window.open(`${api.defaults.baseURL}/documentos/${doc.id}/download`, '_blank')}>VISUALIZAR DOCUMENTO</button>
+                      {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
+                      <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
+                    </div>
+                  ))}
+                  {documentos.filter(d => d.tipo === 'RG').length === 0 && !docFile && (
+                    <p style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.25rem' }}>Nenhum documento enviado</p>
+                  )}
                 </div>
               </>
             )
@@ -727,11 +755,34 @@ export function CadastroCandidato() {
                 {possuiComprovante && (
                   <div className={styles.fieldWide}>
                     <label>Comprovante</label>
-                    <div className={styles.fileUpload} onClick={() => editMode && comprovanteRef.current?.click()}><span>Anexar arquivo</span><FiPlus size={16} /></div>
-                    <input ref={comprovanteRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} />
+                    <div className={styles.fileUpload} onClick={() => editMode && comprovanteRef.current?.click()}>
+                      <span>{comprovanteFile ? comprovanteFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
+                    </div>
+                    <input ref={comprovanteRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setComprovanteFile(e.target.files[0]) }} />
                     <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
-                    <button type="button" className={styles.linkBtn}>VER COMPROVANTE</button>
-                    <button type="button" className={styles.btnSmallDanger}>Excluir comprovante</button>
+                    {comprovanteFile && (
+                      <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
+                        setUploadingDoc(true)
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', comprovanteFile)
+                          formData.append('tipo', 'COMPROVANTE_RESIDENCIA')
+                          await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+                          toast.success('Comprovante enviado!')
+                          setComprovanteFile(null)
+                          if (comprovanteRef.current) comprovanteRef.current.value = ''
+                          carregarDados()
+                        } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
+                        finally { setUploadingDoc(false) }
+                      }}>{uploadingDoc ? 'Enviando...' : 'Enviar Comprovante'}</button>
+                    )}
+                    {documentos.filter(d => d.tipo === 'COMPROVANTE_RESIDENCIA').map(doc => (
+                      <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        <button type="button" className={styles.linkBtn} onClick={() => window.open(`${api.defaults.baseURL}/documentos/${doc.id}/download`, '_blank')}>VER COMPROVANTE</button>
+                        {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
+                        <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </>
@@ -1324,9 +1375,27 @@ export function CadastroCandidato() {
           <>
             <h2 className={styles.sectionTitle}>Declarações para fins de processo seletivo CEBAS</h2>
             <div className={styles.listItems}>
-              {dados.nome && (<div className={styles.listRow}><span className={styles.listName}>{dados.nome}</span><button type="button" className={styles.linkBtn}>VER DECLARAÇÃO</button><button className={styles.btnSmallOutline}>Cadastrar</button></div>)}
-              {membros.map(m => (<div key={m.id} className={styles.listRow}><span className={styles.listName}>{m.nome}</span><button type="button" className={styles.linkBtn}>VER DECLARAÇÃO</button><button className={styles.btnSmallOutline}>Cadastrar</button></div>))}
+              {dados.nome && (
+                <div className={styles.listRow}>
+                  <span className={styles.listName}>{dados.nome}</span>
+                  {documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').length > 0
+                    ? documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').map(doc => (
+                        <button key={doc.id} type="button" className={styles.linkBtn} onClick={() => window.open(`${api.defaults.baseURL}/documentos/${doc.id}/download`, '_blank')}>VER DECLARAÇÃO</button>
+                      ))
+                    : <span style={{ fontSize: '0.8rem', color: '#999' }}>Nenhuma declaração enviada</span>
+                  }
+                </div>
+              )}
+              {membros.map(m => (
+                <div key={m.id} className={styles.listRow}>
+                  <span className={styles.listName}>{m.nome}</span>
+                  <span style={{ fontSize: '0.8rem', color: '#999' }}>Nenhuma declaração enviada</span>
+                </div>
+              ))}
             </div>
+            <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '1rem' }}>
+              As declarações podem ser enviadas na seção "Documento Adicional" do cadastro.
+            </p>
           </>
         )
 

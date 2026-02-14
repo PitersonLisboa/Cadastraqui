@@ -154,7 +154,13 @@ export async function downloadDocumento(request: FastifyRequest, reply: FastifyR
     throw new RecursoNaoEncontradoError('Arquivo')
   }
 
-  return reply.sendFile(path.basename(documento.url))
+  const stream = fs.createReadStream(caminhoArquivo)
+  const mimeType = documento.mimeType || 'application/octet-stream'
+  
+  return reply
+    .header('Content-Type', mimeType)
+    .header('Content-Disposition', `inline; filename="${documento.nome}"`)
+    .send(stream)
 }
 
 // Atualizar status do documento (para analistas)
