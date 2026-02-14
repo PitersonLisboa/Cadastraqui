@@ -689,7 +689,7 @@ export function CadastroCandidato() {
     const docsParaVer = docTipos ? documentos.filter(d => docTipos.includes(d.tipo)) : []
     return (
     <div>
-      {docsParaVer.length > 0 && (
+      {docsParaVer.length > 0 ? (
         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
           {docsParaVer.map(doc => (
             <button key={doc.id} className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }} onClick={() => handleViewDoc(doc.id)}>
@@ -697,7 +697,9 @@ export function CadastroCandidato() {
             </button>
           ))}
         </div>
-      )}
+      ) : docTipos ? (
+        <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#999', marginBottom: '0.5rem' }}>Nenhum documento enviado para esta etapa</p>
+      ) : null}
       <div className={styles.footerSplit}>
         {onPrev ? <button className={styles.btnArrow} onClick={onPrev}><FiArrowLeft size={20} /></button> : <div />}
         <button className={styles.btnOutline} onClick={() => editMode ? handleSaveDados() : setEditMode(true)} disabled={saving}>
@@ -716,12 +718,38 @@ export function CadastroCandidato() {
   const RadioSimNao = ({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) => (
     <div className={styles.radioGroup}>
       <span className={styles.radioLabel}>{label}</span>
-      <div className={styles.radioOptions}>
-        <label><input type="radio" checked={value} onChange={() => onChange(true)} /> Sim</label>
-        <label><input type="radio" checked={!value} onChange={() => onChange(false)} /> Não</label>
-      </div>
+      <label><input type="radio" checked={value === true} onChange={() => onChange(true)} /> Sim</label>
+      <label><input type="radio" checked={value === false} onChange={() => onChange(false)} /> Não</label>
     </div>
   )
+
+  /** Bloco de documentos enviados para uma seção */
+  const DocListBlock = ({ tipos, titulo }: { tipos: string[]; titulo?: string }) => {
+    const docs = documentos.filter(d => tipos.includes(d.tipo))
+    return (
+      <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: '#334155' }}>
+          {titulo || 'Documentos enviados'}
+        </p>
+        {docs.length > 0 ? docs.map(doc => (
+          <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0', borderBottom: '1px solid #e2e8f0' }}>
+            <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }} onClick={() => handleViewDoc(doc.id)}>
+              Visualizar Documento
+            </button>
+            {doc.status !== 'APROVADO' && (
+              <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={14} /></button>
+            )}
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{doc.nome}</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: doc.status === 'APROVADO' ? '#16a34a' : doc.status === 'REJEITADO' ? '#dc2626' : '#ca8a04' }}>
+              {doc.status}
+            </span>
+          </div>
+        )) : (
+          <p style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Nenhum documento enviado</p>
+        )}
+      </div>
+    )
+  }
 
   // ===========================================
   // RENDER SEÇÕES
@@ -789,6 +817,7 @@ export function CadastroCandidato() {
                     <p style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.25rem' }}>Nenhum documento enviado</p>
                   )}
                 </div>
+                <DocListBlock tipos={['RG']} titulo="Documento(s) RG enviado(s)" />
               </>
             )
 
@@ -852,6 +881,7 @@ export function CadastroCandidato() {
                     ))}
                   </div>
                 )}
+                <DocListBlock tipos={['COMPROVANTE_RESIDENCIA']} titulo="Comprovante(s) enviado(s)" />
               </>
             )
 
@@ -922,6 +952,7 @@ export function CadastroCandidato() {
                     </div>
                   ))}
                 </div>
+                <DocListBlock tipos={['CERTIDAO_CASAMENTO']} titulo="Certidão(ões) enviada(s)" />
               </>
             )
 
@@ -1042,6 +1073,7 @@ export function CadastroCandidato() {
                   </div>
                 )}
 
+                <DocListBlock tipos={['CARTEIRA_MOTORISTA', 'CARTEIRA_FUNCIONAL', 'IDENTIDADE_MILITAR', 'PASSAPORTE', 'CARTEIRA_TRABALHO', 'OUTROS_EDITAL']} titulo="Documentos adicionais enviados" />
               </>
             )}
 
