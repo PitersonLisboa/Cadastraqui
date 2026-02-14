@@ -978,6 +978,8 @@ export function CadastroCandidato() {
 
             // ─── 7. Documento Adicional ───
             case 6: {
+              const outrosEnviados = documentos.filter(d => d.tipo === 'OUTROS_EDITAL').length
+              const outrosRestantes = Math.max(0, 5 - outrosEnviados)
               return (
               <>
                 <h2 className={styles.sectionTitle}>Documento Adicional</h2>
@@ -993,22 +995,33 @@ export function CadastroCandidato() {
                           if (e.target.value !== 'OUTROS_EDITAL') {
                             setOutrosQtd(1)
                             setOutrosArquivos([null])
+                          } else {
+                            const qtdInicial = Math.min(1, outrosRestantes)
+                            setOutrosQtd(qtdInicial)
+                            setOutrosArquivos(Array(qtdInicial).fill(null))
                           }
                         }}>
                           <option value="">Selecione</option>
                           {TIPOS_DOCUMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                       </div>
-                      {docTipo === 'OUTROS_EDITAL' && (
+                      {docTipo === 'OUTROS_EDITAL' && outrosRestantes > 0 && (
                         <div className={styles.field}>
-                          <label>Quantidade de documentos</label>
+                          <label>Quantidade de documentos ({outrosEnviados}/5 já enviados)</label>
                           <select value={outrosQtd} onChange={e => {
                             const qtd = Number(e.target.value)
                             setOutrosQtd(qtd)
                             setOutrosArquivos(Array(qtd).fill(null))
                           }}>
-                            {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                            {Array.from({ length: outrosRestantes }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
                           </select>
+                        </div>
+                      )}
+                      {docTipo === 'OUTROS_EDITAL' && outrosRestantes === 0 && (
+                        <div className={styles.field}>
+                          <p style={{ color: '#dc2626', fontSize: '0.9rem', fontWeight: 500, padding: '0.5rem 0' }}>
+                            Limite de 5 documentos atingido.
+                          </p>
                         </div>
                       )}
                     </div>
@@ -1028,7 +1041,7 @@ export function CadastroCandidato() {
                       </>
                     )}
 
-                    {docTipo === 'OUTROS_EDITAL' && (
+                    {docTipo === 'OUTROS_EDITAL' && outrosRestantes > 0 && (
                       <div style={{ marginTop: '0.75rem' }}>
                         {Array.from({ length: outrosQtd }, (_, i) => (
                           <div key={i} className={styles.field} style={{ marginBottom: '0.5rem' }}>
