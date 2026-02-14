@@ -931,8 +931,6 @@ export function CadastroCandidato() {
 
             // ─── 7. Documento Adicional ───
             case 6: {
-              const TIPOS_CAMPO7 = TIPOS_DOCUMENTO.map(t => t.value)
-              const docsCampo7 = documentos.filter(d => TIPOS_CAMPO7.includes(d.tipo))
               return (
               <>
                 <h2 className={styles.sectionTitle}>Documento Adicional</h2>
@@ -1010,32 +1008,6 @@ export function CadastroCandidato() {
                   </div>
                 )}
 
-                {docsCampo7.length > 0 && (
-                  <div style={{ marginTop: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Documentos enviados nesta seção</h3>
-                    {docsCampo7.map(doc => (
-                      <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', borderBottom: '1px solid #eee' }}>
-                        <div>
-                          <strong>{TIPOS_DOCUMENTO.find(t => t.value === doc.tipo)?.label || doc.tipo}</strong>
-                          <span style={{ fontSize: '0.8rem', color: '#888', marginLeft: '0.5rem' }}>{doc.nome}</span>
-                          <span style={{ fontSize: '0.75rem', color: doc.status === 'APROVADO' ? '#16a34a' : doc.status === 'REJEITADO' ? '#dc2626' : '#ca8a04', marginLeft: '0.5rem' }}>
-                            ({doc.status})
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>
-                            Visualizar Documento
-                          </button>
-                          {doc.status !== 'APROVADO' && (
-                            <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}>
-                              <FiTrash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </>
             )}
 

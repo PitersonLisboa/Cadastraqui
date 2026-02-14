@@ -20,19 +20,22 @@ export function Header() {
   const roleConfig = auth.usuario ? ROLES_CONFIG[auth.usuario.role] : null
 
   const handleToggle = () => {
+    const isCadastroPage = location.pathname.includes('/cadastro')
+
     if (sidebarMode.mode === 'cadastro') {
-      // Estamos na sidebar de cadastro → voltar para menu padrão
+      // Step 1: Clicou X na sidebar cadastro → mostrar sidebar principal
       setSidebarMode({ mode: 'menu', activeSection: sidebarMode.activeSection })
       setSidebar((prev) => ({ ...prev, isOpen: true }))
+    } else if (sidebar.isOpen) {
+      // Step 2: Sidebar principal visível, clicou hamburger → esconder sidebar principal
+      setSidebar((prev) => ({ ...prev, isOpen: false }))
+    } else if (isCadastroPage) {
+      // Step 3: Nenhuma sidebar visível + está no cadastro → voltar sidebar cadastro
+      setSidebarMode({ mode: 'cadastro', activeSection: sidebarMode.activeSection || 'candidato' })
+      setSidebar((prev) => ({ ...prev, isOpen: true }))
     } else {
-      // Estamos no menu padrão → fechar e voltar para cadastro se estiver na página de cadastro
-      const isCadastroPage = location.pathname.includes('/cadastro')
-      if (isCadastroPage) {
-        setSidebar((prev) => ({ ...prev, isOpen: false }))
-        setSidebarMode({ mode: 'cadastro', activeSection: sidebarMode.activeSection || 'candidato' })
-      } else {
-        setSidebar((prev) => ({ ...prev, isOpen: !prev.isOpen }))
-      }
+      // Fora do cadastro → toggle normal
+      setSidebar((prev) => ({ ...prev, isOpen: !prev.isOpen }))
     }
   }
 
