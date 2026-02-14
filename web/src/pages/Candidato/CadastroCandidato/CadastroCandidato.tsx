@@ -670,7 +670,12 @@ export function CadastroCandidato() {
       window.open(url, '_blank')
       setTimeout(() => URL.revokeObjectURL(url), 60000)
     } catch (err: any) {
-      toast.error('Erro ao visualizar documento')
+      console.error('❌ Erro ao visualizar doc:', err.response?.status, err.response?.data)
+      if (err.response?.status === 404) {
+        toast.error('Arquivo não encontrado no servidor. Pode ter sido perdido após um redeploy. Envie novamente.')
+      } else {
+        toast.error(err.response?.data?.message || 'Erro ao visualizar documento')
+      }
     }
   }
 
