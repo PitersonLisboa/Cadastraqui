@@ -180,6 +180,8 @@ model Candidato {
   escolaridade      String?
   religiao          String?
   necessidadesEspeciais Boolean? @default(false)
+  tipoNecessidadesEspeciais String?
+  descricaoNecessidadesEspeciais String?
 
   // Benefícios
   cadastroUnico     Boolean? @default(false)

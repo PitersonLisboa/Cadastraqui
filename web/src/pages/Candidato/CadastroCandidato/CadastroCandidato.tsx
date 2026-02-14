@@ -138,6 +138,7 @@ interface DadosAdicionais {
 interface DadosPessoaisExtra {
   corRaca: string; escolaridade: string; religiao: string
   necessidadesEspeciais: boolean
+  tipoNecessidadesEspeciais: string; descricaoNecessidadesEspeciais: string
 }
 interface DadosBeneficios {
   cadastroUnico: boolean; escolaPublica: boolean
@@ -230,6 +231,7 @@ export function CadastroCandidato() {
   // --- Info Pessoais (step 6) ---
   const [pessoaisExtra, setPessoaisExtra] = useState<DadosPessoaisExtra>({
     corRaca: '', escolaridade: '', religiao: '', necessidadesEspeciais: false,
+    tipoNecessidadesEspeciais: '', descricaoNecessidadesEspeciais: '',
   })
 
   // --- Documento Adicional (step 7) ---
@@ -327,6 +329,7 @@ export function CadastroCandidato() {
         setPessoaisExtra({
           corRaca: c.corRaca || '', escolaridade: c.escolaridade || '',
           religiao: c.religiao || '', necessidadesEspeciais: c.necessidadesEspeciais || false,
+          tipoNecessidadesEspeciais: c.tipoNecessidadesEspeciais || '', descricaoNecessidadesEspeciais: c.descricaoNecessidadesEspeciais || '',
         })
         setBeneficios({
           cadastroUnico: c.cadastroUnico || false, escolaPublica: c.escolaPublica || false,
@@ -386,6 +389,8 @@ export function CadastroCandidato() {
 
   const handleSaveDados = async () => {
     if (!dados.nome || !dados.cpf) return toast.error('Nome e CPF são obrigatórios')
+    if (pessoaisExtra.necessidadesEspeciais && !pessoaisExtra.tipoNecessidadesEspeciais) return toast.error('Informe o tipo de necessidade especial')
+    if (pessoaisExtra.necessidadesEspeciais && !pessoaisExtra.descricaoNecessidadesEspeciais) return toast.error('Informe a descrição da necessidade especial')
     setSaving(true)
     try {
       // Montar payload removendo campos vazios
@@ -421,6 +426,8 @@ export function CadastroCandidato() {
       if (pessoaisExtra.escolaridade) payload.escolaridade = pessoaisExtra.escolaridade
       if (pessoaisExtra.religiao) payload.religiao = pessoaisExtra.religiao
       if (pessoaisExtra.necessidadesEspeciais !== undefined) payload.necessidadesEspeciais = pessoaisExtra.necessidadesEspeciais
+      if (pessoaisExtra.tipoNecessidadesEspeciais) payload.tipoNecessidadesEspeciais = pessoaisExtra.tipoNecessidadesEspeciais
+      if (pessoaisExtra.descricaoNecessidadesEspeciais) payload.descricaoNecessidadesEspeciais = pessoaisExtra.descricaoNecessidadesEspeciais
       // Benefícios
       if (beneficios.cadastroUnico !== undefined) payload.cadastroUnico = beneficios.cadastroUnico
       if (beneficios.escolaPublica !== undefined) payload.escolaPublica = beneficios.escolaPublica
@@ -675,20 +682,33 @@ export function CadastroCandidato() {
   // HELPERS DE RENDER
   // ===========================================
 
-  /** Rodapé padrão com ← Editar → */
-  const FooterNav = ({ onPrev, onNext, isLast }: { onPrev?: () => void; onNext?: () => void; isLast?: boolean }) => (
-    <div className={styles.footerSplit}>
-      {onPrev ? <button className={styles.btnArrow} onClick={onPrev}><FiArrowLeft size={20} /></button> : <div />}
-      <button className={styles.btnOutline} onClick={() => editMode ? handleSaveDados() : setEditMode(true)} disabled={saving}>
-        {editMode ? (saving ? 'Salvando...' : 'Salvar') : 'Editar'}
-      </button>
-      {onNext ? (
-        isLast
-          ? <button className={styles.btnOutlineArrow} onClick={onNext}>Próxima Etapa <FiArrowRight size={16} /></button>
-          : <button className={styles.btnArrow} onClick={onNext}><FiArrowRight size={20} /></button>
-      ) : <div />}
+  /** Rodapé padrão com ← Editar → e Visualizar Documento */
+  const FooterNav = ({ onPrev, onNext, isLast, docTipos }: { onPrev?: () => void; onNext?: () => void; isLast?: boolean; docTipos?: string[] }) => {
+    const docsParaVer = docTipos ? documentos.filter(d => docTipos.includes(d.tipo)) : []
+    return (
+    <div>
+      {docsParaVer.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+          {docsParaVer.map(doc => (
+            <button key={doc.id} className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }} onClick={() => handleViewDoc(doc.id)}>
+              Visualizar Documento
+            </button>
+          ))}
+        </div>
+      )}
+      <div className={styles.footerSplit}>
+        {onPrev ? <button className={styles.btnArrow} onClick={onPrev}><FiArrowLeft size={20} /></button> : <div />}
+        <button className={styles.btnOutline} onClick={() => editMode ? handleSaveDados() : setEditMode(true)} disabled={saving}>
+          {editMode ? (saving ? 'Salvando...' : 'Salvar') : 'Editar'}
+        </button>
+        {onNext ? (
+          isLast
+            ? <button className={styles.btnOutlineArrow} onClick={onNext}>Próxima Etapa <FiArrowRight size={16} /></button>
+            : <button className={styles.btnArrow} onClick={onNext}><FiArrowRight size={20} /></button>
+        ) : <div />}
+      </div>
     </div>
-  )
+  )}
 
   /** Radio Sim/Não */
   const RadioSimNao = ({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) => (
@@ -926,6 +946,18 @@ export function CadastroCandidato() {
                   </div>
                 </div>
                 <RadioSimNao label="Necessidades especiais" value={pessoaisExtra.necessidadesEspeciais} onChange={v => setPessoaisExtra({ ...pessoaisExtra, necessidadesEspeciais: v })} />
+                {pessoaisExtra.necessidadesEspeciais && (
+                  <div className={styles.formGridSingle} style={{ marginTop: '0.75rem' }}>
+                    <div className={styles.field}>
+                      <label>Tipo de necessidades especiais</label>
+                      <input value={pessoaisExtra.tipoNecessidadesEspeciais} disabled={!editMode} placeholder="Ex: Visual, Auditiva, Motora..." onChange={e => setPessoaisExtra({ ...pessoaisExtra, tipoNecessidadesEspeciais: e.target.value })} />
+                    </div>
+                    <div className={styles.field}>
+                      <label>Descrição das necessidades especiais</label>
+                      <input value={pessoaisExtra.descricaoNecessidadesEspeciais} disabled={!editMode} placeholder="Descreva brevemente" onChange={e => setPessoaisExtra({ ...pessoaisExtra, descricaoNecessidadesEspeciais: e.target.value })} />
+                    </div>
+                  </div>
+                )}
               </>
             )
 
@@ -1034,6 +1066,12 @@ export function CadastroCandidato() {
               onPrev={subStep > 0 ? () => setSubStep(s => s - 1) : undefined}
               onNext={subStep < 7 ? () => setSubStep(s => s + 1) : () => goToNextSection()}
               isLast={subStep === 7}
+              docTipos={
+                subStep === 0 ? ['RG'] :
+                subStep === 2 ? ['COMPROVANTE_RESIDENCIA'] :
+                subStep === 4 ? ['CERTIDAO_CASAMENTO'] :
+                undefined
+              }
             />
           </>
         )

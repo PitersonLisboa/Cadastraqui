@@ -339,7 +339,7 @@ export async function atualizarMeusDados(request: FastifyRequest, reply: Fastify
     'nomeSocial', 'sexo', 'profissao', 'nacionalidade', 'naturalidade', 'naturalidadeEstado',
     'estadoCivil', 'corRaca', 'escolaridade', 'religiao', 'necessidadesEspeciais',
     'cadastroUnico', 'escolaPublica', 'bolsaCebasBasica', 'bolsaCebasProfissional',
-    'rendaFamiliar',
+    'rendaFamiliar', 'tipoNecessidadesEspeciais', 'descricaoNecessidadesEspeciais',
   ]
 
   // Filtrar: só campos válidos, remover strings vazias (mas manter booleanos e números)

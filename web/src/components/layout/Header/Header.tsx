@@ -23,14 +23,11 @@ export function Header() {
     const isCadastroPage = location.pathname.includes('/cadastro')
 
     if (sidebarMode.mode === 'cadastro') {
-      // Step 1: Clicou X na sidebar cadastro → mostrar sidebar principal
+      // Clicou X na sidebar cadastro → mostrar sidebar principal
       setSidebarMode({ mode: 'menu', activeSection: sidebarMode.activeSection })
       setSidebar((prev) => ({ ...prev, isOpen: true }))
-    } else if (sidebar.isOpen) {
-      // Step 2: Sidebar principal visível, clicou hamburger → esconder sidebar principal
-      setSidebar((prev) => ({ ...prev, isOpen: false }))
     } else if (isCadastroPage) {
-      // Step 3: Nenhuma sidebar visível + está no cadastro → voltar sidebar cadastro
+      // Clicou hamburger estando no cadastro → voltar direto para sidebar cadastro
       setSidebarMode({ mode: 'cadastro', activeSection: sidebarMode.activeSection || 'candidato' })
       setSidebar((prev) => ({ ...prev, isOpen: true }))
     } else {
