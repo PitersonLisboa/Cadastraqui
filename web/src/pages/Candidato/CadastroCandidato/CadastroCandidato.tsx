@@ -686,20 +686,8 @@ export function CadastroCandidato() {
   // HELPERS DE RENDER
   // ===========================================
 
-  /** Rodapé padrão com ← Editar → e Visualizar Documento */
-  const FooterNav = ({ onPrev, onNext, isLast, docTipos }: { onPrev?: () => void; onNext?: () => void; isLast?: boolean; docTipos?: string[] }) => {
-    const docsParaVer = docTipos ? documentos.filter(d => docTipos.includes(d.tipo)) : []
-    return (
-    <div>
-      {docsParaVer.length > 0 ? (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-          {docsParaVer.map(doc => (
-            <button key={doc.id} className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }} onClick={() => handleViewDoc(doc.id)}>
-              Visualizar Documento
-            </button>
-          ))}
-        </div>
-      ) : null}
+  /** Rodapé padrão com ← Editar → */
+  const FooterNav = ({ onPrev, onNext, isLast }: { onPrev?: () => void; onNext?: () => void; isLast?: boolean }) => (
       <div className={styles.footerSplit}>
         {onPrev ? <button className={styles.btnArrow} onClick={onPrev}><FiArrowLeft size={20} /></button> : <div />}
         <button className={styles.btnOutline} onClick={() => editMode ? handleSaveDados() : setEditMode(true)} disabled={saving}>
@@ -711,8 +699,7 @@ export function CadastroCandidato() {
             : <button className={styles.btnArrow} onClick={onNext}><FiArrowRight size={20} /></button>
         ) : <div />}
       </div>
-    </div>
-  )}
+  )
 
   /** Radio Sim/Não */
   const RadioSimNao = ({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) => (
@@ -806,16 +793,6 @@ export function CadastroCandidato() {
                       finally { setUploadingDoc(false) }
                     }}>{uploadingDoc ? 'Enviando...' : 'Enviar Documento'}</button>
                   )}
-                  {documentos.filter(d => d.tipo === 'RG').map(doc => (
-                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
-                      {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
-                      <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
-                    </div>
-                  ))}
-                  {documentos.filter(d => d.tipo === 'RG').length === 0 && !docFile && (
-                    <p style={{ fontSize: '0.8rem', color: '#999', marginTop: '0.25rem' }}>Nenhum documento enviado</p>
-                  )}
                 </div>
                 <DocListBlock tipos={['RG']} titulo="Documento(s) RG enviado(s)" />
               </>
@@ -872,13 +849,6 @@ export function CadastroCandidato() {
                         finally { setUploadingDoc(false) }
                       }}>{uploadingDoc ? 'Enviando...' : 'Enviar Comprovante'}</button>
                     )}
-                    {documentos.filter(d => d.tipo === 'COMPROVANTE_RESIDENCIA').map(doc => (
-                      <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                        <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
-                        {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
-                        <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
-                      </div>
-                    ))}
                   </div>
                 )}
                 <DocListBlock tipos={['COMPROVANTE_RESIDENCIA']} titulo="Comprovante(s) enviado(s)" />
@@ -944,13 +914,6 @@ export function CadastroCandidato() {
                       finally { setUploadingDoc(false) }
                     }}>{uploadingDoc ? 'Enviando...' : 'Enviar Certidão'}</button>
                   )}
-                  {documentos.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').map(doc => (
-                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
-                      {doc.status !== 'APROVADO' && <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}><FiTrash2 size={12} /></button>}
-                      <span style={{ fontSize: '0.75rem', color: '#888' }}>({doc.status})</span>
-                    </div>
-                  ))}
                 </div>
                 <DocListBlock tipos={['CERTIDAO_CASAMENTO']} titulo="Certidão(ões) enviada(s)" />
               </>
@@ -1100,13 +1063,6 @@ export function CadastroCandidato() {
               onPrev={subStep > 0 ? () => setSubStep(s => s - 1) : undefined}
               onNext={subStep < 7 ? () => setSubStep(s => s + 1) : () => goToNextSection()}
               isLast={subStep === 7}
-              docTipos={
-                subStep === 0 ? ['RG'] :
-                subStep === 2 ? ['COMPROVANTE_RESIDENCIA'] :
-                subStep === 4 ? ['CERTIDAO_CASAMENTO'] :
-                subStep === 6 ? ['CARTEIRA_MOTORISTA', 'CARTEIRA_FUNCIONAL', 'IDENTIDADE_MILITAR', 'PASSAPORTE', 'CARTEIRA_TRABALHO', 'OUTROS_EDITAL'] :
-                undefined
-              }
             />
           </>
         )
