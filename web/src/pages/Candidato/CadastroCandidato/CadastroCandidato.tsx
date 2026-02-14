@@ -629,6 +629,10 @@ export function CadastroCandidato() {
   const handleUploadOutros = async () => {
     const arquivosValidos = outrosArquivos.filter(f => f !== null) as File[]
     if (arquivosValidos.length === 0) return toast.error('Selecione ao menos um arquivo')
+    const jaEnviados = documentos.filter(d => d.tipo === 'OUTROS_EDITAL').length
+    if (jaEnviados + arquivosValidos.length > 5) {
+      return toast.error(`Limite de 5 documentos. Já enviados: ${jaEnviados}, tentando enviar: ${arquivosValidos.length}.`)
+    }
     setUploadingDoc(true)
     let enviados = 0
     for (let i = 0; i < outrosArquivos.length; i++) {
