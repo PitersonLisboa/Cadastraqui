@@ -382,7 +382,9 @@ export function CadastroCandidato() {
       try {
         const docs = await api.get('/documentos')
         setDocumentos(docs.data.documentos || [])
-      } catch {}
+      } catch (docErr: any) {
+        console.warn('Erro ao carregar documentos:', docErr.response?.status, docErr.response?.data?.message || docErr.message)
+      }
     } catch {}
     finally { setLoading(false) }
   }
@@ -1070,6 +1072,7 @@ export function CadastroCandidato() {
                 subStep === 0 ? ['RG'] :
                 subStep === 2 ? ['COMPROVANTE_RESIDENCIA'] :
                 subStep === 4 ? ['CERTIDAO_CASAMENTO'] :
+                subStep === 6 ? ['CARTEIRA_MOTORISTA', 'CARTEIRA_FUNCIONAL', 'IDENTIDADE_MILITAR', 'PASSAPORTE', 'CARTEIRA_TRABALHO', 'OUTROS_EDITAL'] :
                 undefined
               }
             />
