@@ -381,7 +381,9 @@ export function CadastroCandidato() {
       // Carregar documentos
       try {
         const docs = await api.get('/documentos')
-        setDocumentos(docs.data.documentos || [])
+        const lista = docs.data.documentos || docs.data || []
+        console.log('📄 Documentos carregados:', lista.length, lista.map((d: any) => d.tipo))
+        setDocumentos(Array.isArray(lista) ? lista : [])
       } catch (docErr: any) {
         console.warn('Erro ao carregar documentos:', docErr.response?.status, docErr.response?.data?.message || docErr.message)
       }
@@ -697,8 +699,6 @@ export function CadastroCandidato() {
             </button>
           ))}
         </div>
-      ) : docTipos ? (
-        <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#999', marginBottom: '0.5rem' }}>Nenhum documento enviado para esta etapa</p>
       ) : null}
       <div className={styles.footerSplit}>
         {onPrev ? <button className={styles.btnArrow} onClick={onPrev}><FiArrowLeft size={20} /></button> : <div />}
