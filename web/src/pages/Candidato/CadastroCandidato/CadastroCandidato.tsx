@@ -954,6 +954,15 @@ export function CadastroCandidato() {
                     </div>
                   </div>
                 )}
+                {!editMode && pessoaisExtra.necessidadesEspeciais && pessoaisExtra.tipoNecessidadesEspeciais && (
+                  <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '8px', border: '1px solid #fbbf24' }}>
+                    <p style={{ fontWeight: 600, fontSize: '0.85rem', color: '#92400e' }}>Necessidades especiais informadas:</p>
+                    <p style={{ fontSize: '0.85rem', color: '#78350f', marginTop: '0.25rem' }}>Tipo: {pessoaisExtra.tipoNecessidadesEspeciais}</p>
+                    {pessoaisExtra.descricaoNecessidadesEspeciais && (
+                      <p style={{ fontSize: '0.85rem', color: '#78350f', marginTop: '0.15rem' }}>Descrição: {pessoaisExtra.descricaoNecessidadesEspeciais}</p>
+                    )}
+                  </div>
+                )}
               </>
             )
 

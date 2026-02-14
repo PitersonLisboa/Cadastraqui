@@ -45,17 +45,21 @@
 }
 
 .logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
+  pointer-events: none;
 }
 
 .logoImg {
-  height: 28px;
+  height: 36px;
   width: auto;
   filter: brightness(1);
 
   @media (max-width: 480px) {
-    height: 22px;
+    height: 26px;
   }
 }
 
