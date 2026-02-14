@@ -331,6 +331,7 @@ export function CadastroCandidato() {
           religiao: c.religiao || '', necessidadesEspeciais: c.necessidadesEspeciais || false,
           tipoNecessidadesEspeciais: c.tipoNecessidadesEspeciais || '', descricaoNecessidadesEspeciais: c.descricaoNecessidadesEspeciais || '',
         })
+        console.log('📋 Necessidades carregadas:', { necessidadesEspeciais: c.necessidadesEspeciais, tipo: c.tipoNecessidadesEspeciais, descricao: c.descricaoNecessidadesEspeciais })
         setBeneficios({
           cadastroUnico: c.cadastroUnico || false, escolaPublica: c.escolaPublica || false,
           bolsaCebasBasica: c.bolsaCebasBasica || false, bolsaCebasProfissional: c.bolsaCebasProfissional || false,
@@ -432,6 +433,7 @@ export function CadastroCandidato() {
       if (pessoaisExtra.necessidadesEspeciais !== undefined) payload.necessidadesEspeciais = pessoaisExtra.necessidadesEspeciais
       if (pessoaisExtra.tipoNecessidadesEspeciais) payload.tipoNecessidadesEspeciais = pessoaisExtra.tipoNecessidadesEspeciais
       if (pessoaisExtra.descricaoNecessidadesEspeciais) payload.descricaoNecessidadesEspeciais = pessoaisExtra.descricaoNecessidadesEspeciais
+      console.log('💾 Payload necessidades:', { necessidadesEspeciais: payload.necessidadesEspeciais, tipo: payload.tipoNecessidadesEspeciais, descricao: payload.descricaoNecessidadesEspeciais })
       // Benefícios
       if (beneficios.cadastroUnico !== undefined) payload.cadastroUnico = beneficios.cadastroUnico
       if (beneficios.escolaPublica !== undefined) payload.escolaPublica = beneficios.escolaPublica
