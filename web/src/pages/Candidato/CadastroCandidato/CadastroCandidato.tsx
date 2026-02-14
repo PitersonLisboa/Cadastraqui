@@ -709,11 +709,11 @@ export function CadastroCandidato() {
   )
 
   /** Radio Sim/Não */
-  const RadioSimNao = ({ value, onChange, label }: { value: boolean; onChange: (v: boolean) => void; label: string }) => (
+  const RadioSimNao = ({ value, onChange, label, disabled }: { value: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) => (
     <div className={styles.radioGroup}>
       <span className={styles.radioLabel}>{label}</span>
-      <label><input type="radio" checked={value === true} onChange={() => onChange(true)} /> Sim</label>
-      <label><input type="radio" checked={value === false} onChange={() => onChange(false)} /> Não</label>
+      <label style={disabled ? { opacity: 0.6, pointerEvents: 'none' } : {}}><input type="radio" checked={value === true} disabled={disabled} onChange={() => onChange(true)} /> Sim</label>
+      <label style={disabled ? { opacity: 0.6, pointerEvents: 'none' } : {}}><input type="radio" checked={value === false} disabled={disabled} onChange={() => onChange(false)} /> Não</label>
     </div>
   )
 
@@ -831,7 +831,7 @@ export function CadastroCandidato() {
               <>
                 <h2 className={styles.sectionTitle}>Comprovante de endereço</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
-                <RadioSimNao label="Possui comprovante de residência?" value={possuiComprovante} onChange={setPossuiComprovante} />
+                <RadioSimNao label="Possui comprovante de residência?" value={possuiComprovante} onChange={setPossuiComprovante} disabled={!editMode} />
                 {possuiComprovante && (
                   <div className={styles.fieldWide}>
                     <label>Comprovante</label>
@@ -948,7 +948,7 @@ export function CadastroCandidato() {
                     </select>
                   </div>
                 </div>
-                <RadioSimNao label="Necessidades especiais" value={pessoaisExtra.necessidadesEspeciais} onChange={v => setPessoaisExtra({ ...pessoaisExtra, necessidadesEspeciais: v })} />
+                <RadioSimNao label="Necessidades especiais" value={pessoaisExtra.necessidadesEspeciais} onChange={v => setPessoaisExtra({ ...pessoaisExtra, necessidadesEspeciais: v })} disabled={!editMode} />
                 {pessoaisExtra.necessidadesEspeciais && (
                   <div className={styles.formGridSingle} style={{ marginTop: '0.75rem' }}>
                     <div className={styles.field}>
@@ -1064,10 +1064,10 @@ export function CadastroCandidato() {
               <>
                 <h2 className={styles.sectionTitle}>Benefícios e Programas</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
-                <RadioSimNao label="Inscrito no cadastro único?" value={beneficios.cadastroUnico} onChange={v => setBeneficios({ ...beneficios, cadastroUnico: v })} />
-                <RadioSimNao label="Estudou em escola pública?" value={beneficios.escolaPublica} onChange={v => setBeneficios({ ...beneficios, escolaPublica: v })} />
-                <RadioSimNao label="Já recebeu bolsa CEBAS para educação básica?" value={beneficios.bolsaCebasBasica} onChange={v => setBeneficios({ ...beneficios, bolsaCebasBasica: v })} />
-                <RadioSimNao label="Já recebeu bolsa CEBAS para educação profissional?" value={beneficios.bolsaCebasProfissional} onChange={v => setBeneficios({ ...beneficios, bolsaCebasProfissional: v })} />
+                <RadioSimNao label="Inscrito no cadastro único?" value={beneficios.cadastroUnico} onChange={v => setBeneficios({ ...beneficios, cadastroUnico: v })} disabled={!editMode} />
+                <RadioSimNao label="Estudou em escola pública?" value={beneficios.escolaPublica} onChange={v => setBeneficios({ ...beneficios, escolaPublica: v })} disabled={!editMode} />
+                <RadioSimNao label="Já recebeu bolsa CEBAS para educação básica?" value={beneficios.bolsaCebasBasica} onChange={v => setBeneficios({ ...beneficios, bolsaCebasBasica: v })} disabled={!editMode} />
+                <RadioSimNao label="Já recebeu bolsa CEBAS para educação profissional?" value={beneficios.bolsaCebasProfissional} onChange={v => setBeneficios({ ...beneficios, bolsaCebasProfissional: v })} disabled={!editMode} />
               </>
             )
             default: return null
