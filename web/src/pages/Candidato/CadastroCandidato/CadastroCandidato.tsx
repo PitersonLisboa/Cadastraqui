@@ -946,21 +946,24 @@ export function CadastroCandidato() {
                   <div className={styles.formGridSingle} style={{ marginTop: '0.75rem' }}>
                     <div className={styles.field}>
                       <label>Tipo de necessidades especiais</label>
-                      <input value={pessoaisExtra.tipoNecessidadesEspeciais} disabled={!editMode} placeholder="Ex: Visual, Auditiva, Motora..." onChange={e => setPessoaisExtra({ ...pessoaisExtra, tipoNecessidadesEspeciais: e.target.value })} />
+                      {editMode ? (
+                        <input value={pessoaisExtra.tipoNecessidadesEspeciais} placeholder="Ex: Visual, Auditiva, Motora..." onChange={e => setPessoaisExtra({ ...pessoaisExtra, tipoNecessidadesEspeciais: e.target.value })} />
+                      ) : (
+                        <p style={{ padding: '0.5rem 0.75rem', background: '#f1f5f9', borderRadius: '6px', fontSize: '0.9rem', color: pessoaisExtra.tipoNecessidadesEspeciais ? '#1e293b' : '#94a3b8', minHeight: '2.25rem' }}>
+                          {pessoaisExtra.tipoNecessidadesEspeciais || 'Não informado'}
+                        </p>
+                      )}
                     </div>
                     <div className={styles.field}>
                       <label>Descrição das necessidades especiais</label>
-                      <input value={pessoaisExtra.descricaoNecessidadesEspeciais} disabled={!editMode} placeholder="Descreva brevemente" onChange={e => setPessoaisExtra({ ...pessoaisExtra, descricaoNecessidadesEspeciais: e.target.value })} />
+                      {editMode ? (
+                        <input value={pessoaisExtra.descricaoNecessidadesEspeciais} placeholder="Descreva brevemente" onChange={e => setPessoaisExtra({ ...pessoaisExtra, descricaoNecessidadesEspeciais: e.target.value })} />
+                      ) : (
+                        <p style={{ padding: '0.5rem 0.75rem', background: '#f1f5f9', borderRadius: '6px', fontSize: '0.9rem', color: pessoaisExtra.descricaoNecessidadesEspeciais ? '#1e293b' : '#94a3b8', minHeight: '2.25rem' }}>
+                          {pessoaisExtra.descricaoNecessidadesEspeciais || 'Não informado'}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                )}
-                {!editMode && pessoaisExtra.necessidadesEspeciais && pessoaisExtra.tipoNecessidadesEspeciais && (
-                  <div style={{ marginTop: '0.5rem', padding: '0.75rem', background: '#fef3c7', borderRadius: '8px', border: '1px solid #fbbf24' }}>
-                    <p style={{ fontWeight: 600, fontSize: '0.85rem', color: '#92400e' }}>Necessidades especiais informadas:</p>
-                    <p style={{ fontSize: '0.85rem', color: '#78350f', marginTop: '0.25rem' }}>Tipo: {pessoaisExtra.tipoNecessidadesEspeciais}</p>
-                    {pessoaisExtra.descricaoNecessidadesEspeciais && (
-                      <p style={{ fontSize: '0.85rem', color: '#78350f', marginTop: '0.15rem' }}>Descrição: {pessoaisExtra.descricaoNecessidadesEspeciais}</p>
-                    )}
                   </div>
                 )}
               </>
