@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRecoilValue, useSetRecoilState } from 'recoil'
 import { toast } from 'react-toastify'
-import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp } from 'react-icons/fi'
+import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp, FiFileText } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
 import { api, rendaService, despesaService, moradiaService, veiculoService } from '@/services/api'
@@ -148,6 +148,15 @@ interface Membro { id?: string; nome: string; cpf: string; parentesco: string; r
 interface Veiculo { id?: string; modelo: string; placa: string; ano: string }
 interface RendaMensalItem { id: string; mes: number; ano: number; valor: number; fonte?: string; descricao?: string }
 interface DespesaItem { id: string; mes: number; ano: number; categoria: string; descricao?: string; valor: number }
+interface DocumentoItem { id: string; tipo: string; nome: string; url: string; status: string; criadoEm: string }
+
+const TIPOS_DOCUMENTO = [
+  { value: 'CARTEIRA_MOTORISTA', label: 'Carteira de Motorista' },
+  { value: 'CARTEIRA_FUNCIONAL', label: 'Carteira Funcional' },
+  { value: 'IDENTIDADE_MILITAR', label: 'Identidade Militar' },
+  { value: 'PASSAPORTE', label: 'Passaporte' },
+  { value: 'CARTEIRA_TRABALHO', label: 'Carteira de Trabalho' },
+]
 
 const CATEGORIAS_DESPESA = [
   { value: 'MORADIA', label: 'Moradia (aluguel, condomínio, IPTU)' },
@@ -222,6 +231,11 @@ export function CadastroCandidato() {
 
   // --- Documento Adicional (step 7) ---
   const [desejaDocAdicional, setDesejaDocAdicional] = useState(false)
+  const [documentos, setDocumentos] = useState<DocumentoItem[]>([])
+  const [docTipo, setDocTipo] = useState('')
+  const [docArquivo, setDocArquivo] = useState<File | null>(null)
+  const docInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingDoc, setUploadingDoc] = useState(false)
 
   // --- Benefícios (step 8) ---
   const [beneficios, setBeneficios] = useState<DadosBeneficios>({
@@ -354,6 +368,11 @@ export function CadastroCandidato() {
       try {
         const v = await veiculoService.listar()
         setVeiculos((v.veiculos || []).map((ve: any) => ({ id: ve.id, modelo: ve.modelo, placa: ve.placa || '', ano: ve.ano || '' })))
+      } catch {}
+      // Carregar documentos
+      try {
+        const docs = await api.get('/documentos')
+        setDocumentos(docs.data.documentos || [])
       } catch {}
     } catch {}
     finally { setLoading(false) }
@@ -565,6 +584,37 @@ export function CadastroCandidato() {
     } catch { toast.error('Erro ao remover') }
   }
 
+  // --- Documento handlers ---
+  const handleUploadDoc = async () => {
+    if (!docTipo) return toast.error('Selecione o tipo de documento')
+    if (!docArquivo) return toast.error('Selecione um arquivo')
+    setUploadingDoc(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', docArquivo)
+      formData.append('tipo', docTipo)
+      await api.post('/documentos', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      toast.success('Documento enviado!')
+      setDocTipo('')
+      setDocArquivo(null)
+      if (docInputRef.current) docInputRef.current.value = ''
+      carregarDados()
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao enviar documento')
+    } finally { setUploadingDoc(false) }
+  }
+
+  const handleExcluirDoc = async (docId: string) => {
+    if (!confirm('Excluir este documento?')) return
+    try {
+      await api.delete(`/documentos/${docId}`)
+      toast.success('Documento removido')
+      carregarDados()
+    } catch { toast.error('Erro ao remover documento') }
+  }
+
   const getUltimosMeses = () => {
     const now = new Date()
     return Array.from({ length: 3 }, (_, i) => {
@@ -765,6 +815,55 @@ export function CadastroCandidato() {
                 <h2 className={styles.sectionTitle}>Documento Adicional</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
                 <RadioSimNao label="Deseja adicionar outro documento?" value={desejaDocAdicional} onChange={setDesejaDocAdicional} />
+                {desejaDocAdicional && (
+                  <div className={styles.inlineForm}>
+                    <div className={styles.formGrid}>
+                      <div className={styles.field}>
+                        <label>Tipo de documento</label>
+                        <select value={docTipo} onChange={e => setDocTipo(e.target.value)}>
+                          <option value="">Selecione</option>
+                          {TIPOS_DOCUMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                        </select>
+                      </div>
+                      <div className={styles.field}>
+                        <label>Arquivo (PDF, JPG, PNG — máx 10MB)</label>
+                        <input ref={docInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => { if (e.target.files?.[0]) setDocArquivo(e.target.files[0]) }} />
+                      </div>
+                    </div>
+                    {docArquivo && <p style={{ fontSize: '0.85rem', color: '#666', margin: '0.5rem 0' }}>Arquivo selecionado: {docArquivo.name} ({(docArquivo.size / 1024 / 1024).toFixed(2)} MB)</p>}
+                    <div className={styles.inlineActions}>
+                      <button className={styles.btnPrimary} onClick={handleUploadDoc} disabled={uploadingDoc}>
+                        {uploadingDoc ? 'Enviando...' : 'Enviar Documento'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {documentos.length > 0 && (
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Documentos enviados</h3>
+                    {documentos.map(doc => (
+                      <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', borderBottom: '1px solid #eee' }}>
+                        <div>
+                          <strong>{TIPOS_DOCUMENTO.find(t => t.value === doc.tipo)?.label || doc.tipo}</strong>
+                          <span style={{ fontSize: '0.8rem', color: '#888', marginLeft: '0.5rem' }}>{doc.nome}</span>
+                          <span style={{ fontSize: '0.75rem', color: doc.status === 'APROVADO' ? '#16a34a' : doc.status === 'REJEITADO' ? '#dc2626' : '#ca8a04', marginLeft: '0.5rem' }}>
+                            ({doc.status})
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button className={styles.btnSmall} onClick={() => window.open(`${api.defaults.baseURL}/documentos/${doc.id}/download`, '_blank')}>
+                            <FiFileText size={14} /> Ver
+                          </button>
+                          {doc.status !== 'APROVADO' && (
+                            <button className={styles.btnSmallDanger} onClick={() => handleExcluirDoc(doc.id)}>
+                              <FiTrash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )
 
