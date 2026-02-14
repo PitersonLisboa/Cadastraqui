@@ -4,6 +4,8 @@ import { FiMenu, FiX, FiLogOut, FiUser } from 'react-icons/fi'
 import { authState, sidebarState, sidebarModeState } from '@/atoms'
 import { ROLES_CONFIG } from '@/types'
 import { NotificacoesDropdown } from '@/components/common/Notificacoes/NotificacoesDropdown'
+import { useTenant } from '@/contexts/TenantContext'
+import { api } from '@/services/api'
 import styles from './Header.module.scss'
 
 export function Header() {
@@ -16,8 +18,13 @@ export function Header() {
   const navigate = useNavigate()
   const { slug } = useParams<{ slug: string }>()
   const location = useLocation()
+  const { tenant } = useTenant()
 
   const roleConfig = auth.usuario ? ROLES_CONFIG[auth.usuario.role] : null
+  const apiBase = api.defaults.baseURL || ''
+  const tenantLogoSrc = tenant?.logoUrl
+    ? (tenant.logoUrl.startsWith('http') ? tenant.logoUrl : `${apiBase}${tenant.logoUrl}`)
+    : null
 
   const handleToggle = () => {
     const isCadastroPage = location.pathname.includes('/cadastro')
@@ -65,6 +72,16 @@ export function Header() {
             alt="Cadastraqui"
             className={styles.logoImg}
           />
+          {tenantLogoSrc && (
+            <>
+              <span className={styles.logoDivider} />
+              <img
+                src={tenantLogoSrc}
+                alt={tenant?.nome || 'Instituição'}
+                className={styles.logoInst}
+              />
+            </>
+          )}
         </div>
       </div>
 
