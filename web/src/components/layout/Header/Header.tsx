@@ -31,17 +31,20 @@ export function Header() {
   const handleToggle = () => {
     const isCadastroPage = location.pathname.includes('/cadastro')
 
-    if (sidebarMode.mode === 'cadastro') {
-      // Clicou X na sidebar cadastro → mostrar sidebar principal
-      setSidebarMode({ mode: 'menu', activeSection: sidebarMode.activeSection })
+    if (!sidebar.isOpen) {
+      // Sidebar fechada → abrir sidebar principal (menu)
+      setSidebarMode({ mode: 'menu', activeSection: sidebarMode.activeSection || 'candidato' })
       setSidebar((prev) => ({ ...prev, isOpen: true }))
-    } else if (isCadastroPage) {
-      // Clicou hamburger estando no cadastro → voltar direto para sidebar cadastro
+    } else if (sidebarMode.mode === 'menu' && isCadastroPage) {
+      // Sidebar principal aberta + está na página de cadastro → trocar para sidebar cadastro
       setSidebarMode({ mode: 'cadastro', activeSection: sidebarMode.activeSection || 'candidato' })
       setSidebar((prev) => ({ ...prev, isOpen: true }))
+    } else if (sidebarMode.mode === 'cadastro') {
+      // Sidebar cadastro aberta → fechar tudo (X)
+      setSidebar((prev) => ({ ...prev, isOpen: false }))
     } else {
-      // Fora do cadastro → toggle normal
-      setSidebar((prev) => ({ ...prev, isOpen: !prev.isOpen }))
+      // Sidebar principal aberta, fora do cadastro → fechar
+      setSidebar((prev) => ({ ...prev, isOpen: false }))
     }
   }
 
@@ -54,8 +57,8 @@ export function Header() {
 
   if (!auth.usuario) return null
 
-  // Ícone: ✕ quando no modo cadastro (sidebar de seções), ☰ quando no menu padrão
-  const showClose = sidebarMode.mode === 'cadastro'
+  // Ícone: ✕ quando sidebar aberta (qualquer modo), ☰ quando fechada
+  const showClose = sidebar.isOpen
 
   return (
     <header className={styles.header}>

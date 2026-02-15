@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { 
   FiFileText, 
   FiCalendar, 
@@ -70,9 +70,11 @@ const STATUS_CONFIG: Record<string, { label: string; icon: JSX.Element; class: s
 
 export function MinhasCandidaturas() {
   const navigate = useNavigate()
+  const { slug } = useParams<{ slug: string }>()
   const [candidaturas, setCandidaturas] = useState<Candidatura[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroStatus, setFiltroStatus] = useState<string>('')
+  const basePath = slug ? `/${slug}/candidato` : '/candidato'
 
   useEffect(() => {
     loadCandidaturas()
@@ -116,7 +118,7 @@ export function MinhasCandidaturas() {
           <h1>Minhas Candidaturas</h1>
           <p>Acompanhe suas inscrições em editais</p>
         </div>
-        <Button onClick={() => navigate('/candidato/editais')}>
+        <Button onClick={() => navigate(`${basePath}/editais`)}>
           Ver Editais
         </Button>
       </header>
@@ -173,7 +175,7 @@ export function MinhasCandidaturas() {
                 Ver todas
               </Button>
             ) : (
-              <Button onClick={() => navigate('/candidato/editais')}>
+              <Button onClick={() => navigate(`${basePath}/editais`)}>
                 Ver Editais Disponíveis
               </Button>
             )}
@@ -223,7 +225,7 @@ export function MinhasCandidaturas() {
                   <Button 
                     variant="outline"
                     size="sm"
-                    onClick={() => navigate(`/candidato/candidaturas/${candidatura.id}`)}
+                    onClick={() => navigate(`${basePath}/candidaturas/${candidatura.id}`)}
                     rightIcon={<FiEye />}
                   >
                     Ver Detalhes

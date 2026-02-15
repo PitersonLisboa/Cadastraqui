@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { 
   FiSearch, 
   FiCalendar, 
@@ -7,7 +7,9 @@ import {
   FiMapPin,
   FiArrowRight,
   FiAlertCircle,
-  FiFilter
+  FiFilter,
+  FiArrowLeft,
+  FiTool
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import { editalService } from '@/services/api'
@@ -38,8 +40,10 @@ interface Edital {
 
 export function ListaEditaisDisponiveis() {
   const navigate = useNavigate()
+  const { slug } = useParams<{ slug: string }>()
   const [editais, setEditais] = useState<Edital[]>([])
   const [loading, setLoading] = useState(true)
+  const [emConstrucao, setEmConstrucao] = useState(false)
   const [busca, setBusca] = useState('')
   const [ufFiltro, setUfFiltro] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -69,8 +73,12 @@ export function ListaEditaisDisponiveis() {
         total: response.paginacao.total,
         totalPaginas: response.paginacao.totalPaginas,
       }))
-    } catch (error) {
-      toast.error('Erro ao carregar editais')
+    } catch (error: any) {
+      if (error.response?.status === 404 || error.response?.status === 500) {
+        setEmConstrucao(true)
+      } else {
+        toast.error('Erro ao carregar editais')
+      }
     } finally {
       setLoading(false)
     }
@@ -87,6 +95,29 @@ export function ListaEditaisDisponiveis() {
     setBusca('')
     setUfFiltro('')
     setPaginacao((prev) => ({ ...prev, pagina: 1 }))
+  }
+
+  // Se o módulo de editais ainda não está disponível
+  if (emConstrucao) {
+    const basePath = slug ? `/${slug}/candidato` : '/candidato'
+    return (
+      <div className={styles.container}>
+        <div className={styles.emConstrucao}>
+          <FiTool size={56} color="#d97706" />
+          <h2>Módulo em Construção</h2>
+          <p>
+            A publicação de editais será gerenciada pelo perfil Operacional da instituição.
+            Este módulo estará disponível em breve!
+          </p>
+          <Button
+            onClick={() => navigate(basePath)}
+            leftIcon={<FiArrowLeft />}
+          >
+            Voltar para o Início
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -221,7 +252,7 @@ export function ListaEditaisDisponiveis() {
                   <span className={styles.anoLetivo}>Ano Letivo: {edital.anoLetivo}</span>
                   <Button 
                     size="sm"
-                    onClick={() => navigate(`/candidato/editais/${edital.id}`)}
+                    onClick={() => navigate(`${slug ? `/${slug}` : ''}/candidato/editais/${edital.id}`)}
                     rightIcon={<FiArrowRight />}
                   >
                     Ver Detalhes
