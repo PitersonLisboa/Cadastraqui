@@ -9,7 +9,8 @@ import {
   FiCheckCircle,
   FiClock,
   FiAlertTriangle,
-  FiSend
+  FiSend,
+  FiTool
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import { editalService, candidaturaService } from '@/services/api'
@@ -41,13 +42,15 @@ interface Edital {
 }
 
 export function DetalhesEditalCandidato() {
-  const { id } = useParams()
+  const { id, slug } = useParams()
   const navigate = useNavigate()
   const [edital, setEdital] = useState<Edital | null>(null)
   const [loading, setLoading] = useState(true)
+  const [emConstrucao, setEmConstrucao] = useState(false)
   const [inscrevendo, setInscrevendo] = useState(false)
   const [jaInscrito, setJaInscrito] = useState(false)
   const [candidaturaId, setCandidaturaId] = useState<string | null>(null)
+  const basePath = slug ? `/${slug}/candidato` : '/candidato'
 
   useEffect(() => {
     loadEdital()
@@ -58,9 +61,13 @@ export function DetalhesEditalCandidato() {
     try {
       const response = await editalService.buscarPublico(id!)
       setEdital(response.edital)
-    } catch (error) {
-      toast.error('Erro ao carregar edital')
-      navigate('/candidato/editais')
+    } catch (error: any) {
+      if (error.response?.status === 404 || error.response?.status === 500) {
+        setEmConstrucao(true)
+      } else {
+        toast.error('Erro ao carregar edital')
+        navigate(`${basePath}/editais`)
+      }
     } finally {
       setLoading(false)
     }
@@ -138,8 +145,29 @@ export function DetalhesEditalCandidato() {
     )
   }
 
-  if (!edital) {
+  if (!edital && !emConstrucao) {
     return null
+  }
+
+  if (emConstrucao) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.emConstrucao}>
+          <FiTool size={56} color="#d97706" />
+          <h2>Módulo em Construção</h2>
+          <p>
+            Os detalhes dos editais estarão disponíveis em breve, após a implementação
+            do módulo Operacional da instituição.
+          </p>
+          <Button
+            onClick={() => navigate(basePath)}
+            leftIcon={<FiArrowLeft />}
+          >
+            Voltar para o Início
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   const status = getStatusEdital()
@@ -149,7 +177,7 @@ export function DetalhesEditalCandidato() {
       <header className={styles.header}>
         <Button 
           variant="ghost" 
-          onClick={() => navigate('/candidato/editais')}
+          onClick={() => navigate(`${basePath}/editais`)}
           leftIcon={<FiArrowLeft />}
         >
           Voltar
@@ -245,7 +273,7 @@ export function DetalhesEditalCandidato() {
                 <p>Você já está inscrito neste edital!</p>
                 <Button 
                   variant="outline"
-                  onClick={() => navigate(`/candidato/candidaturas/${candidaturaId}`)}
+                  onClick={() => navigate(`${basePath}/candidaturas/${candidaturaId}`)}
                 >
                   Ver minha candidatura
                 </Button>

@@ -93,7 +93,10 @@ export function Header() {
       <div className={styles.right}>
         <NotificacoesDropdown />
 
-        <button className={styles.userButton} onClick={() => navigate(roleConfig?.rota ? `${roleConfig.rota}/perfil` : '/perfil')}>
+        <button className={styles.userButton} onClick={() => {
+          const perfilPath = roleConfig?.rota ? `${roleConfig.rota}/perfil` : '/perfil'
+          navigate(slug ? `/${slug}${perfilPath}` : perfilPath)
+        }}>
           <div className={styles.userAvatar}>
             <FiUser size={16} />
           </div>
