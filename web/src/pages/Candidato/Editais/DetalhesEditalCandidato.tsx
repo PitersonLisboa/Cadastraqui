@@ -170,6 +170,10 @@ export function DetalhesEditalCandidato() {
     )
   }
 
+  if (!edital) {
+    return null
+  }
+
   const status = getStatusEdital()
 
   return (
