@@ -1,5 +1,6 @@
 import { app } from './app'
 import { env } from './env'
+import { initUploadsBackup } from './services/backup-uploads.service.js'
 
 async function start() {
   try {
@@ -7,6 +8,9 @@ async function start() {
       host: env.HOST,
       port: env.PORT,
     })
+
+    // Iniciar backup automático de uploads
+    initUploadsBackup()
 
     console.log(`
 ╔════════════════════════════════════════════════════════════╗
