@@ -265,12 +265,44 @@ model MembroFamilia {
   renda           Decimal?
   ocupacao        String?
   fonteRenda      String?
-  
+
+  // Step 2 - Dados Pessoais
+  telefone        String?
+  email           String?
+  rg              String?
+  rgEstado        String?
+  rgOrgao         String?
+
+  // Step 3 - Informações Adicionais
+  nomeSocial      String?
+  sexo            String?
+  profissao       String?
+  nacionalidade   String?
+  naturalidade    String?
+  estado          String?
+
+  // Step 4 - Estado Civil
+  estadoCivil     String?
+
+  // Step 5 - Informações Pessoais
+  corRaca         String?
+  escolaridade    String?
+  religiao        String?
+  necessidadesEspeciais           Boolean @default(false)
+  tipoNecessidadesEspeciais       String?
+  descricaoNecessidadesEspeciais  String?
+
+  // Step 8 - Benefícios e Programas
+  cadastroUnico          Boolean @default(false)
+  escolaPublica          Boolean @default(false)
+  bolsaCebasBasica       Boolean @default(false)
+  bolsaCebasProfissional Boolean @default(false)
+
   candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
   candidatoId     String
-  
+
   rendaMensal     RendaMensal[]
-  
+
   criadoEm        DateTime @default(now())
   atualizadoEm    DateTime @updatedAt
 

@@ -8,12 +8,42 @@ import { CandidatoNaoEncontradoError, RecursoNaoEncontradoError, NaoAutorizadoEr
 // ===========================================
 
 const criarMembroSchema = z.object({
+  // Step 1 - Parentesco
+  parentesco: z.string().min(1),
+  // Step 2 - Dados Pessoais
   nome: z.string().min(2),
-  parentesco: z.string(),
-  dataNascimento: z.coerce.date().optional(),
   cpf: z.string().optional(),
+  dataNascimento: z.coerce.date().optional(),
+  telefone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  rg: z.string().optional(),
+  rgEstado: z.string().optional(),
+  rgOrgao: z.string().optional(),
+  // Step 3 - Info Adicionais
+  nomeSocial: z.string().optional(),
+  sexo: z.string().optional(),
+  profissao: z.string().optional(),
+  nacionalidade: z.string().optional(),
+  naturalidade: z.string().optional(),
+  estado: z.string().optional(),
+  // Step 4 - Estado Civil
+  estadoCivil: z.string().optional(),
+  // Step 5 - Info Pessoais
+  corRaca: z.string().optional(),
+  escolaridade: z.string().optional(),
+  religiao: z.string().optional(),
+  necessidadesEspeciais: z.boolean().optional(),
+  tipoNecessidadesEspeciais: z.string().optional(),
+  descricaoNecessidadesEspeciais: z.string().optional(),
+  // Step 8 - Benefícios
+  cadastroUnico: z.boolean().optional(),
+  escolaPublica: z.boolean().optional(),
+  bolsaCebasBasica: z.boolean().optional(),
+  bolsaCebasProfissional: z.boolean().optional(),
+  // Campos originais
   renda: z.number().min(0).optional(),
   ocupacao: z.string().optional(),
+  fonteRenda: z.string().optional(),
 })
 
 const atualizarMembroSchema = criarMembroSchema.partial()
@@ -79,8 +109,31 @@ export async function adicionarMembro(request: FastifyRequest, reply: FastifyRep
         parentesco: dados.parentesco,
         cpf: dados.cpf || undefined,
         dataNascimento: dados.dataNascimento || undefined,
+        telefone: dados.telefone || undefined,
+        email: dados.email || undefined,
+        rg: dados.rg || undefined,
+        rgEstado: dados.rgEstado || undefined,
+        rgOrgao: dados.rgOrgao || undefined,
+        nomeSocial: dados.nomeSocial || undefined,
+        sexo: dados.sexo || undefined,
+        profissao: dados.profissao || undefined,
+        nacionalidade: dados.nacionalidade || undefined,
+        naturalidade: dados.naturalidade || undefined,
+        estado: dados.estado || undefined,
+        estadoCivil: dados.estadoCivil || undefined,
+        corRaca: dados.corRaca || undefined,
+        escolaridade: dados.escolaridade || undefined,
+        religiao: dados.religiao || undefined,
+        necessidadesEspeciais: dados.necessidadesEspeciais ?? false,
+        tipoNecessidadesEspeciais: dados.tipoNecessidadesEspeciais || undefined,
+        descricaoNecessidadesEspeciais: dados.descricaoNecessidadesEspeciais || undefined,
+        cadastroUnico: dados.cadastroUnico ?? false,
+        escolaPublica: dados.escolaPublica ?? false,
+        bolsaCebasBasica: dados.bolsaCebasBasica ?? false,
+        bolsaCebasProfissional: dados.bolsaCebasProfissional ?? false,
         renda: dados.renda != null ? dados.renda : undefined,
         ocupacao: dados.ocupacao || undefined,
+        fonteRenda: dados.fonteRenda || undefined,
         candidato: { connect: { id: candidato.id } },
       },
     })
@@ -109,13 +162,20 @@ export async function buscarMembro(request: FastifyRequest, reply: FastifyReply)
     throw new NaoAutorizadoError()
   }
 
-  return reply.status(200).send({ membro })
+  return reply.status(200).send(membro)
 }
 
 // Atualizar membro
 export async function atualizarMembro(request: FastifyRequest, reply: FastifyReply) {
   const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
-  const dados = atualizarMembroSchema.parse(request.body)
+  
+  let dados: any
+  try {
+    dados = atualizarMembroSchema.parse(request.body)
+  } catch (err: any) {
+    const issues = err.issues?.map((i: any) => `${i.path.join('.')}: ${i.message}`) || []
+    return reply.status(400).send({ message: 'Erro de validação', errors: issues })
+  }
 
   const membro = await prisma.membroFamilia.findUnique({
     where: { id },
@@ -181,7 +241,7 @@ export async function composicaoFamiliar(request: FastifyRequest, reply: Fastify
   // Calcular estatísticas
   const membros = candidato.membrosFamilia
   const rendaTotal = membros.reduce((acc, m) => acc + (m.renda?.toNumber() || 0), 0)
-  const rendaCandidato = 0 // Candidato não tem campo renda diretamente
+  const rendaCandidato = 0
   const rendaFamiliar = rendaTotal + rendaCandidato
   const totalPessoas = membros.length + 1
   const rendaPerCapita = rendaFamiliar / totalPessoas
@@ -189,11 +249,13 @@ export async function composicaoFamiliar(request: FastifyRequest, reply: Fastify
   // Faixas etárias
   const hoje = new Date()
   const menores = membros.filter(m => {
+    if (!m.dataNascimento) return false
     const idade = Math.floor((hoje.getTime() - m.dataNascimento.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     return idade < 18
   }).length
 
   const idosos = membros.filter(m => {
+    if (!m.dataNascimento) return false
     const idade = Math.floor((hoje.getTime() - m.dataNascimento.getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     return idade >= 60
   }).length

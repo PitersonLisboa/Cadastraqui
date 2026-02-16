@@ -81,6 +81,64 @@ const RELIGIAO_OPTIONS = [
   { value: 'SEM_RELIGIAO', label: 'Sem religião' },
 ]
 
+const PARENTESCO_MEMBRO_OPTIONS = [
+  { value: 'ESPOSA', label: 'Esposa' },
+  { value: 'MARIDO', label: 'Marido' },
+  { value: 'PAI', label: 'Pai' },
+  { value: 'MAE', label: 'Mãe' },
+  { value: 'PADRASTO', label: 'Padrasto' },
+  { value: 'MADRASTA', label: 'Madrasta' },
+  { value: 'IRMAO', label: 'Irmão/Irmã' },
+  { value: 'AVO', label: 'Avô/Avó' },
+  { value: 'FILHO', label: 'Filho(a)' },
+  { value: 'NETO', label: 'Neto(a)' },
+  { value: 'TIO', label: 'Tio(a)' },
+  { value: 'SOBRINHO', label: 'Sobrinho(a)' },
+  { value: 'PRIMO', label: 'Primo(a)' },
+  { value: 'SOGRO', label: 'Sogro(a)' },
+  { value: 'CUNHADO', label: 'Cunhado(a)' },
+  { value: 'ENTEADO', label: 'Enteado(a)' },
+  { value: 'COMPANHEIRO', label: 'Companheiro(a)' },
+  { value: 'OUTRO', label: 'Outro' },
+]
+
+const ESTADO_CIVIL_MEMBRO_OPTIONS = [
+  { value: 'SOLTEIRO', label: 'Solteiro(a)' },
+  { value: 'CASADO', label: 'Casado(a)' },
+  { value: 'SEPARADO', label: 'Separado(a)' },
+  { value: 'DIVORCIADO', label: 'Divorciado(a)' },
+  { value: 'VIUVO', label: 'Viúvo(a)' },
+  { value: 'UNIAO_ESTAVEL', label: 'União Estável' },
+]
+
+const RELIGIAO_MEMBRO_OPTIONS = [
+  { value: 'CATOLICA', label: 'Católica' },
+  { value: 'EVANGELICA', label: 'Evangélica' },
+  { value: 'ESPIRITA', label: 'Espírita' },
+  { value: 'ATEIA', label: 'Ateia' },
+  { value: 'OUTRA', label: 'Outra' },
+  { value: 'NAO_DECLARADA', label: 'Não Declarada' },
+]
+
+const MEMBRO_SUB_STEP_LABELS = [
+  'Parentesco', 'Dados Pessoais', 'Informações Adicionais', 'Estado Civil',
+  'Informações Pessoais', 'Documento de Identificação', 'Documento Adicional', 'Benefícios e Programas',
+]
+
+const EMPTY_MEMBRO: Membro = {
+  nome: '', cpf: '', parentesco: '',
+  dataNascimento: '', telefone: '', email: '',
+  rg: '', rgEstado: '', rgOrgao: '',
+  nomeSocial: '', sexo: '', profissao: '',
+  nacionalidade: '', naturalidade: '', estado: '',
+  estadoCivil: '',
+  corRaca: '', escolaridade: '', religiao: '',
+  necessidadesEspeciais: false,
+  tipoNecessidadesEspeciais: '', descricaoNecessidadesEspeciais: '',
+  cadastroUnico: false, escolaPublica: false,
+  bolsaCebasBasica: false, bolsaCebasProfissional: false,
+}
+
 const STATUS_MORADIA = [
   { value: 'PROPRIA_QUITADA', label: 'Própria e quitada' },
   { value: 'PROPRIA_FINANCIADA', label: 'Própria financiada' },
@@ -145,7 +203,21 @@ interface DadosBeneficios {
   bolsaCebasBasica: boolean; bolsaCebasProfissional: boolean
 }
 
-interface Membro { id?: string; nome: string; cpf: string; parentesco: string; renda?: number }
+interface Membro {
+  id?: string
+  nome: string; cpf: string; parentesco: string
+  dataNascimento?: string; telefone?: string; email?: string
+  rg?: string; rgEstado?: string; rgOrgao?: string
+  nomeSocial?: string; sexo?: string; profissao?: string
+  nacionalidade?: string; naturalidade?: string; estado?: string
+  estadoCivil?: string
+  corRaca?: string; escolaridade?: string; religiao?: string
+  necessidadesEspeciais?: boolean
+  tipoNecessidadesEspeciais?: string; descricaoNecessidadesEspeciais?: string
+  cadastroUnico?: boolean; escolaPublica?: boolean
+  bolsaCebasBasica?: boolean; bolsaCebasProfissional?: boolean
+  renda?: number; ocupacao?: string; fonteRenda?: string
+}
 interface Veiculo { id?: string; modelo: string; placa: string; ano: string }
 interface RendaMensalItem { id: string; mes: number; ano: number; valor: number; fonte?: string; descricao?: string }
 interface DespesaItem { id: string; mes: number; ano: number; categoria: string; descricao?: string; valor: number }
@@ -254,7 +326,11 @@ export function CadastroCandidato() {
   // --- Grupo Familiar ---
   const [membros, setMembros] = useState<Membro[]>([])
   const [showAddMembro, setShowAddMembro] = useState(false)
-  const [novoMembro, setNovoMembro] = useState<Membro>({ nome: '', cpf: '', parentesco: '' })
+  const [novoMembro, setNovoMembro] = useState<Membro>({ ...EMPTY_MEMBRO })
+  const [subStepMembro, setSubStepMembro] = useState(0)
+  const [editingMembroId, setEditingMembroId] = useState<string | null>(null)
+  const [savingMembro, setSavingMembro] = useState(false)
+  const [desejaDocAdicionalMembro, setDesejaDocAdicionalMembro] = useState(false)
 
   // --- Moradia ---
   const [subStepMoradia, setSubStepMoradia] = useState(0)
@@ -491,13 +567,69 @@ export function CadastroCandidato() {
 
   const handleAddMembro = async () => {
     if (!novoMembro.nome || !novoMembro.parentesco) return toast.error('Preencha nome e parentesco')
+    setSavingMembro(true)
     try {
-      await api.post('/familia/membros', { nome: novoMembro.nome, cpf: unmaskValue(novoMembro.cpf), parentesco: novoMembro.parentesco })
-      toast.success('Membro adicionado!')
-      setNovoMembro({ nome: '', cpf: '', parentesco: '' })
+      const payload: any = {
+        nome: novoMembro.nome,
+        parentesco: novoMembro.parentesco,
+        cpf: novoMembro.cpf ? unmaskValue(novoMembro.cpf) : undefined,
+        dataNascimento: novoMembro.dataNascimento || undefined,
+        telefone: novoMembro.telefone ? unmaskValue(novoMembro.telefone) : undefined,
+        email: novoMembro.email || undefined,
+        rg: novoMembro.rg || undefined,
+        rgEstado: novoMembro.rgEstado || undefined,
+        rgOrgao: novoMembro.rgOrgao || undefined,
+        nomeSocial: novoMembro.nomeSocial || undefined,
+        sexo: novoMembro.sexo || undefined,
+        profissao: novoMembro.profissao || undefined,
+        nacionalidade: novoMembro.nacionalidade || undefined,
+        naturalidade: novoMembro.naturalidade || undefined,
+        estado: novoMembro.estado || undefined,
+        estadoCivil: novoMembro.estadoCivil || undefined,
+        corRaca: novoMembro.corRaca || undefined,
+        escolaridade: novoMembro.escolaridade || undefined,
+        religiao: novoMembro.religiao || undefined,
+        necessidadesEspeciais: novoMembro.necessidadesEspeciais ?? false,
+        tipoNecessidadesEspeciais: novoMembro.tipoNecessidadesEspeciais || undefined,
+        descricaoNecessidadesEspeciais: novoMembro.descricaoNecessidadesEspeciais || undefined,
+        cadastroUnico: novoMembro.cadastroUnico ?? false,
+        escolaPublica: novoMembro.escolaPublica ?? false,
+        bolsaCebasBasica: novoMembro.bolsaCebasBasica ?? false,
+        bolsaCebasProfissional: novoMembro.bolsaCebasProfissional ?? false,
+      }
+      if (editingMembroId) {
+        await api.put(`/familia/membros/${editingMembroId}`, payload)
+        toast.success('Membro atualizado!')
+      } else {
+        await api.post('/familia/membros', payload)
+        toast.success('Membro adicionado!')
+      }
+      setNovoMembro({ ...EMPTY_MEMBRO })
       setShowAddMembro(false)
+      setEditingMembroId(null)
+      setSubStepMembro(0)
       carregarDados()
-    } catch (error: any) { toast.error(error.response?.data?.message || 'Erro') }
+    } catch (error: any) { toast.error(error.response?.data?.message || 'Erro ao salvar membro') }
+    finally { setSavingMembro(false) }
+  }
+
+  const handleEditMembro = (m: Membro) => {
+    setEditingMembroId(m.id || null)
+    setNovoMembro({
+      ...m,
+      cpf: m.cpf ? maskCPF(m.cpf) : '',
+      telefone: m.telefone ? maskPhone(m.telefone) : '',
+      dataNascimento: m.dataNascimento ? m.dataNascimento.split('T')[0] : '',
+    })
+    setSubStepMembro(0)
+    setShowAddMembro(true)
+  }
+
+  const handleCancelMembro = () => {
+    setNovoMembro({ ...EMPTY_MEMBRO })
+    setShowAddMembro(false)
+    setEditingMembroId(null)
+    setSubStepMembro(0)
   }
 
   const handleRemoveMembro = async (id: string) => {
@@ -1126,40 +1258,279 @@ export function CadastroCandidato() {
       }
 
       // ════════════════════════════════════════
-      // GRUPO FAMILIAR
+      // GRUPO FAMILIAR — 8 sub-steps wizard
       // ════════════════════════════════════════
-      case 'grupo-familiar':
+      case 'grupo-familiar': {
+        // Se NÃO está no wizard de cadastro, mostra a lista de membros
+        if (!showAddMembro) {
+          return (
+            <>
+              <h2 className={styles.sectionTitle}>Integrantes do Grupo Familiar</h2>
+              <p className={styles.sectionSub}>Selecione um parente ou cadastre um novo</p>
+              <div className={styles.centeredActions}>
+                <button className={styles.btnOutline} onClick={() => { setNovoMembro({ ...EMPTY_MEMBRO }); setEditingMembroId(null); setSubStepMembro(0); setShowAddMembro(true) }}>
+                  <FiPlus size={16} /> Adicionar Membro
+                </button>
+              </div>
+              <div className={styles.listItems}>
+                {membros.map(m => (
+                  <div key={m.id} className={styles.listRow}>
+                    <span className={styles.listName}>{m.nome}</span>
+                    <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{PARENTESCO_MEMBRO_OPTIONS.find(p => p.value === m.parentesco)?.label || m.parentesco}</span>
+                    <button className={styles.btnSmallOutline} onClick={() => handleEditMembro(m)}><FiEye size={14} /> Editar</button>
+                    <button className={styles.btnSmallDanger} onClick={() => handleRemoveMembro(m.id!)}><FiTrash2 size={14} /> Excluir</button>
+                  </div>
+                ))}
+                {membros.length === 0 && <p className={styles.emptyMsg}>Nenhum membro cadastrado ainda.</p>}
+              </div>
+              <div className={styles.footerCenter}><button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button></div>
+            </>
+          )
+        }
+
+        // ── WIZARD 8-STEP DE CADASTRO/EDIÇÃO ──
+        const membroStepContent = () => {
+          switch (subStepMembro) {
+
+            // ─── Step 1: Parentesco ───
+            case 0: return (
+              <>
+                <h2 className={styles.sectionTitle}>Parentesco</h2>
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>Parentesco</label>
+                    <select value={novoMembro.parentesco} onChange={e => setNovoMembro({ ...novoMembro, parentesco: e.target.value })}>
+                      <option value="">Selecione</option>
+                      {PARENTESCO_MEMBRO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )
+
+            // ─── Step 2: Dados Pessoais ───
+            case 1: return (
+              <>
+                <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>Nome completo</label>
+                    <input value={novoMembro.nome} onChange={e => setNovoMembro({ ...novoMembro, nome: e.target.value })} />
+                  </div>
+                  <div className={styles.field}><label>CPF</label>
+                    <input value={novoMembro.cpf} onChange={e => setNovoMembro({ ...novoMembro, cpf: maskCPF(e.target.value) })} />
+                  </div>
+                  <div className={styles.field}><label>Data de nascimento</label>
+                    <input type="date" value={novoMembro.dataNascimento || ''} onChange={e => setNovoMembro({ ...novoMembro, dataNascimento: e.target.value })} />
+                  </div>
+                  <div className={styles.field}><label>Telefone</label>
+                    <input value={novoMembro.telefone || ''} onChange={e => setNovoMembro({ ...novoMembro, telefone: maskPhone(e.target.value) })} />
+                  </div>
+                  <div className={styles.field}><label>Email</label>
+                    <input type="email" value={novoMembro.email || ''} onChange={e => setNovoMembro({ ...novoMembro, email: e.target.value })} />
+                  </div>
+                  <div className={styles.field}><label>RG/RNE</label>
+                    <input value={novoMembro.rg || ''} onChange={e => setNovoMembro({ ...novoMembro, rg: e.target.value })} />
+                  </div>
+                  <div className={styles.field}><label>Estado emissor do RG/RNE</label>
+                    <select value={novoMembro.rgEstado || ''} onChange={e => setNovoMembro({ ...novoMembro, rgEstado: e.target.value })}>
+                      <option value="">Selecione o estado</option>
+                      {ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Órgão emissor do RG/RNE</label>
+                    <input value={novoMembro.rgOrgao || ''} onChange={e => setNovoMembro({ ...novoMembro, rgOrgao: e.target.value })} />
+                  </div>
+                </div>
+              </>
+            )
+
+            // ─── Step 3: Informações Adicionais ───
+            case 2: return (
+              <>
+                <h2 className={styles.sectionTitle}>Informações Adicionais</h2>
+                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+                <div className={styles.formGrid}>
+                  <div className={`${styles.field} ${styles.fieldFull}`}><label>Nome social (quando houver)</label>
+                    <input value={novoMembro.nomeSocial || ''} onChange={e => setNovoMembro({ ...novoMembro, nomeSocial: e.target.value })} />
+                  </div>
+                  <div className={styles.field}><label>Sexo</label>
+                    <select value={novoMembro.sexo || ''} onChange={e => setNovoMembro({ ...novoMembro, sexo: e.target.value })}>
+                      <option value="">Selecione</option>
+                      {SEXO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={`${styles.field} ${styles.fieldFull}`}><label>Profissão</label>
+                    <input value={novoMembro.profissao || ''} onChange={e => setNovoMembro({ ...novoMembro, profissao: e.target.value })} />
+                  </div>
+                  <div className={`${styles.field} ${styles.fieldFull}`}><label>Nacionalidade</label>
+                    <input value={novoMembro.nacionalidade || ''} onChange={e => setNovoMembro({ ...novoMembro, nacionalidade: e.target.value })} placeholder="Brasileira" />
+                  </div>
+                  <div className={`${styles.field} ${styles.fieldFull}`}><label>Naturalidade</label>
+                    <input value={novoMembro.naturalidade || ''} onChange={e => setNovoMembro({ ...novoMembro, naturalidade: e.target.value })} />
+                  </div>
+                  <div className={styles.field}><label>Estado</label>
+                    <select value={novoMembro.estado || ''} onChange={e => setNovoMembro({ ...novoMembro, estado: e.target.value })}>
+                      <option value="">Selecione o estado</option>
+                      {ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )
+
+            // ─── Step 4: Estado Civil ───
+            case 3: return (
+              <>
+                <h2 className={styles.sectionTitle}>Estado Civil</h2>
+                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>Estado civil</label>
+                    <select value={novoMembro.estadoCivil || ''} onChange={e => setNovoMembro({ ...novoMembro, estadoCivil: e.target.value })}>
+                      <option value="">Selecione</option>
+                      {ESTADO_CIVIL_MEMBRO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )
+
+            // ─── Step 5: Informações Pessoais ───
+            case 4: return (
+              <>
+                <h2 className={styles.sectionTitle}>Informações Pessoais</h2>
+                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>Cor e raça</label>
+                    <select value={novoMembro.corRaca || ''} onChange={e => setNovoMembro({ ...novoMembro, corRaca: e.target.value })}>
+                      <option value="">Selecione</option>
+                      {COR_RACA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Escolaridade</label>
+                    <select value={novoMembro.escolaridade || ''} onChange={e => setNovoMembro({ ...novoMembro, escolaridade: e.target.value })}>
+                      <option value="">Selecione</option>
+                      {ESCOLARIDADE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Religião</label>
+                    <select value={novoMembro.religiao || ''} onChange={e => setNovoMembro({ ...novoMembro, religiao: e.target.value })}>
+                      <option value="">Selecione</option>
+                      {RELIGIAO_MEMBRO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <RadioSimNao
+                  label="Necessidades especiais"
+                  value={novoMembro.necessidadesEspeciais ?? false}
+                  onChange={v => setNovoMembro({ ...novoMembro, necessidadesEspeciais: v })}
+                />
+                {novoMembro.necessidadesEspeciais && (
+                  <div className={styles.formGrid}>
+                    <div className={`${styles.field} ${styles.fieldFull}`}><label>Tipo de necessidades especiais</label>
+                      <input value={novoMembro.tipoNecessidadesEspeciais || ''} onChange={e => setNovoMembro({ ...novoMembro, tipoNecessidadesEspeciais: e.target.value })} />
+                    </div>
+                    <div className={`${styles.field} ${styles.fieldFull}`}><label>Descrição das necessidades especiais</label>
+                      <input value={novoMembro.descricaoNecessidadesEspeciais || ''} onChange={e => setNovoMembro({ ...novoMembro, descricaoNecessidadesEspeciais: e.target.value })} />
+                    </div>
+                  </div>
+                )}
+              </>
+            )
+
+            // ─── Step 6: Documento de Identificação ───
+            case 5: return (
+              <>
+                <h2 className={styles.sectionTitle}>Documento de Identificação</h2>
+                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+                <div className={styles.formGrid}>
+                  <div className={styles.field}><label>RG/RNE</label>
+                    <input value={novoMembro.rg || ''} onChange={e => setNovoMembro({ ...novoMembro, rg: e.target.value })} />
+                  </div>
+                  <div className={styles.field}><label>Estado emissor do RG/RNE</label>
+                    <select value={novoMembro.rgEstado || ''} onChange={e => setNovoMembro({ ...novoMembro, rgEstado: e.target.value })}>
+                      <option value="">Selecione o estado</option>
+                      {ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Órgão emissor do RG/RNE</label>
+                    <input value={novoMembro.rgOrgao || ''} onChange={e => setNovoMembro({ ...novoMembro, rgOrgao: e.target.value })} />
+                  </div>
+                </div>
+                <p className={styles.sectionSub} style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#9ca3af' }}>
+                  Upload de documento será implementado em fase futura.
+                </p>
+              </>
+            )
+
+            // ─── Step 7: Documento Adicional ───
+            case 6: return (
+              <>
+                <h2 className={styles.sectionTitle}>Documento Adicional</h2>
+                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+                <RadioSimNao
+                  label="Deseja adicionar outro documento?"
+                  value={desejaDocAdicionalMembro}
+                  onChange={v => setDesejaDocAdicionalMembro(v)}
+                />
+                {desejaDocAdicionalMembro && (
+                  <p className={styles.sectionSub} style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#9ca3af' }}>
+                    Upload de documentos adicionais será implementado em fase futura.
+                  </p>
+                )}
+              </>
+            )
+
+            // ─── Step 8: Benefícios e Programas ───
+            case 7: return (
+              <>
+                <h2 className={styles.sectionTitle}>Benefícios e Programas</h2>
+                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+                <RadioSimNao
+                  label="Inscrito no cadastro único?"
+                  value={novoMembro.cadastroUnico ?? false}
+                  onChange={v => setNovoMembro({ ...novoMembro, cadastroUnico: v })}
+                />
+                <RadioSimNao
+                  label="Estudou em escola pública?"
+                  value={novoMembro.escolaPublica ?? false}
+                  onChange={v => setNovoMembro({ ...novoMembro, escolaPublica: v })}
+                />
+                <RadioSimNao
+                  label="Já recebeu bolsa CEBAS para educação básica?"
+                  value={novoMembro.bolsaCebasBasica ?? false}
+                  onChange={v => setNovoMembro({ ...novoMembro, bolsaCebasBasica: v })}
+                />
+                <RadioSimNao
+                  label="Já recebeu bolsa CEBAS para educação profissional?"
+                  value={novoMembro.bolsaCebasProfissional ?? false}
+                  onChange={v => setNovoMembro({ ...novoMembro, bolsaCebasProfissional: v })}
+                />
+              </>
+            )
+
+            default: return null
+          }
+        }
+
         return (
           <>
-            <h2 className={styles.sectionTitle}>Integrantes do Grupo Familiar</h2>
-            <p className={styles.sectionSub}>Selecione um parente ou cadastre um novo</p>
-            <div className={styles.centeredActions}><button className={styles.btnOutline} onClick={() => setShowAddMembro(true)}>Adicionar</button></div>
-            {showAddMembro && (
-              <div className={styles.inlineForm}>
-                <div className={styles.formGrid}>
-                  <div className={styles.field}><label>Nome</label><input value={novoMembro.nome} onChange={e => setNovoMembro({ ...novoMembro, nome: e.target.value })} /></div>
-                  <div className={styles.field}><label>CPF</label><input value={novoMembro.cpf} onChange={e => setNovoMembro({ ...novoMembro, cpf: maskCPF(e.target.value) })} /></div>
-                  <div className={styles.field}><label>Parentesco</label><input value={novoMembro.parentesco} onChange={e => setNovoMembro({ ...novoMembro, parentesco: e.target.value })} placeholder="Cônjuge, Filho(a)..." /></div>
-                </div>
-                <div className={styles.inlineActions}>
-                  <button className={styles.btnPrimary} onClick={handleAddMembro}>Salvar</button>
-                  <button className={styles.btnGhost} onClick={() => setShowAddMembro(false)}>Cancelar</button>
-                </div>
-              </div>
-            )}
-            <div className={styles.listItems}>
-              {membros.map(m => (
-                <div key={m.id} className={styles.listRow}>
-                  <span className={styles.listName}>{m.nome}</span>
-                  <button className={styles.btnSmallOutline} onClick={() => setMembroAberto(m.id!)}><FiEye size={14} /> Visualizar</button>
-                  <button className={styles.btnSmallDanger} onClick={() => handleRemoveMembro(m.id!)}><FiTrash2 size={14} /> Excluir</button>
-                </div>
-              ))}
-              {membros.length === 0 && <p className={styles.emptyMsg}>Nenhum membro cadastrado ainda.</p>}
+            <StepperBar totalSteps={8} currentStep={subStepMembro} onStepClick={setSubStepMembro} />
+            {membroStepContent()}
+            <div className={styles.footerSplit}>
+              {subStepMembro > 0
+                ? <button className={styles.btnArrow} onClick={() => setSubStepMembro(s => s - 1)}><FiArrowLeft size={20} /></button>
+                : <button className={styles.btnGhost} onClick={handleCancelMembro}>Voltar à lista</button>
+              }
+              <button className={styles.btnOutline} onClick={handleAddMembro} disabled={savingMembro}>
+                {savingMembro ? 'Salvando...' : editingMembroId ? 'Salvar' : 'Salvar'}
+              </button>
+              {subStepMembro < 7
+                ? <button className={styles.btnArrow} onClick={() => setSubStepMembro(s => s + 1)}><FiArrowRight size={20} /></button>
+                : <button className={styles.btnOutlineArrow} onClick={() => { handleAddMembro() }}>Concluir <FiArrowRight size={16} /></button>
+              }
             </div>
-            <div className={styles.footerCenter}><button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button></div>
           </>
         )
+      }
 
       // ════════════════════════════════════════
       // MORADIA
