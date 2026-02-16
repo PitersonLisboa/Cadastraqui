@@ -565,12 +565,13 @@ export function CadastroCandidato() {
     }
   }
 
-  const handleAddMembro = async () => {
-    if (!novoMembro.nome || !novoMembro.parentesco) return toast.error('Preencha nome e parentesco')
+  const handleSaveMembroInternal = async (returnToList: boolean) => {
+    if (!novoMembro.parentesco) return toast.error('Selecione o parentesco')
+    if (subStepMembro >= 1 && !novoMembro.nome) return toast.error('Preencha o nome')
     setSavingMembro(true)
     try {
       const payload: any = {
-        nome: novoMembro.nome,
+        nome: novoMembro.nome || 'Novo Membro',
         parentesco: novoMembro.parentesco,
         cpf: novoMembro.cpf ? unmaskValue(novoMembro.cpf) : undefined,
         dataNascimento: novoMembro.dataNascimento || undefined,
@@ -599,19 +600,28 @@ export function CadastroCandidato() {
       }
       if (editingMembroId) {
         await api.put(`/familia/membros/${editingMembroId}`, payload)
-        toast.success('Membro atualizado!')
+        toast.success('Dados salvos!')
       } else {
-        await api.post('/familia/membros', payload)
-        toast.success('Membro adicionado!')
+        const res = await api.post('/familia/membros', payload)
+        toast.success('Membro criado!')
+        // Após criar, pegar o ID para poder continuar editando nos próximos steps
+        if (res.data?.membro?.id) {
+          setEditingMembroId(res.data.membro.id)
+        }
       }
-      setNovoMembro({ ...EMPTY_MEMBRO })
-      setShowAddMembro(false)
-      setEditingMembroId(null)
-      setSubStepMembro(0)
+      if (returnToList) {
+        setNovoMembro({ ...EMPTY_MEMBRO })
+        setShowAddMembro(false)
+        setEditingMembroId(null)
+        setSubStepMembro(0)
+      }
       carregarDados()
     } catch (error: any) { toast.error(error.response?.data?.message || 'Erro ao salvar membro') }
     finally { setSavingMembro(false) }
   }
+
+  const handleSaveMembroStep = () => handleSaveMembroInternal(false)
+  const handleConcluirMembro = () => handleSaveMembroInternal(true)
 
   const handleEditMembro = (m: Membro) => {
     setEditingMembroId(m.id || null)
@@ -1520,12 +1530,14 @@ export function CadastroCandidato() {
                 ? <button className={styles.btnArrow} onClick={() => setSubStepMembro(s => s - 1)}><FiArrowLeft size={20} /></button>
                 : <button className={styles.btnGhost} onClick={handleCancelMembro}>Voltar à lista</button>
               }
-              <button className={styles.btnOutline} onClick={handleAddMembro} disabled={savingMembro}>
-                {savingMembro ? 'Salvando...' : editingMembroId ? 'Salvar' : 'Salvar'}
+              <button className={styles.btnOutline} onClick={handleSaveMembroStep} disabled={savingMembro}>
+                {savingMembro ? 'Salvando...' : 'Salvar'}
               </button>
               {subStepMembro < 7
                 ? <button className={styles.btnArrow} onClick={() => setSubStepMembro(s => s + 1)}><FiArrowRight size={20} /></button>
-                : <button className={styles.btnOutlineArrow} onClick={() => { handleAddMembro() }}>Concluir <FiArrowRight size={16} /></button>
+                : <button className={styles.btnOutlineArrow} onClick={handleConcluirMembro} disabled={savingMembro}>
+                    {savingMembro ? 'Salvando...' : 'Concluir'} <FiArrowRight size={16} />
+                  </button>
               }
             </div>
           </>
