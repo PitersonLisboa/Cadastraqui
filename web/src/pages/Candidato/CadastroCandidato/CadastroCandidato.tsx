@@ -6,6 +6,7 @@ import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
 import { api, rendaService, despesaService, moradiaService, veiculoService } from '@/services/api'
 import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
+import { DateInput } from '@/components/common/DateInput/DateInput'
 import { MembroDetalhe } from './MembroDetalhe'
 import styles from './CadastroCandidato.module.scss'
 
@@ -1029,7 +1030,7 @@ export function CadastroCandidato() {
                 <div className={styles.formGrid}>
                   <div className={styles.field}><label>Nome completo</label><input value={dados.nome} disabled={!editMode} onChange={e => setDados({ ...dados, nome: e.target.value })} /></div>
                   <div className={styles.field}><label>CPF</label><input value={dados.cpf} disabled={!editMode} onChange={e => setDados({ ...dados, cpf: maskCPF(e.target.value) })} /></div>
-                  <div className={styles.field}><label>Data de nascimento</label><input type="date" value={dados.dataNascimento} disabled={!editMode} onChange={e => setDados({ ...dados, dataNascimento: e.target.value })} /></div>
+                  <div className={styles.field}><label>Data de nascimento</label><DateInput value={dados.dataNascimento} disabled={!editMode} onChange={v => setDados({ ...dados, dataNascimento: v })} /></div>
                   <div className={styles.field}><label>Telefone</label><input value={dados.telefone} disabled={!editMode} onChange={e => setDados({ ...dados, telefone: maskPhone(e.target.value) })} /></div>
                   <div className={styles.field}><label>RG/RNE</label><input value={dados.rg} disabled={!editMode} onChange={e => setDados({ ...dados, rg: e.target.value })} /></div>
                   <div className={styles.field}><label>Estado emissor do RG/RNE</label>
@@ -1442,7 +1443,7 @@ export function CadastroCandidato() {
                     <input value={novoMembro.cpf} onChange={e => setNovoMembro({ ...novoMembro, cpf: maskCPF(e.target.value) })} />
                   </div>
                   <div className={styles.field}><label>Data de nascimento</label>
-                    <input type="date" value={novoMembro.dataNascimento || ''} onChange={e => setNovoMembro({ ...novoMembro, dataNascimento: e.target.value })} />
+                    <DateInput value={novoMembro.dataNascimento || ''} onChange={v => setNovoMembro({ ...novoMembro, dataNascimento: v })} />
                   </div>
                   <div className={styles.field}><label>Telefone</label>
                     <input value={novoMembro.telefone || ''} onChange={e => setNovoMembro({ ...novoMembro, telefone: maskPhone(e.target.value) })} />

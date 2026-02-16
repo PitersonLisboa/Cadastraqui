@@ -15,6 +15,7 @@ import { Button } from '@/components/common/Button/Button'
 import { Modal } from '@/components/common/Modal/Modal'
 import { Input } from '@/components/common/Input/Input'
 import { Select } from '@/components/common/Select/Select'
+import { DateInput } from '@/components/common/DateInput/DateInput'
 import { api } from '@/services/api'
 import styles from './MembrosFamilia.module.scss'
 
@@ -298,13 +299,26 @@ export function MembrosFamilia() {
               ))}
             </Select>
 
-            <Input
-              label="Data de Nascimento *"
-              type="date"
-              value={formData.dataNascimento}
-              onChange={(e) => setFormData({ ...formData, dataNascimento: e.target.value })}
-              required
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', width: '100%' }}>
+              <label style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-gray-700)' }}>
+                Data de Nascimento *
+              </label>
+              <DateInput
+                value={formData.dataNascimento}
+                onChange={(v) => setFormData({ ...formData, dataNascimento: v })}
+                required
+                style={{
+                  width: '100%',
+                  padding: '0.625rem 0.875rem',
+                  fontSize: '0.9375rem',
+                  border: '1px solid var(--color-gray-300)',
+                  borderRadius: 'var(--radius)',
+                  color: 'var(--color-gray-900)',
+                  backgroundColor: 'var(--color-white)',
+                  fontFamily: 'inherit',
+                }}
+              />
+            </div>
           </div>
 
           <div className={styles.formRow}>

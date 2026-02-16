@@ -3,6 +3,7 @@ import { toast } from 'react-toastify'
 import { FiX, FiEdit2, FiSave, FiUser, FiDollarSign, FiHeart } from 'react-icons/fi'
 import { api } from '@/services/api'
 import { maskCPF, maskPhone, unmaskValue } from '@/utils/masks'
+import { DateInput } from '@/components/common/DateInput/DateInput'
 import styles from './MembroDetalhe.module.scss'
 
 // ===========================================
@@ -229,7 +230,7 @@ export function MembroDetalhe({ membroId, onClose, onUpdate }: MembroDetalheProp
                 <input value={dadosPessoais.cpf} disabled={!editMode} onChange={e => setDadosPessoais({ ...dadosPessoais, cpf: maskCPF(e.target.value) })} />
               </div>
               <div className={styles.field}><label>Data de nascimento</label>
-                <input type="date" value={dadosPessoais.dataNascimento} disabled={!editMode} onChange={e => setDadosPessoais({ ...dadosPessoais, dataNascimento: e.target.value })} />
+                <DateInput value={dadosPessoais.dataNascimento} disabled={!editMode} onChange={v => setDadosPessoais({ ...dadosPessoais, dataNascimento: v })} />
               </div>
               <div className={styles.field}><label>Parentesco</label>
                 <select value={dadosPessoais.parentesco} disabled={!editMode} onChange={e => setDadosPessoais({ ...dadosPessoais, parentesco: e.target.value })}>
