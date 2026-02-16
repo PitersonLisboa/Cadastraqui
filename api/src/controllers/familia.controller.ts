@@ -151,7 +151,7 @@ export async function buscarMembro(request: FastifyRequest, reply: FastifyReply)
 
   const membro = await prisma.membroFamilia.findUnique({
     where: { id },
-    include: { candidato: true },
+    include: { candidato: true, documentos: true },
   })
 
   if (!membro) {

@@ -302,6 +302,7 @@ model MembroFamilia {
   candidatoId     String
 
   rendaMensal     RendaMensal[]
+  documentos      DocumentoMembro[]
 
   criadoEm        DateTime @default(now())
   atualizadoEm    DateTime @updatedAt
@@ -330,6 +331,30 @@ model RendaMensal {
 
   @@unique([membroId, mes, ano])
   @@map("rendas_mensais")
+}
+
+// ===========================================
+// DOCUMENTO DE MEMBRO FAMILIAR (tabela separada)
+// Não afeta a tabela "documentos" do candidato
+// ===========================================
+
+model DocumentoMembro {
+  id              String          @id @default(uuid())
+  tipo            String
+  nome            String
+  url             String
+  tamanho         Int?
+  mimeType        String?
+  status          StatusDocumento @default(PENDENTE)
+  observacao      String?
+  
+  membroFamilia   MembroFamilia @relation(fields: [membroFamiliaId], references: [id], onDelete: Cascade)
+  membroFamiliaId String
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("documentos_membros")
 }
 
 // ===========================================

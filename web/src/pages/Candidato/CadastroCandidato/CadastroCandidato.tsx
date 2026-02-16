@@ -222,6 +222,7 @@ interface Veiculo { id?: string; modelo: string; placa: string; ano: string }
 interface RendaMensalItem { id: string; mes: number; ano: number; valor: number; fonte?: string; descricao?: string }
 interface DespesaItem { id: string; mes: number; ano: number; categoria: string; descricao?: string; valor: number }
 interface DocumentoItem { id: string; tipo: string; nome: string; url: string; status: string; criadoEm: string }
+interface DocumentoMembroItem { id: string; tipo: string; nome: string; status: string; criadoEm: string }
 
 const TIPOS_DOCUMENTO = [
   { value: 'CARTEIRA_MOTORISTA', label: 'Carteira de Motorista' },
@@ -230,6 +231,16 @@ const TIPOS_DOCUMENTO = [
   { value: 'PASSAPORTE', label: 'Passaporte' },
   { value: 'CARTEIRA_TRABALHO', label: 'Carteira de Trabalho' },
   { value: 'OUTROS_EDITAL', label: 'Outro(s) - Conforme Edital' },
+]
+
+const TIPOS_DOCUMENTO_MEMBRO = [
+  { value: 'RG_MEMBRO', label: 'RG / RNE' },
+  { value: 'CARTEIRA_MOTORISTA', label: 'Carteira de Motorista' },
+  { value: 'CARTEIRA_TRABALHO', label: 'Carteira de Trabalho' },
+  { value: 'CERTIDAO_NASCIMENTO', label: 'Certidão de Nascimento' },
+  { value: 'CERTIDAO_CASAMENTO', label: 'Certidão de Casamento' },
+  { value: 'COMPROVANTE_MATRICULA', label: 'Comprovante de Matrícula' },
+  { value: 'OUTROS', label: 'Outro(s)' },
 ]
 
 const CATEGORIAS_DESPESA = [
@@ -331,6 +342,18 @@ export function CadastroCandidato() {
   const [editingMembroId, setEditingMembroId] = useState<string | null>(null)
   const [savingMembro, setSavingMembro] = useState(false)
   const [desejaDocAdicionalMembro, setDesejaDocAdicionalMembro] = useState(false)
+
+  // --- Documentos do Membro (tabela separada documentos_membros) ---
+  const [docsMembro, setDocsMembro] = useState<DocumentoMembroItem[]>([])
+  const [uploadingDocMembro, setUploadingDocMembro] = useState(false)
+  const membroDocRgRef = useRef<HTMLInputElement>(null)
+  const [membroDocRgFile, setMembroDocRgFile] = useState<File | null>(null)
+  const [membroDocTipo, setMembroDocTipo] = useState('')
+  const [membroDocFile, setMembroDocFile] = useState<File | null>(null)
+  const membroDocInputRef = useRef<HTMLInputElement>(null)
+  const [membroOutrosQtd, setMembroOutrosQtd] = useState(1)
+  const [membroOutrosArquivos, setMembroOutrosArquivos] = useState<(File | null)[]>([null])
+  const membroOutrosRefs = useRef<(HTMLInputElement | null)[]>([])
 
   // --- Moradia ---
   const [subStepMoradia, setSubStepMoradia] = useState(0)
@@ -607,6 +630,7 @@ export function CadastroCandidato() {
         // Após criar, pegar o ID para poder continuar editando nos próximos steps
         if (res.data?.membro?.id) {
           setEditingMembroId(res.data.membro.id)
+          carregarDocsMembro(res.data.membro.id)
         }
       }
       if (returnToList) {
@@ -633,6 +657,7 @@ export function CadastroCandidato() {
     })
     setSubStepMembro(0)
     setShowAddMembro(true)
+    if (m.id) carregarDocsMembro(m.id)
   }
 
   const handleCancelMembro = () => {
@@ -640,6 +665,94 @@ export function CadastroCandidato() {
     setShowAddMembro(false)
     setEditingMembroId(null)
     setSubStepMembro(0)
+    setDocsMembro([])
+    setMembroDocRgFile(null)
+    setMembroDocFile(null)
+    setMembroDocTipo('')
+    setMembroOutrosArquivos([null])
+  }
+
+  // ── Documentos do Membro (tabela documentos_membros) ──
+
+  const carregarDocsMembro = async (membroId: string) => {
+    try {
+      const res = await api.get(`/familia/membros/${membroId}/documentos`)
+      setDocsMembro(res.data.documentos || [])
+    } catch { setDocsMembro([]) }
+  }
+
+  const handleUploadDocMembro = async (file: File, tipo: string) => {
+    if (!editingMembroId) return toast.error('Salve o membro antes de enviar documentos')
+    setUploadingDocMembro(true)
+    try {
+      const formData = new FormData()
+      formData.append('tipo', tipo)
+      formData.append('file', file)
+      await api.post(`/familia/membros/${editingMembroId}/documentos`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      toast.success('Documento enviado!')
+      carregarDocsMembro(editingMembroId)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao enviar documento')
+    } finally { setUploadingDocMembro(false) }
+  }
+
+  const handleUploadDocMembroOutros = async () => {
+    if (!editingMembroId) return toast.error('Salve o membro antes de enviar documentos')
+    const arquivosValidos = membroOutrosArquivos.filter(f => f !== null) as File[]
+    if (arquivosValidos.length === 0) return toast.error('Selecione ao menos um arquivo')
+    const jaEnviados = docsMembro.filter(d => d.tipo === 'OUTROS').length
+    if (jaEnviados + arquivosValidos.length > 5) {
+      return toast.error(`Limite de 5 documentos "Outros". Já enviados: ${jaEnviados}.`)
+    }
+    setUploadingDocMembro(true)
+    let enviados = 0
+    for (const arquivo of arquivosValidos) {
+      try {
+        const formData = new FormData()
+        formData.append('tipo', 'OUTROS')
+        formData.append('file', arquivo)
+        await api.post(`/familia/membros/${editingMembroId}/documentos`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        enviados++
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || 'Erro ao enviar')
+      }
+    }
+    if (enviados > 0) {
+      toast.success(`${enviados} documento(s) enviado(s)!`)
+      setMembroOutrosArquivos(Array(membroOutrosQtd).fill(null))
+      membroOutrosRefs.current.forEach(ref => { if (ref) ref.value = '' })
+      carregarDocsMembro(editingMembroId)
+    }
+    setUploadingDocMembro(false)
+  }
+
+  const handleViewDocMembro = async (membroId: string, docId: string) => {
+    try {
+      const response = await api.get(`/familia/membros/${membroId}/documentos/${docId}/download`, { responseType: 'blob' })
+      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        toast.error('Arquivo não encontrado no servidor.')
+      } else {
+        toast.error(err.response?.data?.message || 'Erro ao visualizar documento')
+      }
+    }
+  }
+
+  const handleExcluirDocMembro = async (membroId: string, docId: string) => {
+    if (!confirm('Excluir este documento?')) return
+    try {
+      await api.delete(`/familia/membros/${membroId}/documentos/${docId}`)
+      toast.success('Documento removido')
+      carregarDocsMembro(membroId)
+    } catch { toast.error('Erro ao remover documento') }
   }
 
   const handleRemoveMembro = async (id: string) => {
@@ -1447,47 +1560,179 @@ export function CadastroCandidato() {
             )
 
             // ─── Step 6: Documento de Identificação ───
-            case 5: return (
-              <>
-                <h2 className={styles.sectionTitle}>Documento de Identificação</h2>
-                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
-                <div className={styles.formGrid}>
-                  <div className={styles.field}><label>RG/RNE</label>
-                    <input value={novoMembro.rg || ''} onChange={e => setNovoMembro({ ...novoMembro, rg: e.target.value })} />
+            case 5: {
+              const rgDocEnviado = docsMembro.find(d => d.tipo === 'RG_MEMBRO')
+              return (
+                <>
+                  <h2 className={styles.sectionTitle}>Documento de Identificação</h2>
+                  {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+                  <div className={styles.formGrid}>
+                    <div className={styles.field}><label>RG/RNE</label>
+                      <input value={novoMembro.rg || ''} onChange={e => setNovoMembro({ ...novoMembro, rg: e.target.value })} />
+                    </div>
+                    <div className={styles.field}><label>Estado emissor do RG/RNE</label>
+                      <select value={novoMembro.rgEstado || ''} onChange={e => setNovoMembro({ ...novoMembro, rgEstado: e.target.value })}>
+                        <option value="">Selecione o estado</option>
+                        {ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                      </select>
+                    </div>
+                    <div className={styles.field}><label>Órgão emissor do RG/RNE</label>
+                      <input value={novoMembro.rgOrgao || ''} onChange={e => setNovoMembro({ ...novoMembro, rgOrgao: e.target.value })} />
+                    </div>
                   </div>
-                  <div className={styles.field}><label>Estado emissor do RG/RNE</label>
-                    <select value={novoMembro.rgEstado || ''} onChange={e => setNovoMembro({ ...novoMembro, rgEstado: e.target.value })}>
-                      <option value="">Selecione o estado</option>
-                      {ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-                    </select>
+
+                  {/* Upload RG */}
+                  <div className={styles.fieldWide} style={{ marginTop: '1rem' }}>
+                    <label>Cópia do RG/RNE</label>
+                    {!editingMembroId ? (
+                      <p style={{ fontSize: '0.85rem', color: '#f59e0b' }}>Salve o membro primeiro para poder enviar documentos.</p>
+                    ) : rgDocEnviado ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                        <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
+                          onClick={() => handleViewDocMembro(editingMembroId!, rgDocEnviado.id)}>Visualizar</button>
+                        <button className={styles.btnSmallDanger} onClick={() => handleExcluirDocMembro(editingMembroId!, rgDocEnviado.id)}><FiTrash2 size={14} /></button>
+                        <span style={{ fontSize: '0.8rem', color: '#16a34a' }}>{rgDocEnviado.nome}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className={styles.fileUpload} onClick={() => membroDocRgRef.current?.click()}>
+                          <span>{membroDocRgFile ? membroDocRgFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
+                        </div>
+                        <input ref={membroDocRgRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setMembroDocRgFile(e.target.files[0]) }} />
+                        <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
+                        {membroDocRgFile && (
+                          <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDocMembro}
+                            onClick={async () => {
+                              await handleUploadDocMembro(membroDocRgFile, 'RG_MEMBRO')
+                              setMembroDocRgFile(null)
+                              if (membroDocRgRef.current) membroDocRgRef.current.value = ''
+                            }}>
+                            {uploadingDocMembro ? 'Enviando...' : 'Enviar RG'}
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
-                  <div className={styles.field}><label>Órgão emissor do RG/RNE</label>
-                    <input value={novoMembro.rgOrgao || ''} onChange={e => setNovoMembro({ ...novoMembro, rgOrgao: e.target.value })} />
-                  </div>
-                </div>
-                <p className={styles.sectionSub} style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#9ca3af' }}>
-                  Upload de documento será implementado em fase futura.
-                </p>
-              </>
-            )
+                </>
+              )
+            }
 
             // ─── Step 7: Documento Adicional ───
-            case 6: return (
-              <>
-                <h2 className={styles.sectionTitle}>Documento Adicional</h2>
-                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
-                <RadioSimNao
-                  label="Deseja adicionar outro documento?"
-                  value={desejaDocAdicionalMembro}
-                  onChange={v => setDesejaDocAdicionalMembro(v)}
-                />
-                {desejaDocAdicionalMembro && (
-                  <p className={styles.sectionSub} style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#9ca3af' }}>
-                    Upload de documentos adicionais será implementado em fase futura.
-                  </p>
-                )}
-              </>
-            )
+            case 6: {
+              const docsAdicionaisMembro = docsMembro.filter(d => d.tipo !== 'RG_MEMBRO')
+              const outrosRestantesMembro = 5 - docsMembro.filter(d => d.tipo === 'OUTROS').length
+              return (
+                <>
+                  <h2 className={styles.sectionTitle}>Documento Adicional</h2>
+                  {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+
+                  {!editingMembroId ? (
+                    <p style={{ fontSize: '0.85rem', color: '#f59e0b' }}>Salve o membro primeiro para poder enviar documentos.</p>
+                  ) : (
+                    <>
+                      <RadioSimNao
+                        label="Deseja adicionar outro documento?"
+                        value={desejaDocAdicionalMembro}
+                        onChange={v => setDesejaDocAdicionalMembro(v)}
+                      />
+
+                      {desejaDocAdicionalMembro && (
+                        <div style={{ marginTop: '1rem' }}>
+                          <div className={styles.field}>
+                            <label>Tipo de documento</label>
+                            <select value={membroDocTipo} onChange={e => setMembroDocTipo(e.target.value)}>
+                              <option value="">Selecione o tipo</option>
+                              {TIPOS_DOCUMENTO_MEMBRO.filter(t => t.value !== 'RG_MEMBRO').map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </select>
+                          </div>
+
+                          {membroDocTipo && membroDocTipo !== 'OUTROS' && (
+                            <>
+                              {docsMembro.some(d => d.tipo === membroDocTipo) ? (
+                                <p style={{ fontSize: '0.85rem', color: '#16a34a', margin: '0.5rem 0' }}>
+                                  Documento já enviado. Exclua o atual para enviar outro.
+                                </p>
+                              ) : (
+                                <div className={styles.field}>
+                                  <label>Arquivo</label>
+                                  <input ref={membroDocInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                    onChange={e => { if (e.target.files?.[0]) setMembroDocFile(e.target.files[0]) }} />
+                                  {membroDocFile && (
+                                    <div className={styles.inlineActions} style={{ marginTop: '0.5rem' }}>
+                                      <button className={styles.btnPrimary} disabled={uploadingDocMembro}
+                                        onClick={async () => {
+                                          await handleUploadDocMembro(membroDocFile!, membroDocTipo)
+                                          setMembroDocFile(null)
+                                          setMembroDocTipo('')
+                                          if (membroDocInputRef.current) membroDocInputRef.current.value = ''
+                                        }}>
+                                        {uploadingDocMembro ? 'Enviando...' : 'Enviar Documento'}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          {membroDocTipo === 'OUTROS' && outrosRestantesMembro > 0 && (
+                            <div style={{ marginTop: '0.75rem' }}>
+                              <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                                Restam {outrosRestantesMembro} documento(s) disponível(is)
+                              </p>
+                              {Array.from({ length: membroOutrosQtd }, (_, i) => (
+                                <div key={i} className={styles.field} style={{ marginBottom: '0.5rem' }}>
+                                  <label>Documento {i + 1}</label>
+                                  <input
+                                    ref={el => { membroOutrosRefs.current[i] = el }}
+                                    type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                    onChange={e => {
+                                      const newArr = [...membroOutrosArquivos]
+                                      newArr[i] = e.target.files?.[0] || null
+                                      setMembroOutrosArquivos(newArr)
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                              {membroOutrosQtd < outrosRestantesMembro && (
+                                <button className={styles.btnGhost} style={{ fontSize: '0.8rem' }}
+                                  onClick={() => { setMembroOutrosQtd(q => q + 1); setMembroOutrosArquivos(a => [...a, null]) }}>
+                                  <FiPlus size={12} /> Mais um campo
+                                </button>
+                              )}
+                              <div className={styles.inlineActions} style={{ marginTop: '0.5rem' }}>
+                                <button className={styles.btnPrimary} disabled={uploadingDocMembro} onClick={handleUploadDocMembroOutros}>
+                                  {uploadingDocMembro ? 'Enviando...' : `Enviar ${membroOutrosArquivos.filter(f => f).length} Documento(s)`}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {membroDocTipo === 'OUTROS' && outrosRestantesMembro <= 0 && (
+                            <p style={{ fontSize: '0.85rem', color: '#dc2626', margin: '0.5rem 0' }}>Limite de 5 documentos "Outros" atingido.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Lista de docs enviados */}
+                      {docsAdicionaisMembro.length > 0 && (
+                        <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                          <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: '#334155' }}>Documentos enviados</p>
+                          {docsAdicionaisMembro.map(doc => (
+                            <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                              <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
+                                onClick={() => handleViewDocMembro(editingMembroId!, doc.id)}>Visualizar</button>
+                              <button className={styles.btnSmallDanger} onClick={() => handleExcluirDocMembro(editingMembroId!, doc.id)}><FiTrash2 size={14} /></button>
+                              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{doc.nome}</span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#ca8a04' }}>{doc.tipo.replace(/_/g, ' ')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )
+            }
 
             // ─── Step 8: Benefícios e Programas ───
             case 7: return (
