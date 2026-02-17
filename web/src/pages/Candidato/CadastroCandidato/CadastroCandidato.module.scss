@@ -24,6 +24,16 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.spinnerSmall {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-gray-200);
+  border-top: 2px solid var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
 // ===== PAGE =====
 
 .pageContent {

@@ -26,6 +26,9 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   MAIL_FROM: z.string().optional(),
+
+  // Google Vision OCR
+  GOOGLE_VISION_API_KEY: z.string().optional(),
 })
 
 const _env = envSchema.safeParse(process.env)

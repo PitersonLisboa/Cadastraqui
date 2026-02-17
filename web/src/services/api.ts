@@ -821,3 +821,19 @@ export const saudeService = {
     return response.data
   },
 }
+
+// ===========================================
+// OCR — Escaneamento de Documentos
+// ===========================================
+
+export const ocrService = {
+  escanearRG: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post('/ocr/rg', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000, // 30s — OCR pode demorar
+    })
+    return response.data
+  },
+}

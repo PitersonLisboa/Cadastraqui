@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRecoilValue, useSetRecoilState } from 'recoil'
 import { toast } from 'react-toastify'
-import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp, FiFileText, FiUpload, FiCheck } from 'react-icons/fi'
+import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp, FiFileText, FiUpload, FiCheck, FiCamera } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
-import { api, rendaService, despesaService, moradiaService, veiculoService, saudeService } from '@/services/api'
+import { api, rendaService, despesaService, moradiaService, veiculoService, saudeService, ocrService } from '@/services/api'
 import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
 import { DateInput } from '@/components/common/DateInput/DateInput'
 import { MembroDetalhe } from './MembroDetalhe'
@@ -401,6 +401,9 @@ export function CadastroCandidato() {
   const [docArquivo, setDocArquivo] = useState<File | null>(null)
   const docInputRef = useRef<HTMLInputElement>(null)
   const [uploadingDoc, setUploadingDoc] = useState(false)
+  const scanInputRef = useRef<HTMLInputElement>(null)
+  const [scanningRG, setScanningRG] = useState(false)
+  const [ocrCamposPreenchidos, setOcrCamposPreenchidos] = useState<string[]>([])
   const [outrosQtd, setOutrosQtd] = useState(1)
   const [outrosArquivos, setOutrosArquivos] = useState<(File | null)[]>([null])
   const outrosRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -955,6 +958,62 @@ export function CadastroCandidato() {
   }
 
   // --- Documento handlers ---
+  // ── Handler Escanear RG ──
+  const handleScanRG = async (file: File) => {
+    setScanningRG(true)
+    setOcrCamposPreenchidos([])
+    try {
+      const res = await ocrService.escanearRG(file)
+      const d = res.dados
+      const preenchidos: string[] = []
+
+      // Ativar modo edição para preencher os campos
+      setEditMode(true)
+
+      if (d.nome) {
+        setDados(prev => ({ ...prev, nome: d.nome }))
+        preenchidos.push('nome')
+      }
+      if (d.cpf) {
+        setDados(prev => ({ ...prev, cpf: maskCPF(d.cpf) }))
+        preenchidos.push('cpf')
+      }
+      if (d.dataNascimento) {
+        setDados(prev => ({ ...prev, dataNascimento: d.dataNascimento }))
+        preenchidos.push('dataNascimento')
+      }
+      if (d.rg) {
+        setDados(prev => ({ ...prev, rg: d.rg }))
+        preenchidos.push('rg')
+      }
+      if (d.orgaoEmissor) {
+        setDados(prev => ({ ...prev, rgOrgao: d.orgaoEmissor }))
+        preenchidos.push('rgOrgao')
+      }
+      if (d.estadoEmissor) {
+        setDados(prev => ({ ...prev, rgEstado: d.estadoEmissor }))
+        preenchidos.push('rgEstado')
+      }
+
+      setOcrCamposPreenchidos(preenchidos)
+
+      if (preenchidos.length > 0) {
+        toast.success(`${preenchidos.length} campo(s) preenchido(s) automaticamente! Revise e salve.`)
+      } else {
+        toast.warn('Não foi possível extrair dados da imagem. Tente com uma foto mais nítida.')
+      }
+
+      if (res.documentoSalvo) {
+        carregarDados() // recarrega para mostrar o doc RG enviado
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Erro ao escanear documento'
+      toast.error(msg)
+    } finally {
+      setScanningRG(false)
+    }
+  }
+
   // ── Handlers Despesa Tabular ──
   const carregarDespesasMes = async (mes: number, ano: number) => {
     try {
@@ -1390,26 +1449,37 @@ export function CadastroCandidato() {
                 <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
                 <div className={styles.formGrid}>
-                  <div className={styles.field}><label>Nome completo</label><input value={dados.nome} disabled={!editMode} onChange={e => setDados({ ...dados, nome: e.target.value })} /></div>
-                  <div className={styles.field}><label>CPF</label><input value={dados.cpf} disabled={!editMode} onChange={e => setDados({ ...dados, cpf: maskCPF(e.target.value) })} /></div>
+                  <div className={styles.field}><label>Nome completo</label><input value={dados.nome} disabled={!editMode} onChange={e => setDados({ ...dados, nome: e.target.value })} style={ocrCamposPreenchidos.includes('nome') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={styles.field}><label>CPF</label><input value={dados.cpf} disabled={!editMode} onChange={e => setDados({ ...dados, cpf: maskCPF(e.target.value) })} style={ocrCamposPreenchidos.includes('cpf') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
                   <div className={styles.field}><label>Data de nascimento</label><DateInput value={dados.dataNascimento} disabled={!editMode} onChange={v => setDados({ ...dados, dataNascimento: v })} /></div>
                   <div className={styles.field}><label>Telefone</label><input value={dados.telefone} disabled={!editMode} onChange={e => setDados({ ...dados, telefone: maskPhone(e.target.value) })} /></div>
-                  <div className={styles.field}><label>RG/RNE</label><input value={dados.rg} disabled={!editMode} onChange={e => setDados({ ...dados, rg: e.target.value })} /></div>
+                  <div className={styles.field}><label>RG/RNE</label><input value={dados.rg} disabled={!editMode} onChange={e => setDados({ ...dados, rg: e.target.value })} style={ocrCamposPreenchidos.includes('rg') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
                   <div className={styles.field}><label>Estado emissor do RG/RNE</label>
-                    <select value={dados.rgEstado} disabled={!editMode} onChange={e => setDados({ ...dados, rgEstado: e.target.value })}>
+                    <select value={dados.rgEstado} disabled={!editMode} onChange={e => setDados({ ...dados, rgEstado: e.target.value })} style={ocrCamposPreenchidos.includes('rgEstado') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined}>
                       <option value="">Selecione...</option>{ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
                     </select>
                   </div>
-                  <div className={styles.field}><label>Órgão emissor do RG/RNE</label><input value={dados.rgOrgao} disabled={!editMode} placeholder="SSP" onChange={e => setDados({ ...dados, rgOrgao: e.target.value })} /></div>
+                  <div className={styles.field}><label>Órgão emissor do RG/RNE</label><input value={dados.rgOrgao} disabled={!editMode} placeholder="SSP" onChange={e => setDados({ ...dados, rgOrgao: e.target.value })} style={ocrCamposPreenchidos.includes('rgOrgao') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
                 </div>
                 <div className={styles.fieldWide}>
                   <label>Documento de identificação</label>
                   {documentos.filter(d => d.tipo === 'RG').length === 0 ? (
                   <>
-                  <div className={styles.fileUpload} onClick={() => fileInputRef.current?.click()}>
-                    <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div className={styles.fileUpload} style={{ flex: 1, minWidth: '160px' }} onClick={() => fileInputRef.current?.click()}>
+                      <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiUpload size={16} />
+                    </div>
+                    <div
+                      className={styles.fileUpload}
+                      style={{ flex: 1, minWidth: '160px', borderColor: 'var(--color-primary)', color: 'var(--color-primary)', cursor: scanningRG ? 'wait' : 'pointer' }}
+                      onClick={() => !scanningRG && scanInputRef.current?.click()}
+                    >
+                      <span>{scanningRG ? 'Escaneando...' : 'Escanear documento'}</span>
+                      {scanningRG ? <div className={styles.spinnerSmall} /> : <FiCamera size={16} />}
+                    </div>
                   </div>
                   <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setDocFile(e.target.files[0]) }} />
+                  <input ref={scanInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
                   <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
                   {docFile && (
                     <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
@@ -1426,6 +1496,11 @@ export function CadastroCandidato() {
                       } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
                       finally { setUploadingDoc(false) }
                     }}>{uploadingDoc ? 'Enviando...' : 'Enviar Documento'}</button>
+                  )}
+                  {ocrCamposPreenchidos.length > 0 && (
+                    <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.5rem' }}>
+                      <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Dados extraídos do RG com sucesso. Revise os campos acima e clique em Salvar.
+                    </p>
                   )}
                   </>
                   ) : (
