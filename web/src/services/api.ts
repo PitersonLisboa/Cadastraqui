@@ -706,6 +706,11 @@ export const despesaService = {
     const response = await api.get(`/despesas/${ano}/${mes}`)
     return response.data
   },
+
+  salvarLote: async (data: { mes: number; ano: number; despesas: any[] }) => {
+    const response = await api.post('/despesas/lote', data)
+    return response.data
+  },
 }
 
 // ===========================================

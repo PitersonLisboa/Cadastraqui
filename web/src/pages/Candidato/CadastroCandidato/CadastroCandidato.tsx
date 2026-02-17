@@ -221,7 +221,16 @@ interface Membro {
 }
 interface Veiculo { id?: string; modelo: string; placa: string; ano: string }
 interface RendaMensalItem { id: string; mes: number; ano: number; valor: number; fonte?: string; descricao?: string }
-interface DespesaItem { id: string; mes: number; ano: number; categoria: string; descricao?: string; valor: number }
+interface DespesaItem { id: string; mes: number; ano: number; categoria: string; descricao?: string; valor: number; naoSeAplica?: boolean; justificativa?: string }
+
+interface DespesaLinha {
+  categoria: string
+  label: string
+  valor: string       // formatado como "0,00"
+  naoSeAplica: boolean
+  justificativa: string
+  existenteId?: string // id do registro existente no banco
+}
 interface DocumentoItem { id: string; tipo: string; nome: string; url: string; status: string; criadoEm: string }
 interface DocumentoMembroItem { id: string; tipo: string; nome: string; status: string; criadoEm: string }
 
@@ -245,14 +254,25 @@ const TIPOS_DOCUMENTO_MEMBRO = [
 ]
 
 const CATEGORIAS_DESPESA = [
-  { value: 'MORADIA', label: 'Moradia (aluguel, condomínio, IPTU)' },
+  { value: 'AGUA_ESGOTO', label: 'Água e esgoto' },
+  { value: 'ENERGIA_ELETRICA', label: 'Energia Elétrica' },
+  { value: 'TELEFONE', label: 'Telefone fixo e celular' },
   { value: 'ALIMENTACAO', label: 'Alimentação' },
-  { value: 'TRANSPORTE', label: 'Transporte' },
-  { value: 'SAUDE', label: 'Saúde (plano, medicamentos)' },
-  { value: 'EDUCACAO', label: 'Educação' },
-  { value: 'LAZER', label: 'Lazer' },
-  { value: 'VESTUARIO', label: 'Vestuário' },
-  { value: 'OUTROS', label: 'Outros' },
+  { value: 'ALUGUEL', label: 'Aluguel, aluguel de garagem' },
+  { value: 'CONDOMINIO', label: 'Condomínio' },
+  { value: 'TV_CABO', label: 'TV a cabo' },
+  { value: 'STREAMING', label: 'Serviços de streaming (Disney+, Netflix, Globoplay, etc)' },
+  { value: 'COMBUSTIVEL', label: 'Combustível' },
+  { value: 'IPVA', label: 'IPVA' },
+  { value: 'IPTU_ITR', label: 'IPTU e/ou ITR' },
+  { value: 'FINANCIAMENTOS', label: 'Financiamentos: veículos, imóvel' },
+  { value: 'IMPOSTO_RENDA', label: 'Imposto de Renda' },
+  { value: 'TRANSPORTE', label: 'Transporte coletivo e escolar' },
+  { value: 'CARTAO_CREDITO', label: 'Cartão de Crédito' },
+  { value: 'INTERNET', label: 'Internet' },
+  { value: 'CURSOS', label: 'Cursos' },
+  { value: 'PLANO_SAUDE', label: 'Plano de saúde e/ou odontológico' },
+  { value: 'MEDICAMENTOS', label: 'Despesa com medicamentos' },
 ]
 
 const FONTES_RENDA = [
@@ -447,6 +467,14 @@ export function CadastroCandidato() {
   const [showDespesaForm, setShowDespesaForm] = useState(false)
   const [novaDespesa, setNovaDespesa] = useState({ categoria: '', descricao: '', valor: '' })
   const [savingDespesa, setSavingDespesa] = useState(false)
+  // Novo layout tabular de despesas
+  const [despesaLinhas, setDespesaLinhas] = useState<DespesaLinha[]>([])
+  const [despesasExtras, setDespesasExtras] = useState<DespesaLinha[]>([])
+  const [despesaMesAtual, setDespesaMesAtual] = useState(() => {
+    const now = new Date()
+    return { mes: now.getMonth() + 1, ano: now.getFullYear() }
+  })
+  const [despesaCarregada, setDespesaCarregada] = useState(false)
 
   // Membro selecionado para visualizar no drawer
   const [membroAberto, setMembroAberto] = useState<string | null>(null)
@@ -927,6 +955,120 @@ export function CadastroCandidato() {
   }
 
   // --- Documento handlers ---
+  // ── Handlers Despesa Tabular ──
+  const carregarDespesasMes = async (mes: number, ano: number) => {
+    try {
+      const res = await despesaService.resumoMes(ano, mes)
+      const existentes: DespesaItem[] = res.despesas || []
+
+      // Montar linhas fixas
+      const linhas: DespesaLinha[] = CATEGORIAS_DESPESA.map(cat => {
+        const encontrada = existentes.find(e => e.categoria === cat.value)
+        return {
+          categoria: cat.value,
+          label: cat.label,
+          valor: encontrada ? Number(encontrada.valor).toFixed(2).replace('.', ',') : '0,00',
+          naoSeAplica: encontrada?.naoSeAplica || false,
+          justificativa: encontrada?.justificativa || '',
+          existenteId: encontrada?.id,
+        }
+      })
+      setDespesaLinhas(linhas)
+
+      // Despesas extras (categorias que não estão na lista fixa)
+      const categoriasFixas = CATEGORIAS_DESPESA.map(c => c.value)
+      const extras = existentes
+        .filter(e => !categoriasFixas.includes(e.categoria))
+        .map(e => ({
+          categoria: e.categoria,
+          label: e.descricao || e.categoria,
+          valor: Number(e.valor).toFixed(2).replace('.', ','),
+          naoSeAplica: e.naoSeAplica || false,
+          justificativa: e.justificativa || '',
+          existenteId: e.id,
+        }))
+      setDespesasExtras(extras)
+      setDespesaCarregada(true)
+    } catch {
+      toast.error('Erro ao carregar despesas')
+    }
+  }
+
+  const handleDespesaValorChange = (index: number, rawValue: string, isExtra = false) => {
+    // Aceitar apenas dígitos e vírgula
+    const sanitized = rawValue.replace(/[^0-9,]/g, '')
+    if (isExtra) {
+      setDespesasExtras(prev => prev.map((l, i) => i === index ? { ...l, valor: sanitized } : l))
+    } else {
+      setDespesaLinhas(prev => prev.map((l, i) => i === index ? { ...l, valor: sanitized } : l))
+    }
+  }
+
+  const handleDespesaNaoAplicaChange = (index: number, checked: boolean, isExtra = false) => {
+    if (isExtra) {
+      setDespesasExtras(prev => prev.map((l, i) => i === index ? { ...l, naoSeAplica: checked, valor: checked ? '0,00' : l.valor } : l))
+    } else {
+      setDespesaLinhas(prev => prev.map((l, i) => i === index ? { ...l, naoSeAplica: checked, valor: checked ? '0,00' : l.valor } : l))
+    }
+  }
+
+  const handleDespesaJustificativaChange = (index: number, val: string, isExtra = false) => {
+    if (isExtra) {
+      setDespesasExtras(prev => prev.map((l, i) => i === index ? { ...l, justificativa: val } : l))
+    } else {
+      setDespesaLinhas(prev => prev.map((l, i) => i === index ? { ...l, justificativa: val } : l))
+    }
+  }
+
+  const handleAdicionarDespesaExtra = () => {
+    setDespesasExtras(prev => [...prev, {
+      categoria: `EXTRA_${Date.now()}`,
+      label: '',
+      valor: '0,00',
+      naoSeAplica: false,
+      justificativa: '',
+    }])
+  }
+
+  const handleRemoverDespesaExtra = async (index: number) => {
+    const extra = despesasExtras[index]
+    if (extra.existenteId) {
+      try {
+        await despesaService.excluir(extra.existenteId)
+      } catch { /* ignora */ }
+    }
+    setDespesasExtras(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSalvarDespesasTabela = async () => {
+    setSavingDespesa(true)
+    try {
+      const todasLinhas = [...despesaLinhas, ...despesasExtras]
+      const despesasPayload = todasLinhas.map(l => {
+        const valorNum = parseFloat(l.valor.replace(/\./g, '').replace(',', '.')) || 0
+        return {
+          categoria: l.categoria,
+          descricao: CATEGORIAS_DESPESA.find(c => c.value === l.categoria)?.label || l.label || l.categoria,
+          valor: l.naoSeAplica ? 0 : valorNum,
+          naoSeAplica: l.naoSeAplica,
+          justificativa: l.justificativa || undefined,
+        }
+      })
+
+      await despesaService.salvarLote({
+        mes: despesaMesAtual.mes,
+        ano: despesaMesAtual.ano,
+        despesas: despesasPayload,
+      })
+      toast.success('Despesas salvas!')
+      carregarDados()
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao salvar despesas')
+    } finally {
+      setSavingDespesa(false)
+    }
+  }
+
   const handleUploadDoc = async () => {
     if (!docTipo) return toast.error('Selecione o tipo de documento')
     if (docTipo === 'OUTROS_EDITAL') return // handled separately
@@ -2252,132 +2394,132 @@ export function CadastroCandidato() {
       // ════════════════════════════════════════
       // GASTOS
       // ════════════════════════════════════════
-      case 'gastos':
+      case 'gastos': {
+        // Carregar dados da tabela de despesas quando abrir a seção
+        if (!despesaCarregada) {
+          carregarDespesasMes(despesaMesAtual.mes, despesaMesAtual.ano)
+        }
         return (
           <>
             <h2 className={styles.sectionTitle}>Despesas Mensais</h2>
-            <div className={styles.gastosCards}>
-              <div className={styles.gastoCard}><span className={styles.gastoLabel}>Último mês</span><span className={styles.gastoValor}>R$ {formatCurrency(gastoUltimoMes)}</span></div>
-              <div className={styles.gastoCard}><span className={styles.gastoLabel}>Média do trimestre</span><span className={styles.gastoValor}>R$ {formatCurrency(gastoMediaTrimestre)}</span></div>
+            <p className={styles.sectionSub} style={{ textAlign: 'center', fontWeight: 600, color: 'var(--color-primary)', fontSize: '1.1rem' }}>
+              {MESES_LABEL[despesaMesAtual.mes]} de {despesaMesAtual.ano}
+            </p>
+
+            {/* Seletor de mês */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', margin: '0.5rem 0 1rem' }}>
+              {getUltimosMeses().reverse().map(({ month, year }) => (
+                <button
+                  key={`${year}-${month}`}
+                  className={despesaMesAtual.mes === month && despesaMesAtual.ano === year ? styles.btnPrimary : styles.btnSmallOutline}
+                  style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
+                  onClick={() => {
+                    setDespesaMesAtual({ mes: month, ano: year })
+                    setDespesaCarregada(false)
+                    carregarDespesasMes(month, year)
+                  }}
+                >
+                  {MESES_LABEL[month]?.substring(0, 3)}/{year}
+                </button>
+              ))}
             </div>
-            <p className={styles.sectionSub}>Clique em cada mês para cadastrar suas despesas por categoria.</p>
-            <div className={styles.mesesList}>
-              {getUltimosMeses().map(({ month, year }) => {
-                const chave = `${year}-${String(month).padStart(2, '0')}`
-                const mesData = despesasPorMes[chave]
-                return (
-                  <button key={chave} className={styles.btnMes} onClick={() => abrirDespesaDrawer(month, year)}>
-                    <span>{MESES_LABEL[month]} de {year}</span>
-                    {mesData && <span className={styles.btnMesTotal}>R$ {formatCurrency(mesData.total)}</span>}
-                  </button>
-                )
-              })}
+
+            {/* Tabela de despesas */}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--color-gray-300)' }}>
+                    <th style={{ textAlign: 'center', padding: '0.6rem 0.5rem', fontWeight: 600, color: 'var(--color-gray-700)' }}>Descrição</th>
+                    <th style={{ textAlign: 'center', padding: '0.6rem 0.5rem', fontWeight: 600, color: 'var(--color-gray-700)', width: '140px' }}>Valor</th>
+                    <th style={{ textAlign: 'center', padding: '0.6rem 0.5rem', fontWeight: 600, color: 'var(--color-gray-700)', width: '80px' }}>Não se aplica</th>
+                    <th style={{ textAlign: 'center', padding: '0.6rem 0.5rem', fontWeight: 600, color: 'var(--color-gray-700)', width: '140px' }}>Justificativa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {despesaLinhas.map((linha, i) => (
+                    <tr key={linha.categoria} style={{ borderBottom: '1px solid var(--color-gray-200)' }}>
+                      <td style={{ padding: '0.5rem', textAlign: 'center', fontWeight: 500 }}>{linha.label}</td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                        <input
+                          style={{ width: '120px', padding: '0.35rem 0.5rem', border: '1px solid var(--color-gray-300)', borderRadius: 'var(--radius)', textAlign: 'right', fontSize: '0.9rem', fontFamily: 'inherit' }}
+                          value={linha.naoSeAplica ? 'R$ 0,00' : `R$ ${linha.valor}`}
+                          disabled={linha.naoSeAplica}
+                          onChange={e => {
+                            const raw = e.target.value.replace('R$ ', '').replace('R$', '')
+                            handleDespesaValorChange(i, raw)
+                          }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                        <input type="checkbox" checked={linha.naoSeAplica} onChange={e => handleDespesaNaoAplicaChange(i, e.target.checked)} />
+                      </td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                        <input
+                          style={{ width: '120px', padding: '0.35rem 0.5rem', border: '1px solid var(--color-gray-300)', borderRadius: 'var(--radius)', fontSize: '0.85rem', fontFamily: 'inherit' }}
+                          value={linha.justificativa}
+                          placeholder=""
+                          onChange={e => handleDespesaJustificativaChange(i, e.target.value)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+
+                  {/* Despesas extras */}
+                  {despesasExtras.map((extra, i) => (
+                    <tr key={`extra-${i}`} style={{ borderBottom: '1px solid var(--color-gray-200)', background: 'var(--color-gray-50)' }}>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                        <input
+                          style={{ width: '100%', padding: '0.35rem 0.5rem', border: '1px solid var(--color-gray-300)', borderRadius: 'var(--radius)', fontSize: '0.9rem', fontFamily: 'inherit' }}
+                          value={extra.label}
+                          placeholder="Descrição da despesa"
+                          onChange={e => setDespesasExtras(prev => prev.map((ex, idx) => idx === i ? { ...ex, label: e.target.value, categoria: `EXTRA_${e.target.value.replace(/\s/g, '_').toUpperCase()}` } : ex))}
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                        <input
+                          style={{ width: '120px', padding: '0.35rem 0.5rem', border: '1px solid var(--color-gray-300)', borderRadius: 'var(--radius)', textAlign: 'right', fontSize: '0.9rem', fontFamily: 'inherit' }}
+                          value={extra.naoSeAplica ? 'R$ 0,00' : `R$ ${extra.valor}`}
+                          disabled={extra.naoSeAplica}
+                          onChange={e => {
+                            const raw = e.target.value.replace('R$ ', '').replace('R$', '')
+                            handleDespesaValorChange(i, raw, true)
+                          }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                        <input type="checkbox" checked={extra.naoSeAplica} onChange={e => handleDespesaNaoAplicaChange(i, e.target.checked, true)} />
+                      </td>
+                      <td style={{ padding: '0.5rem', textAlign: 'center', display: 'flex', gap: '0.25rem', alignItems: 'center', justifyContent: 'center' }}>
+                        <input
+                          style={{ width: '90px', padding: '0.35rem 0.5rem', border: '1px solid var(--color-gray-300)', borderRadius: 'var(--radius)', fontSize: '0.85rem', fontFamily: 'inherit' }}
+                          value={extra.justificativa}
+                          onChange={e => handleDespesaJustificativaChange(i, e.target.value, true)}
+                        />
+                        <button className={styles.btnSmallDanger} onClick={() => handleRemoverDespesaExtra(i)} title="Remover"><FiTrash2 size={14} /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className={styles.footerSplit}>
-              <div />
+
+            {/* Nova despesa + Salvar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.9rem' }}>Deseja lançar outra despesa ou empréstimos?</span>
+                <button className={styles.btnSmallOutline} onClick={handleAdicionarDespesaExtra}>Nova despesa</button>
+              </div>
+              <button className={styles.btnOutline} onClick={handleSalvarDespesasTabela} disabled={savingDespesa}>
+                {savingDespesa ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+
+            <div className={styles.footerCenter} style={{ marginTop: '1.5rem' }}>
               <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
             </div>
-
-            {/* Drawer de Despesas por Mês */}
-            {despesaDrawerMes && (
-              <div className={styles.despesaDrawerOverlay} onClick={() => { setDespesaDrawerMes(null); setDespesaDrawerData([]) }}>
-                <div className={styles.despesaDrawer} onClick={e => e.stopPropagation()}>
-                  <div className={styles.despesaDrawerHeader}>
-                    <h3>Despesas — {MESES_LABEL[despesaDrawerMes.mes]} de {despesaDrawerMes.ano}</h3>
-                    <button className={styles.btnGhost} onClick={() => { setDespesaDrawerMes(null); setDespesaDrawerData([]) }}><FiX size={20} /></button>
-                  </div>
-
-                  <div className={styles.despesaDrawerBody}>
-                    {despesaDrawerLoading ? (
-                      <div className={styles.loadingContainer}><div className={styles.spinner} /></div>
-                    ) : (
-                      <>
-                        <div className={styles.despesaTotalCard}>
-                          <span>Total do mês</span>
-                          <strong>R$ {formatCurrency(despesaDrawerTotal)}</strong>
-                        </div>
-
-                        {/* Despesas agrupadas por categoria */}
-                        {(() => {
-                          const porCat: Record<string, DespesaItem[]> = {}
-                          despesaDrawerData.forEach(d => {
-                            if (!porCat[d.categoria]) porCat[d.categoria] = []
-                            porCat[d.categoria].push(d)
-                          })
-                          return Object.entries(porCat).map(([cat, itens]) => {
-                            const catLabel = CATEGORIAS_DESPESA.find(c => c.value === cat)?.label || cat
-                            const catTotal = itens.reduce((acc, d) => acc + Number(d.valor), 0)
-                            return (
-                              <div key={cat} className={styles.categoriaGroup}>
-                                <div className={styles.categoriaHeader}>
-                                  <span className={styles.categoriaTitle}>{catLabel}</span>
-                                  <span className={styles.categoriaTotal}>R$ {formatCurrency(catTotal)}</span>
-                                </div>
-                                {itens.map(d => (
-                                  <div key={d.id} className={styles.despesaItem}>
-                                    <div className={styles.despesaItemInfo}>
-                                      <span className={styles.despesaItemDesc}>{d.descricao || catLabel}</span>
-                                    </div>
-                                    <span className={styles.despesaItemValor}>R$ {formatCurrency(Number(d.valor))}</span>
-                                    <button className={styles.btnSmallDanger} onClick={() => handleExcluirDespesa(d.id)}><FiTrash2 size={12} /></button>
-                                  </div>
-                                ))}
-                              </div>
-                            )
-                          })
-                        })()}
-
-                        {despesaDrawerData.length === 0 && <p className={styles.emptyMsg}>Nenhuma despesa cadastrada para este mês.</p>}
-
-                        {/* Botão adicionar */}
-                        {!showDespesaForm && (
-                          <div className={styles.centeredActions} style={{ marginTop: '1rem' }}>
-                            <button className={styles.btnOutline} onClick={() => setShowDespesaForm(true)}>
-                              <FiPlus size={14} /> Adicionar Despesa
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Form inline */}
-                        {showDespesaForm && (
-                          <div className={styles.despesaInlineForm}>
-                            <div className={styles.despesaFormRow}>
-                              <div className={styles.field}>
-                                <label>Categoria</label>
-                                <select value={novaDespesa.categoria} onChange={e => setNovaDespesa({ ...novaDespesa, categoria: e.target.value })}>
-                                  <option value="">Selecione...</option>
-                                  {CATEGORIAS_DESPESA.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                                </select>
-                              </div>
-                              <div className={styles.field}>
-                                <label>Valor (R$)</label>
-                                <input value={novaDespesa.valor} placeholder="0,00" onChange={e => setNovaDespesa({ ...novaDespesa, valor: e.target.value })} />
-                              </div>
-                            </div>
-                            <div className={styles.field}>
-                              <label>Descrição (opcional)</label>
-                              <input value={novaDespesa.descricao} placeholder="Ex: Aluguel apartamento" onChange={e => setNovaDespesa({ ...novaDespesa, descricao: e.target.value })} />
-                            </div>
-                            <div className={styles.inlineActions}>
-                              <button className={styles.btnPrimary} disabled={savingDespesa} onClick={handleSalvarDespesa}>
-                                {savingDespesa ? 'Salvando...' : 'Salvar'}
-                              </button>
-                              <button className={styles.btnGhost} onClick={() => setShowDespesaForm(false)}>Cancelar</button>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <div className={styles.despesaDrawerFooter}>
-                    <button className={styles.btnGhost} onClick={() => { setDespesaDrawerMes(null); setDespesaDrawerData([]) }}>Fechar</button>
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )
+      }
 
       // ════════════════════════════════════════
       // SAÚDE

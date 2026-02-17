@@ -13,6 +13,8 @@ const criarDespesaSchema = z.object({
   categoria: z.string(),
   descricao: z.string().optional(),
   valor: z.number().min(0),
+  naoSeAplica: z.boolean().optional().default(false),
+  justificativa: z.string().optional(),
 })
 
 const atualizarDespesaSchema = criarDespesaSchema.partial()
@@ -95,6 +97,8 @@ export async function criarDespesa(request: FastifyRequest, reply: FastifyReply)
       categoria: dados.categoria,
       descricao: dados.descricao,
       valor: dados.valor,
+      naoSeAplica: dados.naoSeAplica || false,
+      justificativa: dados.justificativa,
       candidato: { connect: { id: candidato.id } },
     },
   })
@@ -164,4 +168,74 @@ export async function resumoDespesas(request: FastifyRequest, reply: FastifyRepl
     total: Math.round(total * 100) / 100,
     porCategoria,
   })
+}
+
+// ===========================================
+// SALVAR EM LOTE (upsert para tabela fixa)
+// POST /despesas/lote
+// ===========================================
+
+const loteItemSchema = z.object({
+  categoria: z.string(),
+  descricao: z.string().optional(),
+  valor: z.number().min(0),
+  naoSeAplica: z.boolean().optional().default(false),
+  justificativa: z.string().optional(),
+})
+
+const salvarLoteSchema = z.object({
+  mes: z.number().min(1).max(12),
+  ano: z.number().min(2020).max(2100),
+  despesas: z.array(loteItemSchema),
+})
+
+export async function salvarDespesasLote(request: FastifyRequest, reply: FastifyReply) {
+  const dados = salvarLoteSchema.parse(request.body)
+
+  const candidato = await prisma.candidato.findUnique({
+    where: { usuarioId: request.usuario.id },
+  })
+  if (!candidato) throw new CandidatoNaoEncontradoError()
+
+  // Buscar despesas existentes deste mês/ano
+  const existentes = await prisma.despesaMensal.findMany({
+    where: { candidatoId: candidato.id, mes: dados.mes, ano: dados.ano },
+  })
+
+  const resultado = []
+
+  for (const item of dados.despesas) {
+    // Procurar despesa existente pela categoria
+    const existente = existentes.find(e => e.categoria === item.categoria && (e.descricao || '') === (item.descricao || ''))
+
+    if (existente) {
+      // Atualizar
+      const atualizada = await prisma.despesaMensal.update({
+        where: { id: existente.id },
+        data: {
+          valor: item.valor,
+          naoSeAplica: item.naoSeAplica || false,
+          justificativa: item.justificativa || null,
+        },
+      })
+      resultado.push(atualizada)
+    } else {
+      // Criar nova
+      const nova = await prisma.despesaMensal.create({
+        data: {
+          mes: dados.mes,
+          ano: dados.ano,
+          categoria: item.categoria,
+          descricao: item.descricao,
+          valor: item.valor,
+          naoSeAplica: item.naoSeAplica || false,
+          justificativa: item.justificativa || null,
+          candidato: { connect: { id: candidato.id } },
+        },
+      })
+      resultado.push(nova)
+    }
+  }
+
+  return reply.status(200).send({ despesas: resultado })
 }

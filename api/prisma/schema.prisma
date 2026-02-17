@@ -367,10 +367,12 @@ model DespesaMensal {
   id              String   @id @default(uuid())
   mes             Int      // 1-12
   ano             Int
-  categoria       String   // MORADIA, ALIMENTACAO, TRANSPORTE, SAUDE, EDUCACAO, LAZER, VESTUARIO, OUTROS
+  categoria       String
   descricao       String?
   valor           Decimal
   comprovante     String?  // URL do comprovante
+  naoSeAplica     Boolean  @default(false)
+  justificativa   String?
   
   candidato       Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
   candidatoId     String
