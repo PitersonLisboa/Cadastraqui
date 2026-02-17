@@ -2402,6 +2402,10 @@ export function CadastroCandidato() {
         return (
           <>
             <h2 className={styles.sectionTitle}>Despesas Mensais</h2>
+            <div className={styles.gastosCards}>
+              <div className={styles.gastoCard}><span className={styles.gastoLabel}>Último mês</span><span className={styles.gastoValor}>R$ {formatCurrency(gastoUltimoMes)}</span></div>
+              <div className={styles.gastoCard}><span className={styles.gastoLabel}>Média do trimestre</span><span className={styles.gastoValor}>R$ {formatCurrency(gastoMediaTrimestre)}</span></div>
+            </div>
             <p className={styles.sectionSub} style={{ textAlign: 'center', fontWeight: 600, color: 'var(--color-primary)', fontSize: '1.1rem' }}>
               {MESES_LABEL[despesaMesAtual.mes]} de {despesaMesAtual.ano}
             </p>
