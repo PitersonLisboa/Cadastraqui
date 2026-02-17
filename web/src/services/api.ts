@@ -747,3 +747,72 @@ export const veiculoService = {
     return response.data
   },
 }
+
+// ===========================================
+// SAÚDE FAMILIAR
+// ===========================================
+
+export const saudeService = {
+  listar: async () => {
+    const response = await api.get('/saude')
+    return response.data
+  },
+  buscarCandidato: async () => {
+    const response = await api.get('/saude/candidato')
+    return response.data
+  },
+  buscarMembro: async (membroId: string) => {
+    const response = await api.get(`/saude/membro/${membroId}`)
+    return response.data
+  },
+  salvarCandidato: async (data: any) => {
+    const response = await api.put('/saude/candidato', data)
+    return response.data
+  },
+  salvarMembro: async (membroId: string, data: any) => {
+    const response = await api.put(`/saude/membro/${membroId}`, data)
+    return response.data
+  },
+  uploadLaudoCandidato: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post('/saude/candidato/laudo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+  uploadLaudoMembro: async (membroId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/saude/membro/${membroId}/laudo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+  uploadReceitaCandidato: async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post('/saude/candidato/receita', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+  uploadReceitaMembro: async (membroId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/saude/membro/${membroId}/receita`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+  downloadArquivo: async (saudeId: string, tipo: 'laudo' | 'receita') => {
+    const response = await api.get(`/saude/${saudeId}/download/${tipo}`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+  excluirArquivo: async (saudeId: string, tipo: 'laudo' | 'receita') => {
+    const response = await api.delete(`/saude/${saudeId}/arquivo/${tipo}`)
+    return response.data
+  },
+}

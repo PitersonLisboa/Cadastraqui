@@ -1,0 +1,48 @@
+// ===========================================
+// SAÚDE FAMILIAR (doença + medicação por pessoa)
+// Adicionar DENTRO do schema.prisma, antes do model Documento
+// ===========================================
+
+model SaudeFamiliar {
+  id                    String   @id @default(uuid())
+
+  // Vínculo: candidato OU membro
+  candidato             Candidato?     @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId           String?
+  membroFamilia         MembroFamilia? @relation(fields: [membroFamiliaId], references: [id], onDelete: Cascade)
+  membroFamiliaId       String?
+
+  // Step 1: Doença
+  possuiDoenca              Boolean @default(false)
+  doenca                    String?
+  possuiRelatorioMedico     Boolean @default(false)
+  laudoUrl                  String?
+  laudoNome                 String?
+  laudoTamanho              Int?
+  laudoMimeType             String?
+
+  // Step 2: Medicação
+  tomaMedicamentoControlado Boolean @default(false)
+  nomeMedicamento           String?
+  obtemRedePublica          Boolean @default(false)
+  especifiqueRedePublica    String?
+  receitaUrl                String?
+  receitaNome               String?
+  receitaTamanho            Int?
+  receitaMimeType           String?
+
+  criadoEm              DateTime @default(now())
+  atualizadoEm          DateTime @updatedAt
+
+  @@map("saude_familiar")
+}
+
+// ===========================================
+// ALTERAÇÕES NOS MODELS EXISTENTES:
+//
+// No model Candidato, adicionar:
+//   saude           SaudeFamiliar[]
+//
+// No model MembroFamilia, adicionar:
+//   saude           SaudeFamiliar[]
+// ===========================================

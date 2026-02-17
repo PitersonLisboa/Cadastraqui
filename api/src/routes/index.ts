@@ -25,6 +25,7 @@ import { despesaRoutes } from './despesa.routes'
 import { moradiaRoutes } from './moradia.routes'
 import { veiculoRoutes } from './veiculo.routes'
 import { documentoMembroRoutes } from './documento-membro.routes'
+import { saudeRoutes } from './saude.routes'
 
 export async function registerRoutes(app: FastifyInstance) {
   // Rota de health check
@@ -61,4 +62,5 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(moradiaRoutes)
   await app.register(veiculoRoutes)
   await app.register(documentoMembroRoutes)
+  await app.register(saudeRoutes)
 }

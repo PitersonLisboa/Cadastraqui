@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRecoilValue, useSetRecoilState } from 'recoil'
 import { toast } from 'react-toastify'
-import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp, FiFileText } from 'react-icons/fi'
+import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp, FiFileText, FiUpload, FiCheck } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
-import { api, rendaService, despesaService, moradiaService, veiculoService } from '@/services/api'
+import { api, rendaService, despesaService, moradiaService, veiculoService, saudeService } from '@/services/api'
 import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
 import { DateInput } from '@/components/common/DateInput/DateInput'
 import { MembroDetalhe } from './MembroDetalhe'
@@ -268,6 +268,62 @@ const FONTES_RENDA = [
 
 const formatCurrency = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+const DOENCAS_OPTIONS = [
+  'Alienação Mental',
+  'Cardiopatia Grave',
+  'Cegueira',
+  'Contaminação por Radiação',
+  'Doença de Parkinson',
+  'Espondilite Anquilosante',
+  'Doença de Paget',
+  'Hanseníase (Lepra)',
+  'Hepatopatia Grave',
+  'Nefropatia Grave',
+  'Paralisia',
+  'Tuberculose Ativa',
+  'HIV/AIDS',
+  'Neoplasma Maligno (Câncer)',
+  'Estágio Terminal',
+  'Microcefalia',
+  'Transtorno do Espectro Autista',
+  'Doença Rara',
+  'Outra Doença de Alto Custo',
+]
+
+const SAUDE_STEP_LABELS = ['Doença', 'Medicação']
+
+interface SaudeData {
+  id?: string
+  possuiDoenca: boolean
+  doenca: string
+  possuiRelatorioMedico: boolean
+  laudoNome?: string | null
+  tomaMedicamentoControlado: boolean
+  nomeMedicamento: string
+  obtemRedePublica: boolean
+  especifiqueRedePublica: string
+  receitaNome?: string | null
+}
+
+const EMPTY_SAUDE: SaudeData = {
+  possuiDoenca: false,
+  doenca: '',
+  possuiRelatorioMedico: false,
+  laudoNome: null,
+  tomaMedicamentoControlado: false,
+  nomeMedicamento: '',
+  obtemRedePublica: false,
+  especifiqueRedePublica: '',
+  receitaNome: null,
+}
+
+interface PessoaSaude {
+  id: string
+  nome: string
+  tipo: 'candidato' | 'membro'
+  saude: SaudeData | null
+}
+
 // ===========================================
 // COMPONENTE
 // ===========================================
@@ -395,6 +451,15 @@ export function CadastroCandidato() {
   // Membro selecionado para visualizar no drawer
   const [membroAberto, setMembroAberto] = useState<string | null>(null)
 
+  // ── Saúde ──
+  const [pessoasSaude, setPessoasSaude] = useState<PessoaSaude[]>([])
+  const [saudePessoaAberta, setSaudePessoaAberta] = useState<PessoaSaude | null>(null)
+  const [saudeSubStep, setSaudeSubStep] = useState(0) // 0 = Doença, 1 = Medicação
+  const [saudeForm, setSaudeForm] = useState<SaudeData>({ ...EMPTY_SAUDE })
+  const [savingSaude, setSavingSaude] = useState(false)
+  const laudoInputRef = useRef<HTMLInputElement>(null)
+  const receitaInputRef = useRef<HTMLInputElement>(null)
+
   // Ativar modo cadastro ao montar
   useEffect(() => {
     setSidebarMode((prev) => ({ ...prev, mode: 'cadastro' }))
@@ -488,6 +553,8 @@ export function CadastroCandidato() {
       } catch (docErr: any) {
         console.warn('Erro ao carregar documentos:', docErr.response?.status, docErr.response?.data?.message || docErr.message)
       }
+      // Carregar saúde
+      try { await carregarSaude() } catch {}
     } catch {}
     finally { setLoading(false) }
   }
@@ -939,6 +1006,159 @@ export function CadastroCandidato() {
       } else {
         toast.error(err.response?.data?.message || 'Erro ao visualizar documento')
       }
+    }
+  }
+
+  // ── Handlers Saúde ──
+
+  const carregarSaude = async () => {
+    try {
+      const res = await saudeService.listar()
+      const lista: PessoaSaude[] = []
+      if (res.candidato) {
+        lista.push({
+          id: res.candidato.id,
+          nome: res.candidato.nome || 'Candidato',
+          tipo: 'candidato',
+          saude: res.candidato.saude || null,
+        })
+      }
+      if (res.membros) {
+        for (const m of res.membros) {
+          lista.push({
+            id: m.id,
+            nome: m.nome,
+            tipo: 'membro',
+            saude: m.saude || null,
+          })
+        }
+      }
+      setPessoasSaude(lista)
+    } catch {
+      // silencioso - lista será montada com dados do candidato+membros
+    }
+  }
+
+  const handleAbrirSaude = (pessoa: PessoaSaude) => {
+    setSaudePessoaAberta(pessoa)
+    setSaudeSubStep(0)
+    if (pessoa.saude) {
+      setSaudeForm({
+        id: pessoa.saude.id,
+        possuiDoenca: pessoa.saude.possuiDoenca || false,
+        doenca: pessoa.saude.doenca || '',
+        possuiRelatorioMedico: pessoa.saude.possuiRelatorioMedico || false,
+        laudoNome: pessoa.saude.laudoNome || null,
+        tomaMedicamentoControlado: pessoa.saude.tomaMedicamentoControlado || false,
+        nomeMedicamento: pessoa.saude.nomeMedicamento || '',
+        obtemRedePublica: pessoa.saude.obtemRedePublica || false,
+        especifiqueRedePublica: pessoa.saude.especifiqueRedePublica || '',
+        receitaNome: pessoa.saude.receitaNome || null,
+      })
+    } else {
+      setSaudeForm({ ...EMPTY_SAUDE })
+    }
+  }
+
+  const handleVoltarListaSaude = () => {
+    setSaudePessoaAberta(null)
+    setSaudeSubStep(0)
+    setSaudeForm({ ...EMPTY_SAUDE })
+    carregarSaude()
+  }
+
+  const handleSalvarSaude = async () => {
+    if (!saudePessoaAberta) return
+    setSavingSaude(true)
+    try {
+      const payload = {
+        possuiDoenca: saudeForm.possuiDoenca,
+        doenca: saudeForm.possuiDoenca ? saudeForm.doenca : null,
+        possuiRelatorioMedico: saudeForm.possuiDoenca ? saudeForm.possuiRelatorioMedico : false,
+        tomaMedicamentoControlado: saudeForm.tomaMedicamentoControlado,
+        nomeMedicamento: saudeForm.tomaMedicamentoControlado ? saudeForm.nomeMedicamento : null,
+        obtemRedePublica: saudeForm.tomaMedicamentoControlado ? saudeForm.obtemRedePublica : false,
+        especifiqueRedePublica: (saudeForm.tomaMedicamentoControlado && saudeForm.obtemRedePublica) ? saudeForm.especifiqueRedePublica : null,
+      }
+
+      let res
+      if (saudePessoaAberta.tipo === 'candidato') {
+        res = await saudeService.salvarCandidato(payload)
+      } else {
+        res = await saudeService.salvarMembro(saudePessoaAberta.id, payload)
+      }
+      if (res.saude) {
+        setSaudeForm(prev => ({ ...prev, id: res.saude.id }))
+      }
+      toast.success('Dados de saúde salvos!')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao salvar dados de saúde')
+    } finally {
+      setSavingSaude(false)
+    }
+  }
+
+  const handleUploadLaudo = async (file: File) => {
+    if (!saudePessoaAberta) return
+    try {
+      let res
+      if (saudePessoaAberta.tipo === 'candidato') {
+        res = await saudeService.uploadLaudoCandidato(file)
+      } else {
+        res = await saudeService.uploadLaudoMembro(saudePessoaAberta.id, file)
+      }
+      if (res.saude) {
+        setSaudeForm(prev => ({ ...prev, id: res.saude.id, laudoNome: res.saude.laudoNome }))
+      }
+      toast.success('Laudo enviado!')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao enviar laudo')
+    }
+  }
+
+  const handleUploadReceita = async (file: File) => {
+    if (!saudePessoaAberta) return
+    try {
+      let res
+      if (saudePessoaAberta.tipo === 'candidato') {
+        res = await saudeService.uploadReceitaCandidato(file)
+      } else {
+        res = await saudeService.uploadReceitaMembro(saudePessoaAberta.id, file)
+      }
+      if (res.saude) {
+        setSaudeForm(prev => ({ ...prev, id: res.saude.id, receitaNome: res.saude.receitaNome }))
+      }
+      toast.success('Receita enviada!')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao enviar receita')
+    }
+  }
+
+  const handleViewSaudeArquivo = async (tipo: 'laudo' | 'receita') => {
+    if (!saudeForm.id) return
+    try {
+      const blob = await saudeService.downloadArquivo(saudeForm.id, tipo)
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (err: any) {
+      toast.error('Erro ao visualizar arquivo')
+    }
+  }
+
+  const handleExcluirSaudeArquivo = async (tipo: 'laudo' | 'receita') => {
+    if (!saudeForm.id) return
+    if (!window.confirm(`Excluir ${tipo === 'laudo' ? 'laudo médico' : 'receita'}?`)) return
+    try {
+      await saudeService.excluirArquivo(saudeForm.id, tipo)
+      if (tipo === 'laudo') {
+        setSaudeForm(prev => ({ ...prev, laudoNome: null }))
+      } else {
+        setSaudeForm(prev => ({ ...prev, receitaNome: null }))
+      }
+      toast.success('Arquivo excluído')
+    } catch {
+      toast.error('Erro ao excluir arquivo')
     }
   }
 
@@ -2163,13 +2383,195 @@ export function CadastroCandidato() {
       // SAÚDE
       // ════════════════════════════════════════
       case 'saude':
+        // Se uma pessoa está aberta, mostrar wizard 2-step
+        if (saudePessoaAberta) {
+          return (
+            <>
+              <button className={styles.btnArrow} onClick={handleVoltarListaSaude} style={{ alignSelf: 'flex-start', marginBottom: '0.5rem' }}>
+                <FiArrowLeft size={16} /> Voltar
+              </button>
+
+              <StepperBar totalSteps={SAUDE_STEP_LABELS.length} currentStep={saudeSubStep} />
+              <h2 className={styles.sectionTitle}>{SAUDE_STEP_LABELS[saudeSubStep]}</h2>
+              {saudePessoaAberta.nome && <p className={styles.sectionName}>{saudePessoaAberta.nome}</p>}
+
+              {saudeSubStep === 0 && (
+                <>
+                  <div style={{ textAlign: 'center', margin: '1rem 0' }}>
+                    <p style={{ fontWeight: 500, marginBottom: '0.5rem' }}>Possui alguma doença?</p>
+                    <label style={{ marginRight: '1.5rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={saudeForm.possuiDoenca === true} onChange={() => setSaudeForm({ ...saudeForm, possuiDoenca: true })} /> Sim
+                    </label>
+                    <label style={{ cursor: 'pointer' }}>
+                      <input type="radio" checked={saudeForm.possuiDoenca === false} onChange={() => setSaudeForm({ ...saudeForm, possuiDoenca: false, doenca: '', possuiRelatorioMedico: false })} /> Não
+                    </label>
+                  </div>
+
+                  {saudeForm.possuiDoenca && (
+                    <>
+                      <div className={styles.field} style={{ marginTop: '1rem' }}>
+                        <label>Doença</label>
+                        <select value={saudeForm.doenca} onChange={e => setSaudeForm({ ...saudeForm, doenca: e.target.value })}>
+                          <option value="">Selecione</option>
+                          {DOENCAS_OPTIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                      </div>
+
+                      <div style={{ textAlign: 'center', margin: '1rem 0' }}>
+                        <p style={{ fontWeight: 500, marginBottom: '0.5rem' }}>Possui relatório médico?</p>
+                        <label style={{ marginRight: '1.5rem', cursor: 'pointer' }}>
+                          <input type="radio" checked={saudeForm.possuiRelatorioMedico === true} onChange={() => setSaudeForm({ ...saudeForm, possuiRelatorioMedico: true })} /> Sim
+                        </label>
+                        <label style={{ cursor: 'pointer' }}>
+                          <input type="radio" checked={saudeForm.possuiRelatorioMedico === false} onChange={() => setSaudeForm({ ...saudeForm, possuiRelatorioMedico: false })} /> Não
+                        </label>
+                      </div>
+
+                      {saudeForm.possuiRelatorioMedico && (
+                        <div className={styles.field} style={{ marginTop: '0.5rem' }}>
+                          <label>Anexar laudo</label>
+                          {saudeForm.laudoNome ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              <FiCheck size={16} color="green" />
+                              <span style={{ fontSize: '0.85rem' }}>{saudeForm.laudoNome}</span>
+                              <button type="button" className={styles.btnSmallOutline} onClick={() => handleViewSaudeArquivo('laudo')}>Visualizar</button>
+                              <button type="button" className={styles.btnSmallOutline} onClick={() => handleExcluirSaudeArquivo('laudo')} style={{ color: '#c00' }}><FiTrash2 size={14} /></button>
+                            </div>
+                          ) : (
+                            <>
+                              <div
+                                onClick={() => laudoInputRef.current?.click()}
+                                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', border: '1px solid var(--color-gray-300)', borderRadius: 'var(--radius)', background: 'var(--color-white)' }}
+                              >
+                                <span style={{ color: '#999' }}>Anexar arquivo</span>
+                                <FiUpload size={16} style={{ marginLeft: 'auto' }} />
+                              </div>
+                              <input ref={laudoInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleUploadLaudo(e.target.files[0]); e.target.value = '' }} />
+                              <span style={{ fontSize: '0.75rem', color: 'var(--color-error)' }}>*Tamanho máximo de 10Mb</span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              {saudeSubStep === 1 && (
+                <>
+                  <div style={{ textAlign: 'center', margin: '1rem 0' }}>
+                    <p style={{ fontWeight: 500, marginBottom: '0.5rem' }}>Toma medicamento controlado?</p>
+                    <label style={{ marginRight: '1.5rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={saudeForm.tomaMedicamentoControlado === true} onChange={() => setSaudeForm({ ...saudeForm, tomaMedicamentoControlado: true })} /> Sim
+                    </label>
+                    <label style={{ cursor: 'pointer' }}>
+                      <input type="radio" checked={saudeForm.tomaMedicamentoControlado === false} onChange={() => setSaudeForm({ ...saudeForm, tomaMedicamentoControlado: false, nomeMedicamento: '', obtemRedePublica: false, especifiqueRedePublica: '' })} /> Não
+                    </label>
+                  </div>
+
+                  {saudeForm.tomaMedicamentoControlado && (
+                    <>
+                      <div className={styles.field} style={{ marginTop: '0.5rem' }}>
+                        <label>Nome do medicamento</label>
+                        <input value={saudeForm.nomeMedicamento} onChange={e => setSaudeForm({ ...saudeForm, nomeMedicamento: e.target.value })} />
+                      </div>
+
+                      <div style={{ textAlign: 'center', margin: '1rem 0' }}>
+                        <p style={{ fontWeight: 500, marginBottom: '0.5rem' }}>Obtém de rede pública?</p>
+                        <label style={{ marginRight: '1.5rem', cursor: 'pointer' }}>
+                          <input type="radio" checked={saudeForm.obtemRedePublica === true} onChange={() => setSaudeForm({ ...saudeForm, obtemRedePublica: true })} /> Sim
+                        </label>
+                        <label style={{ cursor: 'pointer' }}>
+                          <input type="radio" checked={saudeForm.obtemRedePublica === false} onChange={() => setSaudeForm({ ...saudeForm, obtemRedePublica: false, especifiqueRedePublica: '' })} /> Não
+                        </label>
+                      </div>
+
+                      {saudeForm.obtemRedePublica && (
+                        <div className={styles.field} style={{ marginTop: '0.5rem' }}>
+                          <label>Especifique quais</label>
+                          <input value={saudeForm.especifiqueRedePublica} onChange={e => setSaudeForm({ ...saudeForm, especifiqueRedePublica: e.target.value })} />
+                        </div>
+                      )}
+
+                      <div className={styles.field} style={{ marginTop: '1rem' }}>
+                        <label>Receita do medicamento</label>
+                        {saudeForm.receitaNome ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <FiCheck size={16} color="green" />
+                            <span style={{ fontSize: '0.85rem' }}>{saudeForm.receitaNome}</span>
+                            <button type="button" className={styles.btnSmallOutline} onClick={() => handleViewSaudeArquivo('receita')}>Visualizar</button>
+                            <button type="button" className={styles.btnSmallOutline} onClick={() => handleExcluirSaudeArquivo('receita')} style={{ color: '#c00' }}><FiTrash2 size={14} /></button>
+                          </div>
+                        ) : (
+                          <>
+                            <div
+                              onClick={() => receitaInputRef.current?.click()}
+                              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', border: '1px solid var(--color-gray-300)', borderRadius: 'var(--radius)', background: 'var(--color-white)' }}
+                            >
+                              <span style={{ color: '#999' }}>Anexar arquivo</span>
+                              <FiUpload size={16} style={{ marginLeft: 'auto' }} />
+                            </div>
+                            <input ref={receitaInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleUploadReceita(e.target.files[0]); e.target.value = '' }} />
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-error)' }}>*Tamanho máximo de 10Mb</span>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              <div className={styles.footerSplit} style={{ marginTop: '1.5rem' }}>
+                {saudeSubStep > 0
+                  ? <button className={styles.btnArrow} onClick={() => { handleSalvarSaude(); setSaudeSubStep(s => s - 1) }}><FiArrowLeft size={20} /></button>
+                  : <div />
+                }
+                <button className={styles.btnOutline} onClick={handleSalvarSaude} disabled={savingSaude}>
+                  {savingSaude ? 'Salvando...' : 'Salvar'}
+                </button>
+                {saudeSubStep < SAUDE_STEP_LABELS.length - 1
+                  ? <button className={styles.btnArrow} onClick={() => { handleSalvarSaude(); setSaudeSubStep(s => s + 1) }}><FiArrowRight size={20} /></button>
+                  : <button className={styles.btnOutlineArrow} onClick={() => { handleSalvarSaude(); handleVoltarListaSaude() }}>Concluir <FiCheck size={16} /></button>
+                }
+              </div>
+            </>
+          )
+        }
+
+        // Lista de pessoas (candidato + membros)
         return (
           <>
             <h2 className={styles.sectionTitle}>Saúde</h2>
             <p className={styles.sectionSub}>Cadastre dados sobre a saúde de seu grupo familiar</p>
             <div className={styles.listItems}>
-              {membros.map(m => (<div key={m.id} className={styles.listRow}><span className={styles.listName}>{m.nome}</span><button className={styles.btnSmallOutline} onClick={() => setMembroAberto(m.id!)}><FiEye size={14} /> Visualizar</button></div>))}
-              {membros.length === 0 && <p className={styles.emptyMsg}>Cadastre membros na seção Grupo Familiar.</p>}
+              {pessoasSaude.length > 0 ? pessoasSaude.map(p => (
+                <div key={`${p.tipo}-${p.id}`} className={styles.listRow}>
+                  <span className={styles.listName}>{p.nome}</span>
+                  <button className={styles.btnSmallOutline} onClick={() => handleAbrirSaude(p)}>
+                    {p.saude ? <><FiEye size={14} /> Visualizar</> : <><FiPlus size={14} /> Cadastrar</>}
+                  </button>
+                </div>
+              )) : (
+                <>
+                  {dados.nome && (
+                    <div className={styles.listRow}>
+                      <span className={styles.listName}>{dados.nome}</span>
+                      <button className={styles.btnSmallOutline} onClick={() => handleAbrirSaude({ id: '', nome: dados.nome, tipo: 'candidato', saude: null })}>
+                        <FiPlus size={14} /> Cadastrar
+                      </button>
+                    </div>
+                  )}
+                  {membros.map(m => (
+                    <div key={m.id} className={styles.listRow}>
+                      <span className={styles.listName}>{m.nome}</span>
+                      <button className={styles.btnSmallOutline} onClick={() => handleAbrirSaude({ id: m.id!, nome: m.nome, tipo: 'membro', saude: null })}>
+                        <FiPlus size={14} /> Cadastrar
+                      </button>
+                    </div>
+                  ))}
+                  {!dados.nome && membros.length === 0 && <p className={styles.emptyMsg}>Cadastre seus dados pessoais e membros da família primeiro.</p>}
+                </>
+              )}
             </div>
             <div className={styles.footerCenter}><button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button></div>
           </>
