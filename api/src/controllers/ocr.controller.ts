@@ -16,7 +16,7 @@ import { parsearRG, PalavraOCR, LinhaOCR } from '../services/rg-parser'
 // ===========================================
 
 const MAX_RG_DOCS = 2
-const MAX_IMAGE_SIZE_OCR = 900 * 1024  // ~900KB (free plan = 1MB, margem)
+const MAX_IMAGE_SIZE_OCR = 950 * 1024  // ~950KB (free plan = 1MB, margem)
 
 /**
  * Redimensiona imagem se necessário para caber no limite do OCR.space.
@@ -25,13 +25,9 @@ const MAX_IMAGE_SIZE_OCR = 900 * 1024  // ~900KB (free plan = 1MB, margem)
 async function prepararImagemParaOCR(
   buffer: Buffer,
   mimetype: string
-): Promise<{ base64: string; mimeType: string }> {
-  // Se já está dentro do limite, usar direto
+): Promise<{ buffer: Buffer; mimeType: string }> {
   if (buffer.length <= MAX_IMAGE_SIZE_OCR) {
-    return {
-      base64: buffer.toString('base64'),
-      mimeType: mimetype,
-    }
+    return { buffer, mimeType: mimetype }
   }
 
   console.log(`📐 Imagem grande (${(buffer.length / 1024).toFixed(0)}KB) — tentando redimensionar...`)
@@ -57,16 +53,10 @@ async function prepararImagemParaOCR(
     const bufferReduzido = await img.jpeg({ quality: 75 }).toBuffer()
     console.log(`📐 Reduzido: ${(buffer.length / 1024).toFixed(0)}KB → ${(bufferReduzido.length / 1024).toFixed(0)}KB`)
 
-    return {
-      base64: bufferReduzido.toString('base64'),
-      mimeType: 'image/jpeg',
-    }
+    return { buffer: bufferReduzido, mimeType: 'image/jpeg' }
   } catch (sharpErr: any) {
     console.warn(`⚠️ Sharp indisponível (${sharpErr.message}) — enviando imagem original`)
-    return {
-      base64: buffer.toString('base64'),
-      mimeType: mimetype,
-    }
+    return { buffer, mimeType: mimetype }
   }
 }
 
@@ -102,20 +92,21 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
   }
 
   const bufferOriginal = Buffer.concat(chunks)
+  const nomeOriginal = data.filename || 'rg-scan.jpg'
 
-  console.log('📸 OCR RG - Imagem recebida:', data.filename, `(${(totalSize / 1024).toFixed(1)}KB)`)
+  console.log('📸 OCR RG - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
 
-  // Preparar imagem (redimensionar se necessário para o limite do OCR.space)
-  const { base64: imageBase64, mimeType: ocrMimeType } =
+  // Preparar imagem (redimensionar se necessário)
+  const { buffer: bufferOCR, mimeType: ocrMimeType } =
     await prepararImagemParaOCR(bufferOriginal, data.mimetype)
 
-  // Chamar OCR.space API
+  // Chamar OCR.space API — agora passando Buffer direto
   let textoCompleto: string
   let palavrasOCR: PalavraOCR[] = []
   let linhasOCR: LinhaOCR[] = []
 
   try {
-    const resultado = await detectarTexto(imageBase64, ocrMimeType)
+    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
     textoCompleto = resultado.textoCompleto
 
     // Converter formato OCR.space → formato do parser
@@ -154,7 +145,7 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
     })
   }
 
-  // Parsear campos do RG — passando palavras e linhas com posição
+  // Parsear campos do RG
   const dados = parsearRG(textoCompleto, palavrasOCR, linhasOCR)
 
   // Se existe candidato, salvar imagem ORIGINAL como documento RG
@@ -170,15 +161,14 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
       if (rgExistentes < MAX_RG_DOCS) {
         qualLado = rgExistentes === 0 ? 'frente' : 'verso'
 
-        // Salvar arquivo ORIGINAL (não o reduzido)
-        const nomeArquivo = gerarNomeArquivo(data.filename || `rg-${qualLado}-scan.jpg`)
+        const nomeArquivo = gerarNomeArquivo(nomeOriginal)
         const filePath = path.join(UPLOADS_DIR, nomeArquivo)
         fs.writeFileSync(filePath, bufferOriginal)
 
         await prisma.documento.create({
           data: {
             tipo: 'RG',
-            nome: data.filename || `RG ${qualLado === 'frente' ? '(Frente)' : '(Verso)'} - escaneado`,
+            nome: `RG ${qualLado === 'frente' ? '(Frente)' : '(Verso)'} - escaneado`,
             url: `/uploads/${nomeArquivo}`,
             tamanho: totalSize,
             mimeType: data.mimetype,
