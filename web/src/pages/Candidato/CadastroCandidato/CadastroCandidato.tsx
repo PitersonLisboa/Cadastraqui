@@ -962,38 +962,34 @@ export function CadastroCandidato() {
   const handleScanRG = async (file: File) => {
     setScanningRG(true)
     setOcrCamposPreenchidos([])
+
+    // Ativar modo edição ANTES do scan
+    setEditMode(true)
+
     try {
       const res = await ocrService.escanearRG(file)
       const d = res.dados
       const preenchidos: string[] = []
 
-      // Ativar modo edição para preencher os campos
-      setEditMode(true)
+      // Determinar quais campos foram extraídos
+      if (d.nome) preenchidos.push('nome')
+      if (d.cpf) preenchidos.push('cpf')
+      if (d.dataNascimento) preenchidos.push('dataNascimento')
+      if (d.rg) preenchidos.push('rg')
+      if (d.orgaoEmissor) preenchidos.push('rgOrgao')
+      if (d.estadoEmissor) preenchidos.push('rgEstado')
 
-      if (d.nome) {
-        setDados(prev => ({ ...prev, nome: d.nome }))
-        preenchidos.push('nome')
-      }
-      if (d.cpf) {
-        setDados(prev => ({ ...prev, cpf: maskCPF(d.cpf) }))
-        preenchidos.push('cpf')
-      }
-      if (d.dataNascimento) {
-        setDados(prev => ({ ...prev, dataNascimento: d.dataNascimento }))
-        preenchidos.push('dataNascimento')
-      }
-      if (d.rg) {
-        setDados(prev => ({ ...prev, rg: d.rg }))
-        preenchidos.push('rg')
-      }
-      if (d.orgaoEmissor) {
-        setDados(prev => ({ ...prev, rgOrgao: d.orgaoEmissor }))
-        preenchidos.push('rgOrgao')
-      }
-      if (d.estadoEmissor) {
-        setDados(prev => ({ ...prev, rgEstado: d.estadoEmissor }))
-        preenchidos.push('rgEstado')
-      }
+      // Atualizar todos os campos de uma vez
+      setDados(prev => {
+        const updated = { ...prev }
+        if (d.nome) updated.nome = d.nome
+        if (d.cpf) updated.cpf = maskCPF(d.cpf)
+        if (d.dataNascimento) updated.dataNascimento = d.dataNascimento
+        if (d.rg) updated.rg = d.rg
+        if (d.orgaoEmissor) updated.rgOrgao = d.orgaoEmissor
+        if (d.estadoEmissor) updated.rgEstado = d.estadoEmissor
+        return updated
+      })
 
       setOcrCamposPreenchidos(preenchidos)
 
@@ -1004,7 +1000,12 @@ export function CadastroCandidato() {
       }
 
       if (res.documentoSalvo) {
-        carregarDados() // recarrega para mostrar o doc RG enviado
+        // Recarregar documentos (sem recarregar dados que acabamos de preencher)
+        try {
+          const docs = await api.get('/documentos')
+          const lista = docs.data.documentos || docs.data || []
+          setDocumentos(Array.isArray(lista) ? lista : [])
+        } catch {}
       }
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Erro ao escanear documento'
@@ -1448,6 +1449,31 @@ export function CadastroCandidato() {
               <>
                 <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+
+                {/* Botão Escanear RG — acima dos campos */}
+                {documentos.filter(d => d.tipo === 'RG').length === 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', margin: '0.5rem 0 1rem' }}>
+                    <div
+                      onClick={() => !scanningRG && scanInputRef.current?.click()}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        padding: '0.6rem 1.2rem', borderRadius: 'var(--radius)',
+                        border: '2px solid var(--color-primary)', color: 'var(--color-primary)',
+                        cursor: scanningRG ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.95rem',
+                        background: 'var(--color-white)',
+                      }}
+                    >
+                      {scanningRG ? <><div className={styles.spinnerSmall} /> Escaneando documento...</> : <><FiCamera size={18} /> Escanear documento (RG)</>}
+                    </div>
+                    <input ref={scanInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
+                  </div>
+                )}
+                {ocrCamposPreenchidos.length > 0 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', marginBottom: '0.75rem' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> {ocrCamposPreenchidos.length} campo(s) preenchido(s) pelo scan. Revise e clique em Salvar.
+                  </p>
+                )}
+
                 <div className={styles.formGrid}>
                   <div className={styles.field}><label>Nome completo</label><input value={dados.nome} disabled={!editMode} onChange={e => setDados({ ...dados, nome: e.target.value })} style={ocrCamposPreenchidos.includes('nome') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
                   <div className={styles.field}><label>CPF</label><input value={dados.cpf} disabled={!editMode} onChange={e => setDados({ ...dados, cpf: maskCPF(e.target.value) })} style={ocrCamposPreenchidos.includes('cpf') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
@@ -1465,21 +1491,10 @@ export function CadastroCandidato() {
                   <label>Documento de identificação</label>
                   {documentos.filter(d => d.tipo === 'RG').length === 0 ? (
                   <>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <div className={styles.fileUpload} style={{ flex: 1, minWidth: '160px' }} onClick={() => fileInputRef.current?.click()}>
-                      <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiUpload size={16} />
-                    </div>
-                    <div
-                      className={styles.fileUpload}
-                      style={{ flex: 1, minWidth: '160px', borderColor: 'var(--color-primary)', color: 'var(--color-primary)', cursor: scanningRG ? 'wait' : 'pointer' }}
-                      onClick={() => !scanningRG && scanInputRef.current?.click()}
-                    >
-                      <span>{scanningRG ? 'Escaneando...' : 'Escanear documento'}</span>
-                      {scanningRG ? <div className={styles.spinnerSmall} /> : <FiCamera size={16} />}
-                    </div>
+                  <div className={styles.fileUpload} onClick={() => fileInputRef.current?.click()}>
+                    <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiUpload size={16} />
                   </div>
                   <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setDocFile(e.target.files[0]) }} />
-                  <input ref={scanInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
                   <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
                   {docFile && (
                     <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
@@ -1496,11 +1511,6 @@ export function CadastroCandidato() {
                       } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
                       finally { setUploadingDoc(false) }
                     }}>{uploadingDoc ? 'Enviando...' : 'Enviar Documento'}</button>
-                  )}
-                  {ocrCamposPreenchidos.length > 0 && (
-                    <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.5rem' }}>
-                      <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Dados extraídos do RG com sucesso. Revise os campos acima e clique em Salvar.
-                    </p>
                   )}
                   </>
                   ) : (

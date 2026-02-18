@@ -82,21 +82,20 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
       })
 
       if (!rgExistente) {
-        // Salvar arquivo
-        const dir = path.join(UPLOADS_DIR, candidato.id)
-        fs.mkdirSync(dir, { recursive: true })
+        // Salvar arquivo (mesmo padrão do documento.controller)
         const nomeArquivo = gerarNomeArquivo(data.filename || 'rg-scan.jpg')
-        const filePath = path.join(dir, nomeArquivo)
+        const filePath = path.join(UPLOADS_DIR, nomeArquivo)
         fs.writeFileSync(filePath, buffer)
 
-        // Criar registro no banco
+        // Criar registro no banco (url relativa como /uploads/nome)
         await prisma.documento.create({
           data: {
             tipo: 'RG',
             nome: data.filename || 'RG (escaneado)',
-            url: filePath,
+            url: `/uploads/${nomeArquivo}`,
             tamanho: totalSize,
             mimeType: data.mimetype,
+            status: 'ENVIADO',
             candidato: { connect: { id: candidato.id } },
           },
         })
