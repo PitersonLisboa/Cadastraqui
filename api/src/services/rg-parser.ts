@@ -215,10 +215,30 @@ function extrairNomeTexto(texto: string): string | null {
 // ===================================================
 
 function extrairCPF(texto: string): string | null {
+  // Formatos encontrados em RGs brasileiros:
+  //   11111111111        (sem formatação)
+  //   111111111/11       (barra)
+  //   111111111-11       (hífen)
+  //   111.111.11111      (pontos sem separador final)
+  //   111.111.111/11     (pontos + barra)
+  //   111.111.111-11     (padrão)
+  //   111.111.111 11     (pontos + espaço)
+
   const patterns = [
-    /CPF[:\s]*([\d]{3}\.?[\d]{3}\.?[\d]{3}[-.]?[\d]{2})/i,
-    /([\d]{3}[.\s][\d]{3}[.\s][\d]{3}[-.\s][\d]{2})/,
+    // 1) Com rótulo "CPF" antes — mais confiável
+    /CPF[:\s]*(\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\s\/\-\.]?\d{2})/i,
+    // 2) Formato padrão: 111.111.111-11 ou 111.111.111/11
+    /(\d{3}\.\d{3}\.\d{3}[\-\/]\d{2})/,
+    // 3) Formato com pontos mas sem separador final: 111.111.11111
+    /(\d{3}\.\d{3}\.\d{5})/,
+    // 4) Formato 9+2 com barra ou hífen: 111111111/11 ou 111111111-11
+    /(\d{9}[\-\/]\d{2})/,
+    // 5) Formato com pontos e espaço: 111.111.111 11
+    /(\d{3}\.\d{3}\.\d{3}\s\d{2})/,
+    // 6) 11 dígitos seguidos (sem formatação) — próximo a "CPF"
+    /CPF[:\s]*(\d{11})/i,
   ]
+
   for (const pattern of patterns) {
     const match = texto.match(pattern)
     if (match) {
