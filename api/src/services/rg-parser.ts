@@ -1,9 +1,24 @@
 // ===========================================
 // PARSER DE RG BRASILEIRO
 // Extrai campos do texto bruto retornado pelo OCR
-// Versão 2: usa posição dos blocos (bounding box)
-//   para localizar o NOME corretamente
+// Versão 3: compatível com OCR.space (Left/Top/Width/Height)
 // ===========================================
+
+/** Palavra com posição (formato normalizado do OCR.space) */
+export interface PalavraOCR {
+  text: string
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+/** Linha de texto com palavras */
+export interface LinhaOCR {
+  palavras: PalavraOCR[]
+  minTop: number
+  maxHeight: number
+}
 
 export interface DadosRG {
   nome: string | null
@@ -19,14 +34,6 @@ export interface DadosRG {
     dataNascimento: boolean
     orgaoEmissor: boolean
     estadoEmissor: boolean
-  }
-}
-
-/** Bloco de texto retornado pelo Google Vision (textAnnotations) */
-export interface BlocoTexto {
-  description: string
-  boundingPoly?: {
-    vertices: Array<{ x: number; y: number }>
   }
 }
 
@@ -46,7 +53,7 @@ const UFS = [
   'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ]
 
-// Palavras que NÃO são nomes (para filtrar falsos positivos)
+// Palavras que NÃO são nomes de pessoa
 const NAO_NOMES = [
   'REPUBLICA', 'REPÚBLICA', 'FEDERATIVA', 'BRASIL', 'REGISTRO',
   'GERAL', 'IDENTIDADE', 'CARTEIRA', 'DOCUMENTO', 'SECRETARIA',
@@ -62,7 +69,7 @@ const NAO_NOMES = [
   'RESPONSAVEL', 'RESPONSÁVEL',
 ]
 
-// Rótulos de campo do RG (indicam que um campo vem em seguida, não é nome)
+// Rótulos de campo do RG (indicam que um campo vem em seguida)
 const ROTULOS_CAMPO = [
   'NOME', 'FILIAÇÃO', 'FILIACAO', 'NATURALIDADE', 'NASCIMENTO',
   'DATA', 'REGISTRO', 'CPF', 'DOC', 'VALIDADE', 'ASSINATURA',
@@ -71,113 +78,71 @@ const ROTULOS_CAMPO = [
 ]
 
 // ===================================================
-// EXTRAÇÃO COM POSIÇÃO (bounding box) — estratégia #1
+// EXTRAÇÃO COM POSIÇÃO (OCR.space Words com Left/Top)
 // ===================================================
 
-/** Retorna o centro Y (vertical) de um bloco */
-function centroY(bloco: BlocoTexto): number {
-  if (!bloco.boundingPoly?.vertices?.length) return 0
-  const ys = bloco.boundingPoly.vertices.map(v => v.y || 0)
-  return (Math.min(...ys) + Math.max(...ys)) / 2
-}
-
-/** Retorna o centro X (horizontal) de um bloco */
-function centroX(bloco: BlocoTexto): number {
-  if (!bloco.boundingPoly?.vertices?.length) return 0
-  const xs = bloco.boundingPoly.vertices.map(v => v.x || 0)
-  return (Math.min(...xs) + Math.max(...xs)) / 2
-}
-
-/** Retorna a altura de um bloco (para estimar tolerância de linha) */
-function alturaBloco(bloco: BlocoTexto): number {
-  if (!bloco.boundingPoly?.vertices?.length) return 20
-  const ys = bloco.boundingPoly.vertices.map(v => v.y || 0)
-  return Math.max(...ys) - Math.min(...ys)
-}
-
-/** Topo Y de um bloco */
-function topoY(bloco: BlocoTexto): number {
-  if (!bloco.boundingPoly?.vertices?.length) return 0
-  return Math.min(...bloco.boundingPoly.vertices.map(v => v.y || 0))
-}
-
 /**
- * Extrai nome usando posição dos blocos do Google Vision.
- * 
+ * Extrai nome usando posição das palavras do OCR.space.
+ *
  * Lógica:
- *   1. Localiza o bloco que contém "NOME" (rótulo)
+ *   1. Localiza a palavra "NOME" (rótulo) usando posição
  *   2. Coleta palavras que ficam:
- *      a) À DIREITA do rótulo na mesma linha (ex: "NOME  JOAO DA SILVA")
- *      b) OU na linha IMEDIATAMENTE ABAIXO (dentro de ~1.5x a altura do rótulo)
- *   3. Para de coletar quando encontra outro rótulo (FILIAÇÃO, NATURALIDADE, etc.)
+ *      a) À DIREITA do rótulo na mesma linha
+ *      b) OU na(s) linha(s) IMEDIATAMENTE ABAIXO
+ *   3. Para quando encontra outro rótulo de campo
  *   4. Valida o resultado final
  */
-function extrairNomeComPosicao(blocos: BlocoTexto[]): string | null {
-  // blocos[0] é o texto completo, blocos[1+] são palavras individuais
-  if (!blocos || blocos.length < 3) return null
+function extrairNomeComPosicao(palavras: PalavraOCR[]): string | null {
+  if (!palavras || palavras.length < 3) return null
 
-  const palavras = blocos.slice(1) // pular o bloco [0] (texto completo)
-
-  // Encontrar o bloco "NOME" (rótulo do campo)
-  const idxNome = palavras.findIndex(b => {
-    const txt = (b.description || '').trim().toUpperCase()
-    return txt === 'NOME'
-  })
-
+  // Encontrar a palavra "NOME" (rótulo)
+  const idxNome = palavras.findIndex(p => p.text.trim().toUpperCase() === 'NOME')
   if (idxNome < 0) return null
 
-  const blocoNome = palavras[idxNome]
-  const yNome = centroY(blocoNome)
-  const xNome = centroX(blocoNome)
-  const hNome = alturaBloco(blocoNome)
-  const toleranciaLinha = hNome * 1.8  // ~1.8x a altura para pegar mesma linha e próxima
+  const pNome = palavras[idxNome]
+  const yNome = pNome.top + pNome.height / 2  // centro Y
+  const xNomeDir = pNome.left + pNome.width     // borda direita
+  const toleranciaY = pNome.height * 2.0         // ~2x a altura para linha seguinte
 
-  console.log(`📍 Rótulo "NOME" encontrado em posição (cx=${xNome.toFixed(0)}, cy=${yNome.toFixed(0)}, h=${hNome.toFixed(0)})`)
+  console.log(`📍 Rótulo "NOME" em (left=${pNome.left}, top=${pNome.top}, h=${pNome.height})`)
 
-  // Coletar palavras que estão à direita ou abaixo do rótulo "NOME"
-  const candidatas: BlocoTexto[] = []
+  const candidatas: PalavraOCR[] = []
 
   for (let i = idxNome + 1; i < palavras.length; i++) {
-    const b = palavras[i]
-    const txt = (b.description || '').trim().toUpperCase()
-    const yB = centroY(b)
-    const xB = centroX(b)
+    const p = palavras[i]
+    const txt = p.text.trim().toUpperCase()
+    const yP = p.top + p.height / 2
+    const diffY = yP - yNome
 
     // Se encontrou outro rótulo de campo, parar
-    if (ROTULOS_CAMPO.includes(txt) && i !== idxNome) {
-      // Exceção: se o rótulo está na mesma posição que o "NOME" (pode ser
-      // sub-rótulo), verificar se está abaixo
-      if (yB > yNome + toleranciaLinha) break
-      if (txt !== 'NOME') break
+    if (ROTULOS_CAMPO.includes(txt) && txt !== 'NOME') {
+      break
     }
 
-    // Verificar se está na "zona de nome":
-    //   - Mesma linha (Y similar) e à direita
-    //   - OU na próxima linha (Y um pouco abaixo)
-    const diffY = yB - yNome
-    const mesmaLinha = Math.abs(diffY) < hNome * 0.7
-    const proximaLinha = diffY > 0 && diffY < toleranciaLinha * 1.5
+    // Mesma linha: centro Y similar e à direita do rótulo
+    const mesmaLinha = Math.abs(diffY) < pNome.height * 0.8
+    // Próxima(s) linha(s): abaixo, dentro da tolerância
+    const proximaLinha = diffY > 0 && diffY < toleranciaY
 
-    if (mesmaLinha && xB > xNome) {
-      candidatas.push(b)
+    if (mesmaLinha && p.left >= xNomeDir - 5) {
+      candidatas.push(p)
     } else if (proximaLinha) {
-      candidatas.push(b)
-    } else if (diffY > toleranciaLinha * 1.5) {
-      // Já passou longe demais, parar
-      break
+      candidatas.push(p)
+    } else if (diffY > toleranciaY) {
+      break // passou da zona de interesse
     }
   }
 
   if (candidatas.length === 0) return null
 
-  // Montar o nome: ordenar por Y e depois por X (leitura natural)
+  // Ordenar: por linha (top) e depois por coluna (left)
   candidatas.sort((a, b) => {
-    const dy = topoY(a) - topoY(b)
-    if (Math.abs(dy) > alturaBloco(a) * 0.5) return dy
-    return centroX(a) - centroX(b)
+    const dy = a.top - b.top
+    if (Math.abs(dy) > a.height * 0.5) return dy
+    return a.left - b.left
   })
 
-  const nomeRaw = candidatas.map(b => b.description.trim()).join(' ')
+  const nomeRaw = candidatas.map(p => p.text.trim()).join(' ')
   console.log(`📍 Nome candidato (posição): "${nomeRaw}"`)
 
   if (isNomeValido(nomeRaw)) {
@@ -187,166 +152,52 @@ function extrairNomeComPosicao(blocos: BlocoTexto[]): string | null {
   return null
 }
 
-// ===================================================
-// EXTRAÇÃO POR TEXTO (fallback) — estratégias originais
-// ===================================================
-
 /**
- * Extrai CPF do texto
+ * Extrai nome usando linhas do OCR.space.
+ * Localiza a linha que contém "NOME"
+ * e coleta o restante da mesma linha ou a linha seguinte.
  */
-function extrairCPF(texto: string): string | null {
-  // Formato: 123.456.789-01 ou 12345678901
-  const patterns = [
-    /CPF[:\s]*([\d]{3}\.?[\d]{3}\.?[\d]{3}[-.]?[\d]{2})/i,
-    /([\d]{3}[.\s][\d]{3}[.\s][\d]{3}[-.\s][\d]{2})/,
-  ]
-
-  for (const pattern of patterns) {
-    const match = texto.match(pattern)
-    if (match) {
-      const cpfLimpo = match[1].replace(/\D/g, '')
-      if (cpfLimpo.length === 11 && !cpfLimpo.match(/^(\d)\1{10}$/)) {
-        return cpfLimpo
-      }
-    }
-  }
-  return null
-}
-
-/**
- * Extrai RG do texto
- */
-function extrairRG(texto: string): string | null {
-  const patterns = [
-    // Formato XX.XXX.XXX-X
-    /(\d{1,2}[.\s]\d{3}[.\s]\d{3}[-.\s]?\d{1})/,
-    // Formato após "RG" ou "REG. GERAL" ou "REGISTRO GERAL"
-    /(?:RG|REG\.?\s*GERAL|REGISTRO\s*GERAL)[:\s]*[NnºO°]*\s*(\d[\d.\s-]{5,12}\d)/i,
-    // Formato numérico longo (7 a 10 dígitos)
-    /(?:^|\s)(\d{7,10})(?:\s|$)/m,
-  ]
-
-  for (const pattern of patterns) {
-    const match = texto.match(pattern)
-    if (match) {
-      const rg = match[1].replace(/[.\s-]/g, '').trim()
-      // RG deve ter entre 5 e 11 dígitos
-      if (rg.length >= 5 && rg.length <= 11 && /^\d+$/.test(rg)) {
-        return rg
-      }
-    }
-  }
-  return null
-}
-
-/**
- * Extrai data de nascimento do texto
- */
-function extrairDataNascimento(texto: string): string | null {
-  const patterns = [
-    // Próximo a "NASCIMENTO" ou "DATA NASC"
-    /(?:NASCIMENTO|DATA\s*NASC\.?|D\.?\s*NASCIMENTO)[:\s]*(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})/i,
-    // Qualquer data no formato DD/MM/AAAA
-    /(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})/,
-  ]
-
-  for (const pattern of patterns) {
-    const match = texto.match(pattern)
-    if (match) {
-      const partes = match[1].split(/[\/\-\.]/)
-      if (partes.length === 3) {
-        const dia = parseInt(partes[0], 10)
-        const mes = parseInt(partes[1], 10)
-        const ano = parseInt(partes[2], 10)
-
-        if (dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12 && ano >= 1920 && ano <= 2026) {
-          return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
-        }
-      }
-    }
-  }
-  return null
-}
-
-/**
- * Extrai órgão emissor do texto
- */
-function extrairOrgaoEmissor(texto: string): string | null {
-  const textoUpper = texto.toUpperCase()
-
-  // Tentar formato "SSP/SP" ou "SSP-SP" ou "SSP SP"
-  for (const orgao of ORGAOS_EMISSORES) {
-    const pattern = new RegExp(`\\b${orgao}\\b[\\s/\\-]*(?:${UFS.join('|')})`, 'i')
-    const match = textoUpper.match(pattern)
-    if (match) return orgao
-  }
-
-  // Tentar só o órgão
-  for (const orgao of ORGAOS_EMISSORES) {
-    if (textoUpper.includes(orgao)) return orgao
-  }
-
-  return null
-}
-
-/**
- * Extrai estado emissor do texto
- */
-function extrairEstadoEmissor(texto: string): string | null {
-  const textoUpper = texto.toUpperCase()
-
-  // Tentar formato "SSP/SP" ou similar
-  for (const uf of UFS) {
-    for (const orgao of ORGAOS_EMISSORES) {
-      const pattern = new RegExp(`${orgao}[\\s/\\-]+${uf}\\b`, 'i')
-      if (pattern.test(textoUpper)) return uf
-    }
-  }
-
-  // Tentar "ESTADO DE SÃO PAULO" → SP
-  const estadosPorExtenso: Record<string, string> = {
-    'SAO PAULO': 'SP', 'SÃO PAULO': 'SP', 'RIO DE JANEIRO': 'RJ',
-    'MINAS GERAIS': 'MG', 'BAHIA': 'BA', 'PARANA': 'PR', 'PARANÁ': 'PR',
-    'RIO GRANDE DO SUL': 'RS', 'PERNAMBUCO': 'PE', 'CEARA': 'CE', 'CEARÁ': 'CE',
-    'GOIAS': 'GO', 'GOIÁS': 'GO', 'SANTA CATARINA': 'SC', 'AMAZONAS': 'AM',
-    'MARANHAO': 'MA', 'MARANHÃO': 'MA', 'ESPIRITO SANTO': 'ES', 'ESPÍRITO SANTO': 'ES',
-    'MATO GROSSO': 'MT', 'MATO GROSSO DO SUL': 'MS', 'DISTRITO FEDERAL': 'DF',
-    'PARA': 'PA', 'PARÁ': 'PA', 'PARAIBA': 'PB', 'PARAÍBA': 'PB',
-    'RIO GRANDE DO NORTE': 'RN', 'ALAGOAS': 'AL', 'PIAUI': 'PI', 'PIAUÍ': 'PI',
-    'SERGIPE': 'SE', 'ACRE': 'AC', 'AMAPA': 'AP', 'AMAPÁ': 'AP',
-    'RONDONIA': 'RO', 'RONDÔNIA': 'RO', 'RORAIMA': 'RR', 'TOCANTINS': 'TO',
-  }
-
-  for (const [nome, uf] of Object.entries(estadosPorExtenso)) {
-    if (textoUpper.includes(nome)) return uf
-  }
-
-  return null
-}
-
-/**
- * Extrai nome da pessoa do texto do RG (fallback sem posição)
- */
-function extrairNomeTexto(texto: string): string | null {
-  const linhas = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-
-  // Estratégia 1: Linha após "NOME" (ou "NOME:" na mesma linha)
+function extrairNomeComLinhas(linhas: LinhaOCR[]): string | null {
   for (let i = 0; i < linhas.length; i++) {
-    // "NOME: JOAO DA SILVA" na mesma linha
-    const matchNomeMesmaLinha = linhas[i].match(/NOME[:\s]+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç\s]+)/i)
-    if (matchNomeMesmaLinha && isNomeValido(matchNomeMesmaLinha[1])) {
-      return formatarNome(matchNomeMesmaLinha[1])
+    const textoLinha = linhas[i].palavras.map(p => p.text).join(' ').trim()
+    const upper = textoLinha.toUpperCase()
+
+    // "NOME JOAO DA SILVA" na mesma linha
+    const matchMesmaLinha = upper.match(/^NOME\s+(.+)/)
+    if (matchMesmaLinha) {
+      const posInicio = textoLinha.toUpperCase().indexOf(matchMesmaLinha[1])
+      const restante = textoLinha.substring(posInicio)
+      if (isNomeValido(restante)) return formatarNome(restante)
     }
 
-    // "NOME" sozinho → nome na linha seguinte
+    // "NOME" sozinho → próxima linha é o nome
+    if (upper === 'NOME' && i + 1 < linhas.length) {
+      const proxLinha = linhas[i + 1].palavras.map(p => p.text).join(' ').trim()
+      if (isNomeValido(proxLinha)) return formatarNome(proxLinha)
+    }
+  }
+  return null
+}
+
+// ===================================================
+// EXTRAÇÃO POR TEXTO PURO (fallback final)
+// ===================================================
+
+function extrairNomeTexto(texto: string): string | null {
+  const linhas = texto.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 0)
+
+  for (let i = 0; i < linhas.length; i++) {
+    const matchMesmaLinha = linhas[i].match(/NOME[:\s]+([A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç\s]+)/i)
+    if (matchMesmaLinha && isNomeValido(matchMesmaLinha[1])) {
+      return formatarNome(matchMesmaLinha[1])
+    }
     if (/^NOME\b/i.test(linhas[i]) && i + 1 < linhas.length) {
       const candidato = linhas[i + 1].trim()
       if (isNomeValido(candidato)) return formatarNome(candidato)
     }
   }
 
-  // Estratégia 2: Primeira linha que parece nome completo (2+ palavras, todas letras)
-  // PORÉM agora ignoramos as primeiras 3 linhas (geralmente cabeçalho do instituto)
+  // Fallback: primeira linha que parece nome (pula cabeçalho)
   const linhasParaNome = linhas.slice(Math.min(3, linhas.length))
   for (const linha of linhasParaNome) {
     const limpa = linha.replace(/[^A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç\s]/g, '').trim()
@@ -359,18 +210,118 @@ function extrairNomeTexto(texto: string): string | null {
   return null
 }
 
+// ===================================================
+// EXTRATORES DE CAMPOS NUMÉRICOS
+// ===================================================
+
+function extrairCPF(texto: string): string | null {
+  const patterns = [
+    /CPF[:\s]*([\d]{3}\.?[\d]{3}\.?[\d]{3}[-.]?[\d]{2})/i,
+    /([\d]{3}[.\s][\d]{3}[.\s][\d]{3}[-.\s][\d]{2})/,
+  ]
+  for (const pattern of patterns) {
+    const match = texto.match(pattern)
+    if (match) {
+      const cpfLimpo = match[1].replace(/\D/g, '')
+      if (cpfLimpo.length === 11 && !cpfLimpo.match(/^(\d)\1{10}$/)) {
+        return cpfLimpo
+      }
+    }
+  }
+  return null
+}
+
+function extrairRG(texto: string): string | null {
+  const patterns = [
+    /(\d{1,2}[.\s]\d{3}[.\s]\d{3}[-.\s]?\d{1})/,
+    /(?:RG|REG\.?\s*GERAL|REGISTRO\s*GERAL)[:\s]*[NnºO°]*\s*(\d[\d.\s-]{5,12}\d)/i,
+    /(?:^|\s)(\d{7,10})(?:\s|$)/m,
+  ]
+  for (const pattern of patterns) {
+    const match = texto.match(pattern)
+    if (match) {
+      const rg = match[1].replace(/[.\s-]/g, '').trim()
+      if (rg.length >= 5 && rg.length <= 11 && /^\d+$/.test(rg)) {
+        return rg
+      }
+    }
+  }
+  return null
+}
+
+function extrairDataNascimento(texto: string): string | null {
+  const patterns = [
+    /(?:NASCIMENTO|DATA\s*NASC\.?|D\.?\s*NASCIMENTO)[:\s]*(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})/i,
+    /(\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4})/,
+  ]
+  for (const pattern of patterns) {
+    const match = texto.match(pattern)
+    if (match) {
+      const partes = match[1].split(/[\/\-\.]/)
+      if (partes.length === 3) {
+        const dia = parseInt(partes[0], 10)
+        const mes = parseInt(partes[1], 10)
+        const ano = parseInt(partes[2], 10)
+        if (dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12 && ano >= 1920 && ano <= 2026) {
+          return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
+        }
+      }
+    }
+  }
+  return null
+}
+
+function extrairOrgaoEmissor(texto: string): string | null {
+  const textoUpper = texto.toUpperCase()
+  for (const orgao of ORGAOS_EMISSORES) {
+    const pattern = new RegExp(`\\b${orgao}\\b[\\s/\\-]*(?:${UFS.join('|')})`, 'i')
+    if (pattern.test(textoUpper)) return orgao
+  }
+  for (const orgao of ORGAOS_EMISSORES) {
+    if (textoUpper.includes(orgao)) return orgao
+  }
+  return null
+}
+
+function extrairEstadoEmissor(texto: string): string | null {
+  const textoUpper = texto.toUpperCase()
+  for (const uf of UFS) {
+    for (const orgao of ORGAOS_EMISSORES) {
+      const pattern = new RegExp(`${orgao}[\\s/\\-]+${uf}\\b`, 'i')
+      if (pattern.test(textoUpper)) return uf
+    }
+  }
+  const estadosPorExtenso: Record<string, string> = {
+    'SAO PAULO': 'SP', 'SÃO PAULO': 'SP', 'RIO DE JANEIRO': 'RJ',
+    'MINAS GERAIS': 'MG', 'BAHIA': 'BA', 'PARANA': 'PR', 'PARANÁ': 'PR',
+    'RIO GRANDE DO SUL': 'RS', 'PERNAMBUCO': 'PE', 'CEARA': 'CE', 'CEARÁ': 'CE',
+    'GOIAS': 'GO', 'GOIÁS': 'GO', 'SANTA CATARINA': 'SC', 'AMAZONAS': 'AM',
+    'MARANHAO': 'MA', 'MARANHÃO': 'MA', 'ESPIRITO SANTO': 'ES', 'ESPÍRITO SANTO': 'ES',
+    'MATO GROSSO': 'MT', 'MATO GROSSO DO SUL': 'MS', 'DISTRITO FEDERAL': 'DF',
+    'PARA': 'PA', 'PARÁ': 'PA', 'PARAIBA': 'PB', 'PARAÍBA': 'PB',
+    'RIO GRANDE DO NORTE': 'RN', 'ALAGOAS': 'AL', 'PIAUI': 'PI', 'PIAUÍ': 'PI',
+    'SERGIPE': 'SE', 'ACRE': 'AC', 'AMAPA': 'AP', 'AMAPÁ': 'AP',
+    'RONDONIA': 'RO', 'RONDÔNIA': 'RO', 'RORAIMA': 'RR', 'TOCANTINS': 'TO',
+  }
+  for (const [nome, uf] of Object.entries(estadosPorExtenso)) {
+    if (textoUpper.includes(nome)) return uf
+  }
+  return null
+}
+
+// ===================================================
+// UTILITÁRIOS
+// ===================================================
+
 function isNomeValido(texto: string): boolean {
   const upper = texto.toUpperCase().trim()
   if (upper.length < 5) return false
   if (/\d/.test(upper)) return false
-
   const palavras = upper.split(/\s+/)
   if (palavras.length < 2) return false
-
   for (const palavra of palavras) {
     if (NAO_NOMES.includes(palavra)) return false
   }
-
   return true
 }
 
@@ -379,7 +330,6 @@ function formatarNome(nome: string): string {
     .trim()
     .split(/\s+/)
     .map(p => {
-      // Preposições em minúscula
       if (['DA', 'DE', 'DO', 'DAS', 'DOS', 'E'].includes(p.toUpperCase())) {
         return p.toLowerCase()
       }
@@ -388,27 +338,46 @@ function formatarNome(nome: string): string {
     .join(' ')
 }
 
-// ===========================================
+// ===================================================
 // FUNÇÃO PRINCIPAL
-// ===========================================
+// ===================================================
 
-export function parsearRG(textoCompleto: string, blocos?: BlocoTexto[]): DadosRG {
+/**
+ * Parseia texto de RG brasileiro extraindo campos estruturados.
+ *
+ * @param textoCompleto - Texto OCR completo
+ * @param palavras - Lista de palavras com posição (OCR.space Words)
+ * @param linhas - Lista de linhas com palavras (OCR.space Lines)
+ */
+export function parsearRG(
+  textoCompleto: string,
+  palavras?: PalavraOCR[],
+  linhas?: LinhaOCR[],
+): DadosRG {
   console.log('🔍 Texto OCR recebido:\n', textoCompleto.substring(0, 500))
 
-  // NOME: tentar primeiro com posição (mais preciso), depois fallback texto
+  // ── NOME: 3 estratégias em cascata ──
   let nome: string | null = null
-  if (blocos && blocos.length > 2) {
-    console.log(`📐 Usando ${blocos.length} blocos com posição para extrair nome`)
-    nome = extrairNomeComPosicao(blocos)
-    if (nome) {
-      console.log(`✅ Nome extraído por POSIÇÃO: "${nome}"`)
-    }
+
+  // 1) Por posição das palavras (mais preciso)
+  if (palavras && palavras.length > 2) {
+    console.log(`📐 Tentando extração por POSIÇÃO (${palavras.length} palavras)`)
+    nome = extrairNomeComPosicao(palavras)
+    if (nome) console.log(`✅ Nome por POSIÇÃO: "${nome}"`)
   }
+
+  // 2) Por linhas estruturadas
+  if (!nome && linhas && linhas.length > 0) {
+    console.log(`📐 Tentando extração por LINHAS (${linhas.length} linhas)`)
+    nome = extrairNomeComLinhas(linhas)
+    if (nome) console.log(`✅ Nome por LINHAS: "${nome}"`)
+  }
+
+  // 3) Fallback: texto puro
   if (!nome) {
+    console.log('📐 Tentando extração por TEXTO (fallback)')
     nome = extrairNomeTexto(textoCompleto)
-    if (nome) {
-      console.log(`✅ Nome extraído por TEXTO (fallback): "${nome}"`)
-    }
+    if (nome) console.log(`✅ Nome por TEXTO: "${nome}"`)
   }
 
   const cpf = extrairCPF(textoCompleto)

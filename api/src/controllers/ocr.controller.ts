@@ -3,19 +3,68 @@ import fs from 'fs'
 import path from 'path'
 import { prisma } from '../lib/prisma'
 import { CandidatoNaoEncontradoError, ArquivoInvalidoError } from '../errors/index'
-import { UPLOADS_DIR, gerarNomeArquivo, validarTipoArquivo } from '../config/upload'
-import { detectarTexto } from '../config/google-vision'
-import { parsearRG } from '../services/rg-parser'
+import { UPLOADS_DIR, gerarNomeArquivo } from '../config/upload'
+import { detectarTexto } from '../config/ocr-space'
+import { parsearRG, PalavraOCR, LinhaOCR } from '../services/rg-parser'
+import sharp from 'sharp'
 
 // ===========================================
 // ESCANEAR RG (frente ou verso)
 // POST /ocr/rg
-// Recebe imagem, chama Google Vision, extrai dados,
+// Recebe imagem, chama OCR.space, extrai dados,
 // salva imagem como documento e retorna campos preenchidos.
 // Permite até 2 documentos RG (frente + verso).
 // ===========================================
 
 const MAX_RG_DOCS = 2
+const MAX_IMAGE_SIZE_OCR = 900 * 1024  // ~900KB (free plan = 1MB, margem de segurança)
+
+/**
+ * Redimensiona imagem se necessário para caber no limite do OCR.space (1MB free plan).
+ * Usa sharp para comprimir mantendo qualidade razoável.
+ */
+async function prepararImagemParaOCR(
+  buffer: Buffer,
+  mimetype: string
+): Promise<{ buffer: Buffer; base64: string; mimeType: string }> {
+  // Se já está dentro do limite, usar direto
+  if (buffer.length <= MAX_IMAGE_SIZE_OCR) {
+    return {
+      buffer,
+      base64: buffer.toString('base64'),
+      mimeType: mimetype,
+    }
+  }
+
+  console.log(`📐 Imagem grande (${(buffer.length / 1024).toFixed(0)}KB) — redimensionando para OCR...`)
+
+  // Redimensionar: max 1600px no lado maior, qualidade 80%
+  let img = sharp(buffer)
+  const metadata = await img.metadata()
+  const maxDim = 1600
+
+  if (metadata.width && metadata.height) {
+    const maior = Math.max(metadata.width, metadata.height)
+    if (maior > maxDim) {
+      img = img.resize({
+        width: metadata.width > metadata.height ? maxDim : undefined,
+        height: metadata.height >= metadata.width ? maxDim : undefined,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+    }
+  }
+
+  // Converter para JPEG com qualidade 80
+  const bufferReduzido = await img.jpeg({ quality: 80 }).toBuffer()
+  console.log(`📐 Reduzido: ${(buffer.length / 1024).toFixed(0)}KB → ${(bufferReduzido.length / 1024).toFixed(0)}KB`)
+
+  return {
+    buffer: bufferReduzido,
+    base64: bufferReduzido.toString('base64'),
+    mimeType: 'image/jpeg',
+  }
+}
 
 export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
   // Buscar candidato
@@ -48,20 +97,45 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
     chunks.push(chunk)
   }
 
-  const buffer = Buffer.concat(chunks)
-  const imageBase64 = buffer.toString('base64')
+  const bufferOriginal = Buffer.concat(chunks)
 
   console.log('📸 OCR RG - Imagem recebida:', data.filename, `(${(totalSize / 1024).toFixed(1)}KB)`)
 
-  // Chamar Google Vision API
+  // Preparar imagem (redimensionar se necessário para o limite do OCR.space)
+  const { buffer: bufferOCR, base64: imageBase64, mimeType: ocrMimeType } =
+    await prepararImagemParaOCR(bufferOriginal, data.mimetype)
+
+  // Chamar OCR.space API
   let textoCompleto: string
-  let blocos: any[]
+  let palavrasOCR: PalavraOCR[] = []
+  let linhasOCR: LinhaOCR[] = []
+
   try {
-    const resultado = await detectarTexto(imageBase64)
+    const resultado = await detectarTexto(imageBase64, ocrMimeType)
     textoCompleto = resultado.textoCompleto
-    blocos = resultado.blocos
+
+    // Converter formato OCR.space → formato do parser
+    for (const linha of resultado.linhas) {
+      const palavrasDaLinha: PalavraOCR[] = []
+      for (const word of linha.Words) {
+        const p: PalavraOCR = {
+          text: word.WordText,
+          left: word.Left,
+          top: word.Top,
+          width: word.Width,
+          height: word.Height,
+        }
+        palavrasOCR.push(p)
+        palavrasDaLinha.push(p)
+      }
+      linhasOCR.push({
+        palavras: palavrasDaLinha,
+        minTop: linha.MinTop,
+        maxHeight: linha.MaxHeight,
+      })
+    }
   } catch (err: any) {
-    console.error('❌ Erro no Google Vision:', err.message)
+    console.error('❌ Erro no OCR.space:', err.message)
     return reply.status(502).send({
       message: 'Erro ao processar imagem com OCR. Tente novamente.',
       detalhe: err.message,
@@ -74,16 +148,15 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
     })
   }
 
-  // Parsear campos do RG — agora passando os blocos com posição
-  const dados = parsearRG(textoCompleto, blocos)
+  // Parsear campos do RG — passando palavras e linhas com posição
+  const dados = parsearRG(textoCompleto, palavrasOCR, linhasOCR)
 
-  // Se existe candidato, salvar imagem como documento RG
+  // Se existe candidato, salvar imagem ORIGINAL como documento RG
   let documentoSalvo = false
   let qualLado: 'frente' | 'verso' | null = null
 
   if (candidato) {
     try {
-      // Contar quantos RG já existem
       const rgExistentes = await prisma.documento.count({
         where: { candidatoId: candidato.id, tipo: 'RG' },
       })
@@ -91,12 +164,11 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
       if (rgExistentes < MAX_RG_DOCS) {
         qualLado = rgExistentes === 0 ? 'frente' : 'verso'
 
-        // Salvar arquivo
+        // Salvar arquivo ORIGINAL (não o reduzido)
         const nomeArquivo = gerarNomeArquivo(data.filename || `rg-${qualLado}-scan.jpg`)
         const filePath = path.join(UPLOADS_DIR, nomeArquivo)
-        fs.writeFileSync(filePath, buffer)
+        fs.writeFileSync(filePath, bufferOriginal)
 
-        // Criar registro no banco
         await prisma.documento.create({
           data: {
             tipo: 'RG',

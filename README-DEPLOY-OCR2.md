@@ -1,45 +1,53 @@
-# OCR Finalização 2 — Ajustes RG (Frente + Verso)
+# OCR Finalização 2 — Migração para OCR.space + Ajustes RG
 ## Instruções de Deploy
 
-### O que mudou:
-
-**1. Visualizar Documento no Mobile (popup → nova aba)**
-- `CadastroCandidato.tsx`: Todas as funções de visualização (`handleViewDoc`, `handleViewDocMembro`, `handleViewSaudeArquivo`) agora usam `<a target="_blank">` em vez de `window.open()`
-- Isso evita bloqueio de popup em navegadores mobile (Chrome Android, Safari iOS)
-- Helper centralizado: `abrirBlobNovaAba(blob)` cria um `<a>` temporário e dispara click programático
-
-**2. OCR: Extração de Nome por Posição (bounding box)**
-- `rg-parser.ts`: Nova função `extrairNomeComPosicao()` que usa as coordenadas dos blocos do Google Vision
-- Localiza o rótulo "NOME" no documento e coleta palavras que estão à direita ou abaixo dele
-- Isso evita capturar o nome do diretor do Instituto de Identificação (que aparece no cabeçalho)
-- Fallback: se não encontrar por posição, usa a extração por texto (estratégia anterior, melhorada)
-- `ocr.controller.ts`: Agora passa os `blocos` (textAnnotations com boundingPoly) para o parser
-
-**3. Upload de 2 Documentos RG (Frente + Verso)**
-- `ocr.controller.ts`: Permite até 2 documentos tipo 'RG' (antes era 1)
-- `CadastroCandidato.tsx`: Botão de scan aparece até ter 2 RG enviados
-  - Label dinâmico: "Escanear RG (Frente)" → "Escanear RG (Verso)"
-  - Upload manual também permite até 2 arquivos
-  - Merge inteligente: segundo scan NÃO sobrescreve campos já preenchidos pelo primeiro
+### MUDANÇA PRINCIPAL: Google Vision → OCR.space
+A API de OCR foi substituída pelo OCR.space, que oferece melhor reconhecimento
+de documentos brasileiros com Engine 2 + português + scale + isTable.
 
 ---
 
-### ORDEM DE DEPLOY (sem SQL nesta rodada):
+### ORDEM DE DEPLOY:
 
-#### 1️⃣ Backend — Substituir 2 arquivos
+#### 1️⃣ Instalar dependência `sharp` (redimensionamento de imagem)
+
+```powershell
+cd api
+npm install sharp
+npm install -D @types/sharp
+```
+
+> O `sharp` é usado para redimensionar fotos grandes de celular antes de enviar
+> ao OCR.space (limite free: 1MB). A imagem ORIGINAL é salva no servidor,
+> só a cópia para OCR é reduzida.
+
+#### 2️⃣ Variável de ambiente no Railway
 
 ```
-api/src/services/rg-parser.ts        ← substituir
-api/src/controllers/ocr.controller.ts ← substituir
+OCR_SPACE_API_KEY = sua-chave-aqui
 ```
 
-#### 2️⃣ Frontend — Substituir 1 arquivo
+> Railway → serviço API → Variables → New Variable
+> A variável `GOOGLE_VISION_API_KEY` pode ser removida ou mantida (não é mais usada).
+
+#### 3️⃣ Backend — Adicionar 1 arquivo novo + substituir 2
+
+```
+api/src/config/ocr-space.ts              ← NOVO (adicionar)
+api/src/services/rg-parser.ts            ← substituir
+api/src/controllers/ocr.controller.ts    ← substituir
+```
+
+> O arquivo `api/src/config/google-vision.ts` pode ser mantido (não atrapalha)
+> ou removido futuramente.
+
+#### 4️⃣ Frontend — Substituir 1 arquivo
 
 ```
 web/src/pages/Candidato/CadastroCandidato/CadastroCandidato.tsx  ← substituir
 ```
 
-#### 3️⃣ Deploy no Railway
+#### 5️⃣ Deploy no Railway
 
 ```powershell
 cd api; npm run build; railway up
@@ -48,27 +56,54 @@ cd web; npm run build; railway up
 
 ---
 
-### Arquivos NÃO alterados (confirmação):
-- `api/src/config/google-vision.ts` — sem mudança (já retornava `blocos` com posição)
-- `api/src/config/upload.ts` — sem mudança (tipo 'RG' já existia)
-- `api/src/routes/ocr.routes.ts` — sem mudança
+### Resumo das alterações:
+
+**1. OCR.space API (`api/src/config/ocr-space.ts`)** — NOVO
+- Integração completa com OCR.space (`POST https://api.ocr.space/parse/image`)
+- Parâmetros otimizados: `OCREngine=2` + `language=por` + `scale=true` + `isTable=true`
+- API key via header (seguro)
+- Retorna texto completo + palavras com posição (Left/Top/Width/Height)
+
+**2. Parser RG v3 (`api/src/services/rg-parser.ts`)** — ATUALIZADO
+- Compatível com formato OCR.space (Left/Top/Width/Height por palavra)
+- 3 estratégias de extração de nome em cascata:
+  1. Por **posição** das palavras (localiza rótulo "NOME" e coleta palavras à direita/abaixo)
+  2. Por **linhas** estruturadas (OCR.space Lines)
+  3. Por **texto** puro (fallback)
+- Evita capturar nome do diretor do Instituto de Identificação
+
+**3. Controller OCR (`api/src/controllers/ocr.controller.ts`)** — ATUALIZADO
+- Usa `ocr-space` em vez de `google-vision`
+- Redimensiona imagens grandes via `sharp` (fotos de celular podem exceder 1MB)
+- Salva imagem ORIGINAL no servidor (redução é só para o OCR)
+- Permite até 2 documentos RG (frente + verso)
+- Retorna `qualLado: 'frente' | 'verso'`
+
+**4. Frontend (`CadastroCandidato.tsx`)** — ATUALIZADO
+- Visualizar documento: `<a target="_blank">` em vez de `window.open` (evita bloqueio popup no mobile)
+- Scan RG: botão dinâmico "Escanear RG (Frente)" → "Escanear RG (Verso)"
+- Upload manual: permite 2 arquivos RG (frente + verso)
+- Merge inteligente: segundo scan NÃO sobrescreve campos já preenchidos
+
+---
+
+### Arquivos NÃO alterados:
+- `api/src/routes/ocr.routes.ts` — sem mudança (mesma rota `POST /ocr/rg`)
 - `api/src/controllers/documento.controller.ts` — sem mudança
+- `api/src/config/upload.ts` — sem mudança
 - `api/prisma/schema.prisma` — sem mudança
 - `familia.controller.ts` — sem mudança
 - Nenhuma alteração de SQL necessária
 
 ---
 
-### Notas técnicas:
+### OCR.space — Planos e limites:
 
-**Nome por posição (como funciona):**
-- Google Vision retorna `textAnnotations[]` onde cada item tem `description` (texto) e `boundingPoly.vertices` (4 cantos x,y)
-- O parser localiza o bloco com description="NOME" e calcula a posição Y dele
-- Palavras à direita (mesma linha) ou abaixo (próxima linha, dentro de ~1.8x a altura) são coletadas como candidatas ao nome
-- Para quando encontra outro rótulo de campo (FILIAÇÃO, NATURALIDADE, etc.)
-- Se essa estratégia falha, cai no fallback por texto (agora melhorado: ignora as 3 primeiras linhas que geralmente são cabeçalho)
+| | Free | PRO ($30/mês) |
+|---|---|---|
+| Requests/mês | 25.000 | 300.000 |
+| Tamanho máximo | 1 MB | 5 MB |
+| Uptime | — | 100% garantido |
 
-**Merge inteligente no 2º scan:**
-- Ao escanear o verso, o `handleScanRG` verifica cada campo: só preenche se o campo atual está vazio
-- Exemplo: frente preencheu nome + RG + data nascimento → verso preenche CPF (sem apagar os outros)
-- A API retorna `qualLado: 'frente' | 'verso'` para feedback visual ao usuário
+Com o `sharp` redimensionando, fotos de celular (3-5MB) são comprimidas
+para ~500KB antes de enviar. Funciona perfeitamente no plano free.
