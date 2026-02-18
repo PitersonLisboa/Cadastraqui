@@ -9,17 +9,17 @@ de documentos brasileiros com Engine 2 + português + scale + isTable.
 
 ### ORDEM DE DEPLOY:
 
-#### 1️⃣ Instalar dependência `sharp` (redimensionamento de imagem)
+#### 1️⃣ (Opcional) Instalar `sharp` para compressão automática de imagens
 
 ```powershell
 cd api
 npm install sharp
-npm install -D @types/sharp
 ```
 
-> O `sharp` é usado para redimensionar fotos grandes de celular antes de enviar
-> ao OCR.space (limite free: 1MB). A imagem ORIGINAL é salva no servidor,
-> só a cópia para OCR é reduzida.
+> O `sharp` redimensiona fotos grandes de celular (~3-5MB) para caber no
+> limite de 1MB do plano free do OCR.space. Se não estiver instalado,
+> o sistema funciona normalmente — apenas envia a imagem no tamanho original.
+> Para o plano PRO (5MB), sharp não é necessário.
 
 #### 2️⃣ Variável de ambiente no Railway
 
@@ -27,8 +27,8 @@ npm install -D @types/sharp
 OCR_SPACE_API_KEY = sua-chave-aqui
 ```
 
-> Railway → serviço API → Variables → New Variable
-> A variável `GOOGLE_VISION_API_KEY` pode ser removida ou mantida (não é mais usada).
+> Railway → serviço API → Variables → New Variable.
+> A variável `GOOGLE_VISION_API_KEY` pode ser removida (não é mais usada).
 
 #### 3️⃣ Backend — Adicionar 1 arquivo novo + substituir 2
 
@@ -38,8 +38,7 @@ api/src/services/rg-parser.ts            ← substituir
 api/src/controllers/ocr.controller.ts    ← substituir
 ```
 
-> O arquivo `api/src/config/google-vision.ts` pode ser mantido (não atrapalha)
-> ou removido futuramente.
+> O arquivo `api/src/config/google-vision.ts` pode ser mantido ou removido.
 
 #### 4️⃣ Frontend — Substituir 1 arquivo
 
@@ -59,31 +58,29 @@ cd web; npm run build; railway up
 ### Resumo das alterações:
 
 **1. OCR.space API (`api/src/config/ocr-space.ts`)** — NOVO
-- Integração completa com OCR.space (`POST https://api.ocr.space/parse/image`)
-- Parâmetros otimizados: `OCREngine=2` + `language=por` + `scale=true` + `isTable=true`
+- Integração via `FormData` (multipart/form-data) — formato recomendado pelo OCR.space
+- Parâmetros: `OCREngine=2` + `language=por` + `scale=true` + `isTable=true`
 - API key via header (seguro)
-- Retorna texto completo + palavras com posição (Left/Top/Width/Height)
+- Logs detalhados: tempo de resposta, exit codes, texto extraído
+- Tratamento robusto de erros (rede, HTTP, JSON, parse)
 
 **2. Parser RG v3 (`api/src/services/rg-parser.ts`)** — ATUALIZADO
-- Compatível com formato OCR.space (Left/Top/Width/Height por palavra)
+- Compatível com OCR.space (Left/Top/Width/Height por palavra)
 - 3 estratégias de extração de nome em cascata:
-  1. Por **posição** das palavras (localiza rótulo "NOME" e coleta palavras à direita/abaixo)
+  1. Por **posição** das palavras (rótulo "NOME" → palavras à direita/abaixo)
   2. Por **linhas** estruturadas (OCR.space Lines)
   3. Por **texto** puro (fallback)
-- Evita capturar nome do diretor do Instituto de Identificação
 
 **3. Controller OCR (`api/src/controllers/ocr.controller.ts`)** — ATUALIZADO
 - Usa `ocr-space` em vez de `google-vision`
-- Redimensiona imagens grandes via `sharp` (fotos de celular podem exceder 1MB)
-- Salva imagem ORIGINAL no servidor (redução é só para o OCR)
+- `sharp` é importado dinamicamente (não quebra se não estiver instalado)
 - Permite até 2 documentos RG (frente + verso)
-- Retorna `qualLado: 'frente' | 'verso'`
 
 **4. Frontend (`CadastroCandidato.tsx`)** — ATUALIZADO
-- Visualizar documento: `<a target="_blank">` em vez de `window.open` (evita bloqueio popup no mobile)
-- Scan RG: botão dinâmico "Escanear RG (Frente)" → "Escanear RG (Verso)"
-- Upload manual: permite 2 arquivos RG (frente + verso)
-- Merge inteligente: segundo scan NÃO sobrescreve campos já preenchidos
+- Visualizar documento: evita bloqueio de popup no mobile
+- Scan RG: botão "Escanear RG (Frente)" → "Escanear RG (Verso)"
+- Upload manual: permite 2 arquivos RG
+- Merge inteligente: segundo scan não sobrescreve campos preenchidos
 
 ---
 
@@ -92,18 +89,18 @@ cd web; npm run build; railway up
 - `api/src/controllers/documento.controller.ts` — sem mudança
 - `api/src/config/upload.ts` — sem mudança
 - `api/prisma/schema.prisma` — sem mudança
-- `familia.controller.ts` — sem mudança
 - Nenhuma alteração de SQL necessária
 
 ---
 
-### OCR.space — Planos e limites:
+### Troubleshooting:
 
-| | Free | PRO ($30/mês) |
-|---|---|---|
-| Requests/mês | 25.000 | 300.000 |
-| Tamanho máximo | 1 MB | 5 MB |
-| Uptime | — | 100% garantido |
+**Se aparecer "Erro ao processar imagem com OCR":**
+1. Verificar nos logs do Railway se `OCR_SPACE_API_KEY` está configurada
+2. O log mostra `❌ OCR.space HTTP XXX:` com o erro exato
+3. Se for "Not a valid base64 image" → provavelmente a imagem excede 1MB
+   - Solução: instalar `sharp` (passo 1) para compressão automática
 
-Com o `sharp` redimensionando, fotos de celular (3-5MB) são comprimidas
-para ~500KB antes de enviar. Funciona perfeitamente no plano free.
+**Se o build falhar:**
+- O `sharp` NÃO é import estático — se não estiver instalado, o build compila normalmente
+- O sharp só é usado em runtime, com fallback se falhar

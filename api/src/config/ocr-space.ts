@@ -64,52 +64,78 @@ export async function detectarTexto(
   // OCR.space espera base64 com prefixo data:mime;base64,
   const base64ComPrefixo = `data:${mimeType};base64,${imageBase64}`
 
-  // Montar form data
-  const formBody = new URLSearchParams()
-  formBody.append('base64Image', base64ComPrefixo)
-  formBody.append('language', 'por')             // Português
-  formBody.append('isOverlayRequired', 'true')   // Retorna posição das palavras
-  formBody.append('OCREngine', '2')              // Engine 2: melhor para docs com fundo confuso
-  formBody.append('scale', 'true')               // Upscaling interno (melhora fotos de celular)
-  formBody.append('isTable', 'true')             // Retorno linha-a-linha (bom para RG)
-  formBody.append('detectOrientation', 'true')   // Auto-rotação
-
-  console.log('🔍 OCR.space — Enviando imagem para análise...')
+  console.log(`🔍 OCR.space — Enviando imagem (${(imageBase64.length * 0.75 / 1024).toFixed(0)}KB estimados)...`)
   const inicio = Date.now()
 
-  const response = await fetch(OCR_SPACE_URL, {
-    method: 'POST',
-    headers: {
-      'apikey': OCR_SPACE_API_KEY,
-    },
-    body: formBody,
-  })
+  // Usar FormData (multipart/form-data) — mais confiável que URLSearchParams para base64 grandes
+  const formData = new FormData()
+  formData.append('base64Image', base64ComPrefixo)
+  formData.append('language', 'por')
+  formData.append('isOverlayRequired', 'true')
+  formData.append('OCREngine', '2')
+  formData.append('scale', 'true')
+  formData.append('isTable', 'true')
+  formData.append('detectOrientation', 'true')
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('❌ OCR.space API error:', response.status, errorText)
-    throw new Error(`OCR.space API retornou ${response.status}`)
+  let response: Response
+  try {
+    response = await fetch(OCR_SPACE_URL, {
+      method: 'POST',
+      headers: {
+        'apikey': OCR_SPACE_API_KEY,
+      },
+      body: formData,
+    })
+  } catch (fetchErr: any) {
+    console.error('❌ OCR.space — Erro de rede:', fetchErr.message)
+    throw new Error(`Falha de conexão com OCR.space: ${fetchErr.message}`)
   }
 
-  const data = (await response.json()) as OcrSpaceResponse
   const tempoMs = Date.now() - inicio
-  console.log(`⏱️ OCR.space respondeu em ${tempoMs}ms`)
 
-  // Verificar erros
-  if (data.IsErroredOnProcessing || data.OCRExitCode === '3' || data.OCRExitCode === '4') {
-    const msg = data.ErrorMessage || data.ParsedResults?.[0]?.ErrorMessage || 'Erro desconhecido'
-    console.error('❌ OCR.space erro de processamento:', msg, data.ErrorDetails)
+  // Ler corpo da resposta como texto primeiro (para logging em caso de erro)
+  const responseText = await response.text()
+
+  if (!response.ok) {
+    console.error(`❌ OCR.space HTTP ${response.status} (${tempoMs}ms):`, responseText.substring(0, 500))
+    throw new Error(`OCR.space API retornou HTTP ${response.status}`)
+  }
+
+  // Parsear JSON
+  let data: OcrSpaceResponse
+  try {
+    data = JSON.parse(responseText) as OcrSpaceResponse
+  } catch (jsonErr) {
+    console.error('❌ OCR.space — Resposta não é JSON válido:', responseText.substring(0, 500))
+    throw new Error('OCR.space retornou resposta inválida')
+  }
+
+  console.log(`⏱️ OCR.space respondeu em ${tempoMs}ms — ExitCode: ${data.OCRExitCode}`)
+
+  // Verificar erros no nível da API
+  if (data.IsErroredOnProcessing) {
+    const msg = data.ErrorMessage || 'Erro de processamento'
+    const details = data.ErrorDetails || ''
+    console.error(`❌ OCR.space erro: ${msg}`, details)
+    throw new Error(`OCR.space: ${msg}`)
+  }
+
+  if (data.OCRExitCode === '3' || data.OCRExitCode === '4') {
+    const msg = data.ErrorMessage || data.ParsedResults?.[0]?.ErrorMessage || 'Falha no parse'
+    console.error(`❌ OCR.space ExitCode ${data.OCRExitCode}: ${msg}`)
     throw new Error(`OCR.space: ${msg}`)
   }
 
   // Extrair resultado da primeira página/imagem
   const resultado = data.ParsedResults?.[0]
   if (!resultado) {
+    console.error('❌ OCR.space — ParsedResults vazio:', JSON.stringify(data).substring(0, 500))
     throw new Error('OCR.space não retornou resultado')
   }
 
   if (resultado.FileParseExitCode !== '1') {
-    const msg = resultado.ErrorMessage || `Exit code: ${resultado.FileParseExitCode}`
+    const msg = resultado.ErrorMessage || resultado.ErrorDetails || `ExitCode: ${resultado.FileParseExitCode}`
+    console.error(`❌ OCR.space FileParseExitCode ${resultado.FileParseExitCode}: ${msg}`)
     throw new Error(`OCR.space parse error: ${msg}`)
   }
 
@@ -119,13 +145,19 @@ export async function detectarTexto(
   // Coletar todas as palavras com posição
   const palavras: OcrWord[] = []
   for (const linha of linhas) {
-    for (const word of linha.Words) {
-      palavras.push(word)
+    if (linha.Words) {
+      for (const word of linha.Words) {
+        palavras.push(word)
+      }
     }
   }
 
   console.log(`📝 OCR.space — ${linhas.length} linhas, ${palavras.length} palavras detectadas`)
-  console.log(`📝 Texto (primeiros 300 chars): ${textoCompleto.substring(0, 300)}`)
+  if (textoCompleto) {
+    console.log(`📝 Texto (primeiros 300 chars):\n${textoCompleto.substring(0, 300)}`)
+  } else {
+    console.warn('⚠️ OCR.space — Nenhum texto extraído da imagem')
+  }
 
   return { textoCompleto, palavras, linhas }
 }

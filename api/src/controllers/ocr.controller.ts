@@ -6,7 +6,6 @@ import { CandidatoNaoEncontradoError, ArquivoInvalidoError } from '../errors/ind
 import { UPLOADS_DIR, gerarNomeArquivo } from '../config/upload'
 import { detectarTexto } from '../config/ocr-space'
 import { parsearRG, PalavraOCR, LinhaOCR } from '../services/rg-parser'
-import sharp from 'sharp'
 
 // ===========================================
 // ESCANEAR RG (frente ou verso)
@@ -17,52 +16,57 @@ import sharp from 'sharp'
 // ===========================================
 
 const MAX_RG_DOCS = 2
-const MAX_IMAGE_SIZE_OCR = 900 * 1024  // ~900KB (free plan = 1MB, margem de segurança)
+const MAX_IMAGE_SIZE_OCR = 900 * 1024  // ~900KB (free plan = 1MB, margem)
 
 /**
- * Redimensiona imagem se necessário para caber no limite do OCR.space (1MB free plan).
- * Usa sharp para comprimir mantendo qualidade razoável.
+ * Redimensiona imagem se necessário para caber no limite do OCR.space.
+ * Se sharp não estiver disponível, retorna a imagem original.
  */
 async function prepararImagemParaOCR(
   buffer: Buffer,
   mimetype: string
-): Promise<{ buffer: Buffer; base64: string; mimeType: string }> {
+): Promise<{ base64: string; mimeType: string }> {
   // Se já está dentro do limite, usar direto
   if (buffer.length <= MAX_IMAGE_SIZE_OCR) {
     return {
-      buffer,
       base64: buffer.toString('base64'),
       mimeType: mimetype,
     }
   }
 
-  console.log(`📐 Imagem grande (${(buffer.length / 1024).toFixed(0)}KB) — redimensionando para OCR...`)
+  console.log(`📐 Imagem grande (${(buffer.length / 1024).toFixed(0)}KB) — tentando redimensionar...`)
 
-  // Redimensionar: max 1600px no lado maior, qualidade 80%
-  let img = sharp(buffer)
-  const metadata = await img.metadata()
-  const maxDim = 1600
+  try {
+    const sharp = (await import('sharp')).default
+    let img = sharp(buffer)
+    const metadata = await img.metadata()
+    const maxDim = 1600
 
-  if (metadata.width && metadata.height) {
-    const maior = Math.max(metadata.width, metadata.height)
-    if (maior > maxDim) {
-      img = img.resize({
-        width: metadata.width > metadata.height ? maxDim : undefined,
-        height: metadata.height >= metadata.width ? maxDim : undefined,
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
+    if (metadata.width && metadata.height) {
+      const maior = Math.max(metadata.width, metadata.height)
+      if (maior > maxDim) {
+        img = img.resize({
+          width: metadata.width > metadata.height ? maxDim : undefined,
+          height: metadata.height >= metadata.width ? maxDim : undefined,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+      }
     }
-  }
 
-  // Converter para JPEG com qualidade 80
-  const bufferReduzido = await img.jpeg({ quality: 80 }).toBuffer()
-  console.log(`📐 Reduzido: ${(buffer.length / 1024).toFixed(0)}KB → ${(bufferReduzido.length / 1024).toFixed(0)}KB`)
+    const bufferReduzido = await img.jpeg({ quality: 75 }).toBuffer()
+    console.log(`📐 Reduzido: ${(buffer.length / 1024).toFixed(0)}KB → ${(bufferReduzido.length / 1024).toFixed(0)}KB`)
 
-  return {
-    buffer: bufferReduzido,
-    base64: bufferReduzido.toString('base64'),
-    mimeType: 'image/jpeg',
+    return {
+      base64: bufferReduzido.toString('base64'),
+      mimeType: 'image/jpeg',
+    }
+  } catch (sharpErr: any) {
+    console.warn(`⚠️ Sharp indisponível (${sharpErr.message}) — enviando imagem original`)
+    return {
+      base64: buffer.toString('base64'),
+      mimeType: mimetype,
+    }
   }
 }
 
@@ -102,7 +106,7 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
   console.log('📸 OCR RG - Imagem recebida:', data.filename, `(${(totalSize / 1024).toFixed(1)}KB)`)
 
   // Preparar imagem (redimensionar se necessário para o limite do OCR.space)
-  const { buffer: bufferOCR, base64: imageBase64, mimeType: ocrMimeType } =
+  const { base64: imageBase64, mimeType: ocrMimeType } =
     await prepararImagemParaOCR(bufferOriginal, data.mimetype)
 
   // Chamar OCR.space API
@@ -117,16 +121,18 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
     // Converter formato OCR.space → formato do parser
     for (const linha of resultado.linhas) {
       const palavrasDaLinha: PalavraOCR[] = []
-      for (const word of linha.Words) {
-        const p: PalavraOCR = {
-          text: word.WordText,
-          left: word.Left,
-          top: word.Top,
-          width: word.Width,
-          height: word.Height,
+      if (linha.Words) {
+        for (const word of linha.Words) {
+          const p: PalavraOCR = {
+            text: word.WordText,
+            left: word.Left,
+            top: word.Top,
+            width: word.Width,
+            height: word.Height,
+          }
+          palavrasOCR.push(p)
+          palavrasDaLinha.push(p)
         }
-        palavrasOCR.push(p)
-        palavrasDaLinha.push(p)
       }
       linhasOCR.push({
         palavras: palavrasDaLinha,
@@ -135,7 +141,7 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
       })
     }
   } catch (err: any) {
-    console.error('❌ Erro no OCR.space:', err.message)
+    console.error('❌ Erro no OCR:', err.message)
     return reply.status(502).send({
       message: 'Erro ao processar imagem com OCR. Tente novamente.',
       detalhe: err.message,
