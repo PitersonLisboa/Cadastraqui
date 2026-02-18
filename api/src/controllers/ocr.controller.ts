@@ -8,11 +8,14 @@ import { detectarTexto } from '../config/google-vision'
 import { parsearRG } from '../services/rg-parser'
 
 // ===========================================
-// ESCANEAR RG
+// ESCANEAR RG (frente ou verso)
 // POST /ocr/rg
 // Recebe imagem, chama Google Vision, extrai dados,
-// salva imagem como documento e retorna campos preenchidos
+// salva imagem como documento e retorna campos preenchidos.
+// Permite até 2 documentos RG (frente + verso).
 // ===========================================
+
+const MAX_RG_DOCS = 2
 
 export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
   // Buscar candidato
@@ -52,9 +55,11 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
 
   // Chamar Google Vision API
   let textoCompleto: string
+  let blocos: any[]
   try {
     const resultado = await detectarTexto(imageBase64)
     textoCompleto = resultado.textoCompleto
+    blocos = resultado.blocos
   } catch (err: any) {
     console.error('❌ Erro no Google Vision:', err.message)
     return reply.status(502).send({
@@ -69,29 +74,33 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
     })
   }
 
-  // Parsear campos do RG
-  const dados = parsearRG(textoCompleto)
+  // Parsear campos do RG — agora passando os blocos com posição
+  const dados = parsearRG(textoCompleto, blocos)
 
   // Se existe candidato, salvar imagem como documento RG
   let documentoSalvo = false
+  let qualLado: 'frente' | 'verso' | null = null
+
   if (candidato) {
     try {
-      // Verificar se já tem RG
-      const rgExistente = await prisma.documento.findFirst({
+      // Contar quantos RG já existem
+      const rgExistentes = await prisma.documento.count({
         where: { candidatoId: candidato.id, tipo: 'RG' },
       })
 
-      if (!rgExistente) {
-        // Salvar arquivo (mesmo padrão do documento.controller)
-        const nomeArquivo = gerarNomeArquivo(data.filename || 'rg-scan.jpg')
+      if (rgExistentes < MAX_RG_DOCS) {
+        qualLado = rgExistentes === 0 ? 'frente' : 'verso'
+
+        // Salvar arquivo
+        const nomeArquivo = gerarNomeArquivo(data.filename || `rg-${qualLado}-scan.jpg`)
         const filePath = path.join(UPLOADS_DIR, nomeArquivo)
         fs.writeFileSync(filePath, buffer)
 
-        // Criar registro no banco (url relativa como /uploads/nome)
+        // Criar registro no banco
         await prisma.documento.create({
           data: {
             tipo: 'RG',
-            nome: data.filename || 'RG (escaneado)',
+            nome: data.filename || `RG ${qualLado === 'frente' ? '(Frente)' : '(Verso)'} - escaneado`,
             url: `/uploads/${nomeArquivo}`,
             tamanho: totalSize,
             mimeType: data.mimetype,
@@ -100,7 +109,9 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
           },
         })
         documentoSalvo = true
-        console.log('💾 Documento RG salvo automaticamente')
+        console.log(`💾 Documento RG (${qualLado}) salvo automaticamente`)
+      } else {
+        console.log(`⚠️ Já existem ${rgExistentes} documentos RG — máximo atingido`)
       }
     } catch (docErr: any) {
       console.warn('⚠️ Não foi possível salvar documento automaticamente:', docErr.message)
@@ -110,6 +121,7 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
   return reply.status(200).send({
     dados,
     documentoSalvo,
+    qualLado,
     textoOriginal: textoCompleto,
     camposExtraidos: Object.entries(dados.confianca).filter(([, v]) => v).map(([k]) => k).length,
     totalCampos: 6,

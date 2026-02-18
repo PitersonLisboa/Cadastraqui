@@ -833,9 +833,7 @@ export function CadastroCandidato() {
     try {
       const response = await api.get(`/familia/membros/${membroId}/documentos/${docId}/download`, { responseType: 'blob' })
       const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      abrirBlobNovaAba(blob)
     } catch (err: any) {
       if (err.response?.status === 404) {
         toast.error('Arquivo não encontrado no servidor.')
@@ -971,32 +969,26 @@ export function CadastroCandidato() {
       const d = res.dados
       const preenchidos: string[] = []
 
-      // Determinar quais campos foram extraídos
-      if (d.nome) preenchidos.push('nome')
-      if (d.cpf) preenchidos.push('cpf')
-      if (d.dataNascimento) preenchidos.push('dataNascimento')
-      if (d.rg) preenchidos.push('rg')
-      if (d.orgaoEmissor) preenchidos.push('rgOrgao')
-      if (d.estadoEmissor) preenchidos.push('rgEstado')
-
-      // Atualizar todos os campos de uma vez
+      // Merge inteligente: só preenche campos que estão VAZIOS
+      // (segundo scan do verso não sobrescreve dados da frente)
       setDados(prev => {
         const updated = { ...prev }
-        if (d.nome) updated.nome = d.nome
-        if (d.cpf) updated.cpf = maskCPF(d.cpf)
-        if (d.dataNascimento) updated.dataNascimento = d.dataNascimento
-        if (d.rg) updated.rg = d.rg
-        if (d.orgaoEmissor) updated.rgOrgao = d.orgaoEmissor
-        if (d.estadoEmissor) updated.rgEstado = d.estadoEmissor
+        if (d.nome && !prev.nome?.trim()) { updated.nome = d.nome; preenchidos.push('nome') }
+        if (d.cpf && !prev.cpf?.trim()) { updated.cpf = maskCPF(d.cpf); preenchidos.push('cpf') }
+        if (d.dataNascimento && !prev.dataNascimento?.trim()) { updated.dataNascimento = d.dataNascimento; preenchidos.push('dataNascimento') }
+        if (d.rg && !prev.rg?.trim()) { updated.rg = d.rg; preenchidos.push('rg') }
+        if (d.orgaoEmissor && !prev.rgOrgao?.trim()) { updated.rgOrgao = d.orgaoEmissor; preenchidos.push('rgOrgao') }
+        if (d.estadoEmissor && !prev.rgEstado?.trim()) { updated.rgEstado = d.estadoEmissor; preenchidos.push('rgEstado') }
         return updated
       })
 
       setOcrCamposPreenchidos(preenchidos)
 
+      const lado = res.qualLado === 'verso' ? ' (verso)' : res.qualLado === 'frente' ? ' (frente)' : ''
       if (preenchidos.length > 0) {
-        toast.success(`${preenchidos.length} campo(s) preenchido(s) automaticamente! Revise e salve.`)
+        toast.success(`${preenchidos.length} campo(s) preenchido(s) automaticamente${lado}! Revise e salve.`)
       } else {
-        toast.warn('Não foi possível extrair dados da imagem. Tente com uma foto mais nítida.')
+        toast.warn(`Não foi possível extrair novos dados da imagem${lado}. Campos já preenchidos foram mantidos.`)
       }
 
       if (res.documentoSalvo) {
@@ -1194,13 +1186,28 @@ export function CadastroCandidato() {
     } catch { toast.error('Erro ao remover documento') }
   }
 
+  /** Abre blob em nova aba (compatível com mobile, evita bloqueio de popup) */
+  const abrirBlobNovaAba = (blob: Blob) => {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    // Em mobile, alguns browsers bloqueiam window.open mas permitem click em <a>
+    document.body.appendChild(a)
+    a.click()
+    // Limpar
+    setTimeout(() => {
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }, 60000)
+  }
+
   const handleViewDoc = async (docId: string) => {
     try {
       const response = await api.get(`/documentos/${docId}/download`, { responseType: 'blob' })
       const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      abrirBlobNovaAba(blob)
     } catch (err: any) {
       console.error('❌ Erro ao visualizar doc:', err.response?.status, err.response?.data)
       if (err.response?.status === 404) {
@@ -1340,9 +1347,7 @@ export function CadastroCandidato() {
     if (!saudeForm.id) return
     try {
       const blob = await saudeService.downloadArquivo(saudeForm.id, tipo)
-      const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
+      abrirBlobNovaAba(blob)
     } catch (err: any) {
       toast.error('Erro ao visualizar arquivo')
     }
@@ -1450,8 +1455,8 @@ export function CadastroCandidato() {
                 <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
 
-                {/* Botão Escanear RG — acima dos campos */}
-                {documentos.filter(d => d.tipo === 'RG').length === 0 && (
+                {/* Botão Escanear RG — permite 2 scans (frente + verso) */}
+                {documentos.filter(d => d.tipo === 'RG').length < 2 && (
                   <div style={{ display: 'flex', justifyContent: 'center', margin: '0.5rem 0 1rem' }}>
                     <div
                       onClick={() => !scanningRG && scanInputRef.current?.click()}
@@ -1463,7 +1468,10 @@ export function CadastroCandidato() {
                         background: 'var(--color-white)',
                       }}
                     >
-                      {scanningRG ? <><div className={styles.spinnerSmall} /> Escaneando documento...</> : <><FiCamera size={18} /> Escanear documento (RG)</>}
+                      {scanningRG
+                        ? <><div className={styles.spinnerSmall} /> Escaneando documento...</>
+                        : <><FiCamera size={18} /> Escanear RG ({documentos.filter(d => d.tipo === 'RG').length === 0 ? 'Frente' : 'Verso'})</>
+                      }
                     </div>
                     <input ref={scanInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
                   </div>
@@ -1488,14 +1496,14 @@ export function CadastroCandidato() {
                   <div className={styles.field}><label>Órgão emissor do RG/RNE</label><input value={dados.rgOrgao} disabled={!editMode} placeholder="SSP" onChange={e => setDados({ ...dados, rgOrgao: e.target.value })} style={ocrCamposPreenchidos.includes('rgOrgao') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
                 </div>
                 <div className={styles.fieldWide}>
-                  <label>Documento de identificação</label>
-                  {documentos.filter(d => d.tipo === 'RG').length === 0 ? (
+                  <label>Documento de identificação {documentos.filter(d => d.tipo === 'RG').length === 1 ? '(Verso)' : '(Frente)'}</label>
+                  {documentos.filter(d => d.tipo === 'RG').length < 2 ? (
                   <>
                   <div className={styles.fileUpload} onClick={() => fileInputRef.current?.click()}>
                     <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiUpload size={16} />
                   </div>
                   <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setDocFile(e.target.files[0]) }} />
-                  <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
+                  <small className={styles.fileHint}>*Tamanho máximo de 10Mb — Envie frente e verso separadamente (máx. 2 arquivos)</small>
                   {docFile && (
                     <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
                       setUploadingDoc(true)
@@ -1514,7 +1522,7 @@ export function CadastroCandidato() {
                   )}
                   </>
                   ) : (
-                    <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.25rem' }}>Documento já enviado. Exclua o atual para enviar outro.</p>
+                    <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.25rem' }}>Frente e verso enviados (2/2). Exclua um para enviar outro.</p>
                   )}
                 </div>
                 <DocListBlock tipos={['RG']} titulo="Documento(s) RG enviado(s)" />
