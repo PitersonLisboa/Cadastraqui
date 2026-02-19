@@ -851,13 +851,22 @@ export function CadastroCandidato() {
   }
 
   const handleViewDocMembro = async (membroId: string, docId: string) => {
+    // Abre janela ANTES do fetch (síncrono, no contexto do gesto do usuário) para evitar bloqueio de popup no mobile
+    const novaAba = window.open('about:blank', '_blank')
     try {
       const response = await api.get(`/familia/membros/${membroId}/documentos/${docId}/download`, { responseType: 'blob' })
       const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' })
-      abrirBlobNovaAba(blob)
+      const url = URL.createObjectURL(blob)
+      if (novaAba && !novaAba.closed) {
+        novaAba.location.href = url
+      } else {
+        // Fallback: usa abordagem de link
+        abrirBlobNovaAba(blob)
+      }
     } catch (err: any) {
+      if (novaAba && !novaAba.closed) novaAba.close()
       if (err.response?.status === 404) {
-        toast.error('Arquivo não encontrado no servidor.')
+        toast.error('Arquivo não encontrado no servidor. Pode ter sido perdido após um redeploy. Envie novamente.')
       } else {
         toast.error(err.response?.data?.message || 'Erro ao visualizar documento')
       }
@@ -2076,7 +2085,7 @@ export function CadastroCandidato() {
               <h2 className={styles.sectionTitle}>Integrantes do Grupo Familiar</h2>
               <p className={styles.sectionSub}>Selecione um parente ou cadastre um novo</p>
               <div className={styles.centeredActions}>
-                <button className={styles.btnOutline} onClick={() => { setNovoMembro({ ...EMPTY_MEMBRO }); setEditingMembroId(null); setSubStepMembro(0); setShowAddMembro(true) }}>
+                <button className={styles.btnOutline} onClick={() => { setNovoMembro({ ...EMPTY_MEMBRO }); setEditingMembroId(null); setSubStepMembro(0); setDocsMembro([]); setOcrCamposMembroPreenchidos([]); setOcrCamposMembroCertPreenchidos([]); setShowAddMembro(true) }}>
                   <FiPlus size={16} /> Adicionar Membro
                 </button>
               </div>
@@ -2220,6 +2229,23 @@ export function CadastroCandidato() {
                     </select>
                   </div>
                 </div>
+
+                {/* Lista de documentos RG enviados (scan + manual) com Visualizar / Excluir */}
+                {docsMembro.filter(d => d.tipo === 'RG_MEMBRO').length > 0 && (
+                  <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: '#334155' }}>
+                      Documento(s) RG enviado(s)
+                    </p>
+                    {docsMembro.filter(d => d.tipo === 'RG_MEMBRO').map((doc, idx) => (
+                      <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                        <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
+                          onClick={() => handleViewDocMembro(editingMembroId!, doc.id)}>Visualizar</button>
+                        <button className={styles.btnSmallDanger} onClick={() => handleExcluirDocMembro(editingMembroId!, doc.id)}><FiTrash2 size={14} /></button>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{doc.nome || `RG ${idx === 0 ? '(Frente)' : '(Verso)'}`}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )
 
