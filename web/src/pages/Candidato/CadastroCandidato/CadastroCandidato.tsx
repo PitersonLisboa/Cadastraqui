@@ -405,10 +405,14 @@ export function CadastroCandidato() {
   const anexarOcrRef = useRef<HTMLInputElement>(null)
   const scanComprovanteRef = useRef<HTMLInputElement>(null)
   const anexarComprovanteRef = useRef<HTMLInputElement>(null)
+  const scanCertidaoRef = useRef<HTMLInputElement>(null)
+  const anexarCertidaoRef = useRef<HTMLInputElement>(null)
   const [scanningRG, setScanningRG] = useState(false)
   const [ocrCamposPreenchidos, setOcrCamposPreenchidos] = useState<string[]>([])
   const [scanningComprovante, setScanningComprovante] = useState(false)
   const [ocrCamposEndPreenchidos, setOcrCamposEndPreenchidos] = useState<string[]>([])
+  const [scanningCertidao, setScanningCertidao] = useState(false)
+  const [ocrCamposCertPreenchidos, setOcrCamposCertPreenchidos] = useState<string[]>([])
   const [outrosQtd, setOutrosQtd] = useState(1)
   const [outrosArquivos, setOutrosArquivos] = useState<(File | null)[]>([null])
   const outrosRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -1072,6 +1076,51 @@ export function CadastroCandidato() {
     }
   }
 
+  // ── Handler Escanear Certidão (Estado Civil) ──
+  const handleScanCertidao = async (file: File) => {
+    setScanningCertidao(true)
+    setOcrCamposCertPreenchidos([])
+    setEditMode(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api.post('/ocr/certidao', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const d = res.data.dados
+      const preenchidos: string[] = []
+
+      if (d.estadoCivil && !estadoCivil?.trim()) {
+        setEstadoCivil(d.estadoCivil)
+        preenchidos.push('estadoCivil')
+      }
+
+      setOcrCamposCertPreenchidos(preenchidos)
+
+      if (preenchidos.length > 0) {
+        toast.success('Estado civil preenchido automaticamente! Revise e salve.')
+      } else if (d.estadoCivil && estadoCivil?.trim()) {
+        toast.info('Certidão processada. O campo estado civil já estava preenchido.')
+      } else {
+        toast.warn('Não foi possível detectar o estado civil na imagem. Preencha manualmente.')
+      }
+
+      if (res.data.documentoSalvo) {
+        try {
+          const docs = await api.get('/documentos')
+          const lista = docs.data.documentos || docs.data || []
+          setDocumentos(Array.isArray(lista) ? lista : [])
+        } catch {}
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Erro ao processar certidão'
+      toast.error(msg)
+    } finally {
+      setScanningCertidao(false)
+    }
+  }
+
   // ── Handlers Despesa Tabular ──
   const carregarDespesasMes = async (mes: number, ano: number) => {
     try {
@@ -1686,43 +1735,66 @@ export function CadastroCandidato() {
               <>
                 <h2 className={styles.sectionTitle}>Estado Civil</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+
+                {documentos.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').length === 0 && (
+                  <div style={{ margin: '0.5rem 0 1rem', padding: '0.75rem 1rem', background: '#f0f7ff', borderRadius: 'var(--radius)', border: '1px solid #d0e3f7' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Auxílio ao preenchimento</label>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div
+                        onClick={() => !scanningCertidao && scanCertidaoRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid var(--color-primary)', color: 'var(--color-primary)',
+                          cursor: scanningCertidao ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        {scanningCertidao
+                          ? <><div className={styles.spinnerSmall} /> Processando...</>
+                          : <><FiCamera size={17} /> Escanear Certidão</>
+                        }
+                      </div>
+                      <div
+                        onClick={() => !scanningCertidao && anexarCertidaoRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid #64748b', color: '#475569',
+                          cursor: scanningCertidao ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        <FiPlus size={17} /> Anexar arquivo
+                      </div>
+                    </div>
+                    <input ref={scanCertidaoRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanCertidao(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarCertidaoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanCertidao(e.target.files[0]); e.target.value = '' }} />
+                    <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
+                      Tire uma foto ou anexe a certidão (casamento, nascimento, divórcio, união estável). O estado civil será preenchido automaticamente.
+                    </small>
+                  </div>
+                )}
+
+                {ocrCamposCertPreenchidos.length > 0 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', marginBottom: '0.75rem' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Estado civil preenchido pelo scan. Revise e clique em Salvar.
+                  </p>
+                )}
+
                 <div className={styles.formGridSingle}>
                   <div className={styles.field}><label>Estado civil</label>
-                    <select value={estadoCivil} disabled={!editMode} onChange={e => setEstadoCivil(e.target.value)}>
+                    <select value={estadoCivil} disabled={!editMode} onChange={e => setEstadoCivil(e.target.value)} style={ocrCamposCertPreenchidos.includes('estadoCivil') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined}>
                       <option value="">Selecione...</option>{ESTADO_CIVIL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                 </div>
-                <div className={styles.fieldWide}>
-                  <label>Certidão de casamento</label>
-                  {documentos.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').length === 0 ? (
-                  <>
-                  <div className={styles.fileUpload} onClick={() => certidaoRef.current?.click()}>
-                    <span>{certidaoFile ? certidaoFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
-                  </div>
-                  <input ref={certidaoRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setCertidaoFile(e.target.files[0]) }} />
-                  <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
-                  {certidaoFile && (
-                    <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
-                      setUploadingDoc(true)
-                      try {
-                        const formData = new FormData()
-                        formData.append('tipo', 'CERTIDAO_CASAMENTO')
-                        formData.append('file', certidaoFile)
-                        await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-                        toast.success('Certidão enviada!')
-                        setCertidaoFile(null)
-                        if (certidaoRef.current) certidaoRef.current.value = ''
-                        carregarDados()
-                      } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
-                      finally { setUploadingDoc(false) }
-                    }}>{uploadingDoc ? 'Enviando...' : 'Enviar Certidão'}</button>
-                  )}
-                  </>
-                  ) : (
-                    <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.25rem' }}>Documento já enviado. Exclua o atual para enviar outro.</p>
-                  )}
-                </div>
+
+                {documentos.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').length > 0 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', margin: '0.5rem 0' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Certidão enviada.
+                  </p>
+                )}
                 <DocListBlock tipos={['CERTIDAO_CASAMENTO']} titulo="Certidão(ões) enviada(s)" />
               </>
             )
