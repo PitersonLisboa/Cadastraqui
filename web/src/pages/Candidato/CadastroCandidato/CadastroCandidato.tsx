@@ -20,8 +20,8 @@ const SECTION_IDS = [
 ]
 
 const SUB_STEP_LABELS = [
-  'Dados Pessoais', 'Endereço', 'Comprovante de endereço',
-  'Informações Adicionais', 'Estado Civil', 'Informações Pessoais',
+  'Dados Pessoais', 'Endereço e Comprovante',
+  'Estado Civil', 'Informações Pessoais',
   'Documento Adicional', 'Benefícios e Programas',
 ]
 
@@ -403,8 +403,12 @@ export function CadastroCandidato() {
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const scanInputRef = useRef<HTMLInputElement>(null)
   const anexarOcrRef = useRef<HTMLInputElement>(null)
+  const scanComprovanteRef = useRef<HTMLInputElement>(null)
+  const anexarComprovanteRef = useRef<HTMLInputElement>(null)
   const [scanningRG, setScanningRG] = useState(false)
   const [ocrCamposPreenchidos, setOcrCamposPreenchidos] = useState<string[]>([])
+  const [scanningComprovante, setScanningComprovante] = useState(false)
+  const [ocrCamposEndPreenchidos, setOcrCamposEndPreenchidos] = useState<string[]>([])
   const [outrosQtd, setOutrosQtd] = useState(1)
   const [outrosArquivos, setOutrosArquivos] = useState<(File | null)[]>([null])
   const outrosRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -1017,6 +1021,57 @@ export function CadastroCandidato() {
     }
   }
 
+  // ── Handler Escanear Comprovante de Endereço ──
+  const handleScanComprovante = async (file: File) => {
+    setScanningComprovante(true)
+    setOcrCamposEndPreenchidos([])
+    setEditMode(true)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await api.post('/ocr/comprovante', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      const d = res.data.dados
+      const preenchidos: string[] = []
+
+      setEndereco(prev => {
+        const updated = { ...prev }
+        if (d.cep && !prev.cep?.trim()) { updated.cep = d.cep; preenchidos.push('cep') }
+        if (d.rua && !prev.rua?.trim()) { updated.rua = d.rua; preenchidos.push('rua') }
+        if (d.numero && !prev.numero?.trim()) { updated.numero = d.numero; preenchidos.push('numero') }
+        if (d.bairro && !prev.bairro?.trim()) { updated.bairro = d.bairro; preenchidos.push('bairro') }
+        if (d.cidade && !prev.cidade?.trim()) { updated.cidade = d.cidade; preenchidos.push('cidade') }
+        if (d.uf && !prev.uf?.trim()) { updated.uf = d.uf; preenchidos.push('uf') }
+        if (d.complemento && !prev.complemento?.trim()) { updated.complemento = d.complemento; preenchidos.push('complemento') }
+        return updated
+      })
+
+      setOcrCamposEndPreenchidos(preenchidos)
+
+      if (preenchidos.length > 0) {
+        toast.success(`${preenchidos.length} campo(s) de endereço preenchido(s) automaticamente! Revise e salve.`)
+      } else {
+        toast.warn('Não foi possível extrair dados de endereço da imagem. Campos já preenchidos foram mantidos.')
+      }
+
+      if (res.data.documentoSalvo) {
+        try {
+          const docs = await api.get('/documentos')
+          const lista = docs.data.documentos || docs.data || []
+          setDocumentos(Array.isArray(lista) ? lista : [])
+        } catch {}
+        setPossuiComprovante(true)
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Erro ao processar comprovante'
+      toast.error(msg)
+    } finally {
+      setScanningComprovante(false)
+    }
+  }
+
   // ── Handlers Despesa Tabular ──
   const carregarDespesasMes = async (mes: number, ano: number) => {
     try {
@@ -1503,7 +1558,7 @@ export function CadastroCandidato() {
                     <input ref={scanInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
                     <input ref={anexarOcrRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
                     <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
-                      Tire uma foto ou anexe a imagem do RG. Os campos serão preenchidos automaticamente. (máx. 2: frente e verso)
+                      Tire uma foto ou anexe a imagem do RG. Alguns campos serão preenchidos automaticamente. Se necessário, incluir ou corrigir em seguida. (máx. 2: frente e verso)
                     </small>
                   </div>
                 )}
@@ -1549,95 +1604,85 @@ export function CadastroCandidato() {
               </>
             )
 
-            // ─── 2. Endereço ───
+            // ─── 2. Endereço e Comprovante ───
             case 1: return (
               <>
-                <h2 className={styles.sectionTitle}>Endereço</h2>
+                <h2 className={styles.sectionTitle}>Endereço e Comprovante</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
+
+                <RadioSimNao label="Possui comprovante de residência?" value={possuiComprovante} onChange={setPossuiComprovante} disabled={!editMode} />
+
+                {possuiComprovante && documentos.filter(d => d.tipo === 'COMPROVANTE_RESIDENCIA').length === 0 && (
+                  <div style={{ margin: '0.5rem 0 1rem', padding: '0.75rem 1rem', background: '#f0f7ff', borderRadius: 'var(--radius)', border: '1px solid #d0e3f7' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Auxílio ao preenchimento</label>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div
+                        onClick={() => !scanningComprovante && scanComprovanteRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid var(--color-primary)', color: 'var(--color-primary)',
+                          cursor: scanningComprovante ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        {scanningComprovante
+                          ? <><div className={styles.spinnerSmall} /> Processando...</>
+                          : <><FiCamera size={17} /> Escanear Comprovante</>
+                        }
+                      </div>
+                      <div
+                        onClick={() => !scanningComprovante && anexarComprovanteRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid #64748b', color: '#475569',
+                          cursor: scanningComprovante ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        <FiPlus size={17} /> Anexar arquivo
+                      </div>
+                    </div>
+                    <input ref={scanComprovanteRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanComprovante(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarComprovanteRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanComprovante(e.target.files[0]); e.target.value = '' }} />
+                    <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
+                      Tire uma foto ou anexe o comprovante de endereço (conta de luz, água, gás). Os campos de endereço serão preenchidos automaticamente.
+                    </small>
+                  </div>
+                )}
+
+                {ocrCamposEndPreenchidos.length > 0 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', marginBottom: '0.75rem' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> {ocrCamposEndPreenchidos.length} campo(s) de endereço preenchido(s) pelo scan. Revise e clique em Salvar.
+                  </p>
+                )}
+
                 <div className={styles.formGrid}>
-                  <div className={styles.field}><label>CEP</label><input value={endereco.cep} disabled={!editMode} onChange={e => { const v = maskCEP(e.target.value); setEndereco({ ...endereco, cep: v }); handleCEPChange(v) }} /></div>
-                  <div className={styles.field}><label>Rua</label><input value={endereco.rua} disabled={!editMode} onChange={e => setEndereco({ ...endereco, rua: e.target.value })} /></div>
-                  <div className={styles.field}><label>Número</label><input value={endereco.numero} disabled={!editMode} onChange={e => setEndereco({ ...endereco, numero: e.target.value })} /></div>
-                  <div className={styles.field}><label>Bairro</label><input value={endereco.bairro} disabled={!editMode} onChange={e => setEndereco({ ...endereco, bairro: e.target.value })} /></div>
-                  <div className={styles.field}><label>Cidade</label><input value={endereco.cidade} disabled={!editMode} onChange={e => setEndereco({ ...endereco, cidade: e.target.value })} /></div>
-                  <div className={styles.field}><label>Complemento</label><input value={endereco.complemento} disabled={!editMode} onChange={e => setEndereco({ ...endereco, complemento: e.target.value })} /></div>
+                  <div className={styles.field}><label>CEP</label><input value={endereco.cep} disabled={!editMode} onChange={e => { const v = maskCEP(e.target.value); setEndereco({ ...endereco, cep: v }); handleCEPChange(v) }} style={ocrCamposEndPreenchidos.includes('cep') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={styles.field}><label>Rua</label><input value={endereco.rua} disabled={!editMode} onChange={e => setEndereco({ ...endereco, rua: e.target.value })} style={ocrCamposEndPreenchidos.includes('rua') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={styles.field}><label>Número</label><input value={endereco.numero} disabled={!editMode} onChange={e => setEndereco({ ...endereco, numero: e.target.value })} style={ocrCamposEndPreenchidos.includes('numero') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={styles.field}><label>Bairro</label><input value={endereco.bairro} disabled={!editMode} onChange={e => setEndereco({ ...endereco, bairro: e.target.value })} style={ocrCamposEndPreenchidos.includes('bairro') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={styles.field}><label>Cidade</label><input value={endereco.cidade} disabled={!editMode} onChange={e => setEndereco({ ...endereco, cidade: e.target.value })} style={ocrCamposEndPreenchidos.includes('cidade') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={styles.field}><label>Complemento</label><input value={endereco.complemento} disabled={!editMode} onChange={e => setEndereco({ ...endereco, complemento: e.target.value })} style={ocrCamposEndPreenchidos.includes('complemento') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
                   <div className={styles.field}><label>Unidade federativa</label>
-                    <select value={endereco.uf} disabled={!editMode} onChange={e => setEndereco({ ...endereco, uf: e.target.value })}>
+                    <select value={endereco.uf} disabled={!editMode} onChange={e => setEndereco({ ...endereco, uf: e.target.value })} style={ocrCamposEndPreenchidos.includes('uf') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined}>
                       <option value="">Selecione...</option>{ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
                     </select>
                   </div>
                 </div>
-              </>
-            )
 
-            // ─── 3. Comprovante de endereço ───
-            case 2: return (
-              <>
-                <h2 className={styles.sectionTitle}>Comprovante de endereço</h2>
-                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
-                <RadioSimNao label="Possui comprovante de residência?" value={possuiComprovante} onChange={setPossuiComprovante} disabled={!editMode} />
-                {possuiComprovante && (
-                  <div className={styles.fieldWide}>
-                    <label>Comprovante</label>
-                    {documentos.filter(d => d.tipo === 'COMPROVANTE_RESIDENCIA').length === 0 ? (
-                    <>
-                    <div className={styles.fileUpload} onClick={() => comprovanteRef.current?.click()}>
-                      <span>{comprovanteFile ? comprovanteFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
-                    </div>
-                    <input ref={comprovanteRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setComprovanteFile(e.target.files[0]) }} />
-                    <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
-                    {comprovanteFile && (
-                      <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
-                        setUploadingDoc(true)
-                        try {
-                          const formData = new FormData()
-                          formData.append('tipo', 'COMPROVANTE_RESIDENCIA')
-                          formData.append('file', comprovanteFile)
-                          await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-                          toast.success('Comprovante enviado!')
-                          setComprovanteFile(null)
-                          if (comprovanteRef.current) comprovanteRef.current.value = ''
-                          carregarDados()
-                        } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
-                        finally { setUploadingDoc(false) }
-                      }}>{uploadingDoc ? 'Enviando...' : 'Enviar Comprovante'}</button>
-                    )}
-                    </>
-                    ) : (
-                      <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.25rem' }}>Documento já enviado. Exclua o atual para enviar outro.</p>
-                    )}
-                  </div>
+                {possuiComprovante && documentos.filter(d => d.tipo === 'COMPROVANTE_RESIDENCIA').length > 0 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', margin: '0.5rem 0' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Comprovante enviado.
+                  </p>
                 )}
                 <DocListBlock tipos={['COMPROVANTE_RESIDENCIA']} titulo="Comprovante(s) enviado(s)" />
               </>
             )
 
-            // ─── 4. Informações Adicionais ───
-            case 3: return (
-              <>
-                <h2 className={styles.sectionTitle}>Informações Adicionais</h2>
-                {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
-                <div className={styles.formGridSingle}>
-                  <div className={styles.field}><label>Nome social (quando houver)</label><input value={adicionais.nomeSocial} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, nomeSocial: e.target.value })} /></div>
-                  <div className={styles.field}><label>Sexo</label>
-                    <select value={adicionais.sexo} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, sexo: e.target.value })}>
-                      <option value="">Selecione...</option>{SEXO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </div>
-                  <div className={styles.field}><label>Profissão</label><input value={adicionais.profissao} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, profissao: e.target.value })} /></div>
-                  <div className={styles.field}><label>Nacionalidade</label><input value={adicionais.nacionalidade} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, nacionalidade: e.target.value })} /></div>
-                  <div className={styles.field}><label>Naturalidade</label><input value={adicionais.naturalidade} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, naturalidade: e.target.value })} /></div>
-                  <div className={styles.field}><label>Estado</label>
-                    <select value={adicionais.estado} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, estado: e.target.value })}>
-                      <option value="">Selecione...</option>{ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </>
-            )
-
-            // ─── 5. Estado Civil ───
-            case 4: return (
+            // ─── 3. Estado Civil ───
+            case 2: return (
               <>
                 <h2 className={styles.sectionTitle}>Estado Civil</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
@@ -1682,8 +1727,8 @@ export function CadastroCandidato() {
               </>
             )
 
-            // ─── 6. Informações Pessoais ───
-            case 5: return (
+            // ─── 4. Informações Pessoais ───
+            case 3: return (
               <>
                 <h2 className={styles.sectionTitle}>Informações Pessoais</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
@@ -1732,8 +1777,8 @@ export function CadastroCandidato() {
               </>
             )
 
-            // ─── 7. Documento Adicional ───
-            case 6: {
+            // ─── 5. Documento Adicional ───
+            case 4: {
               const outrosEnviados = documentos.filter(d => d.tipo === 'OUTROS_EDITAL').length
               const outrosRestantes = Math.max(0, 5 - outrosEnviados)
               return (
@@ -1828,8 +1873,8 @@ export function CadastroCandidato() {
               </>
             )}
 
-            // ─── 8. Benefícios e Programas ───
-            case 7: return (
+            // ─── 6. Benefícios e Programas ───
+            case 5: return (
               <>
                 <h2 className={styles.sectionTitle}>Benefícios e Programas</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
@@ -1845,12 +1890,12 @@ export function CadastroCandidato() {
 
         return (
           <>
-            <StepperBar totalSteps={8} currentStep={subStep} onStepClick={setSubStep} />
+            <StepperBar totalSteps={6} currentStep={subStep} onStepClick={setSubStep} />
             {stepContent()}
             <FooterNav
               onPrev={subStep > 0 ? () => setSubStep(s => s - 1) : undefined}
-              onNext={subStep < 7 ? () => setSubStep(s => s + 1) : () => goToNextSection()}
-              isLast={subStep === 7}
+              onNext={subStep < 5 ? () => setSubStep(s => s + 1) : () => goToNextSection()}
+              isLast={subStep === 5}
             />
           </>
         )

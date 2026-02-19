@@ -6,6 +6,7 @@ import { CandidatoNaoEncontradoError, ArquivoInvalidoError } from '../errors/ind
 import { UPLOADS_DIR, gerarNomeArquivo } from '../config/upload'
 import { detectarTexto } from '../config/ocr-space'
 import { parsearRG, PalavraOCR, LinhaOCR } from '../services/rg-parser'
+import { parsearEndereco } from '../services/endereco-parser'
 
 // ===========================================
 // ESCANEAR RG (frente ou verso)
@@ -193,5 +194,112 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
     textoOriginal: textoCompleto,
     camposExtraidos: Object.entries(dados.confianca).filter(([, v]) => v).map(([k]) => k).length,
     totalCampos: 6,
+  })
+}
+
+// ===========================================
+// ESCANEAR COMPROVANTE DE ENDEREÇO
+// POST /ocr/comprovante
+// Recebe imagem, chama OCR.space, extrai endereço,
+// salva imagem como documento e retorna campos preenchidos.
+// ===========================================
+
+export async function escanearComprovante(request: FastifyRequest, reply: FastifyReply) {
+  const candidato = await prisma.candidato.findUnique({
+    where: { usuarioId: request.usuario.id },
+  })
+
+  const data = await request.file()
+  if (!data) {
+    return reply.status(400).send({ message: 'Nenhum arquivo enviado' })
+  }
+
+  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  if (!allowedMimes.includes(data.mimetype)) {
+    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP.')
+  }
+
+  const chunks: Buffer[] = []
+  let totalSize = 0
+  const maxSize = 10 * 1024 * 1024
+
+  for await (const chunk of data.file) {
+    totalSize += chunk.length
+    if (totalSize > maxSize) {
+      return reply.status(400).send({ message: 'Arquivo excede o limite de 10MB' })
+    }
+    chunks.push(chunk)
+  }
+
+  const bufferOriginal = Buffer.concat(chunks)
+  const nomeOriginal = data.filename || 'comprovante-scan.jpg'
+
+  console.log('📸 OCR Comprovante - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
+
+  const { buffer: bufferOCR, mimeType: ocrMimeType } =
+    await prepararImagemParaOCR(bufferOriginal, data.mimetype)
+
+  let textoCompleto: string
+
+  try {
+    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
+    textoCompleto = resultado.textoCompleto
+  } catch (err: any) {
+    console.error('❌ Erro no OCR:', err.message)
+    return reply.status(502).send({
+      message: 'Erro ao processar imagem com OCR. Tente novamente.',
+      detalhe: err.message,
+    })
+  }
+
+  if (!textoCompleto || textoCompleto.trim().length === 0) {
+    return reply.status(422).send({
+      message: 'Não foi possível detectar texto na imagem. Tente com uma foto mais nítida.',
+    })
+  }
+
+  // Parsear campos de endereço
+  const dados = parsearEndereco(textoCompleto)
+
+  // Salvar imagem como documento COMPROVANTE_RESIDENCIA
+  let documentoSalvo = false
+
+  if (candidato) {
+    try {
+      const compExistentes = await prisma.documento.count({
+        where: { candidatoId: candidato.id, tipo: 'COMPROVANTE_RESIDENCIA' },
+      })
+
+      if (compExistentes < 1) {
+        const nomeArquivo = gerarNomeArquivo(nomeOriginal)
+        const filePath = path.join(UPLOADS_DIR, nomeArquivo)
+        fs.writeFileSync(filePath, bufferOriginal)
+
+        await prisma.documento.create({
+          data: {
+            tipo: 'COMPROVANTE_RESIDENCIA',
+            nome: `Comprovante - escaneado`,
+            url: `/uploads/${nomeArquivo}`,
+            tamanho: totalSize,
+            mimeType: data.mimetype,
+            status: 'ENVIADO',
+            candidato: { connect: { id: candidato.id } },
+          },
+        })
+        documentoSalvo = true
+        console.log('💾 Comprovante de residência salvo automaticamente')
+      } else {
+        console.log(`⚠️ Já existe comprovante — máximo atingido`)
+      }
+    } catch (docErr: any) {
+      console.warn('⚠️ Não foi possível salvar documento automaticamente:', docErr.message)
+    }
+  }
+
+  return reply.status(200).send({
+    dados,
+    documentoSalvo,
+    textoOriginal: textoCompleto,
+    camposExtraidos: Object.entries(dados.confianca).filter(([, v]) => v).map(([k]) => k).length,
   })
 }
