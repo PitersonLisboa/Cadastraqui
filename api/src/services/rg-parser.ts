@@ -27,6 +27,10 @@ export interface DadosRG {
   dataNascimento: string | null   // formato ISO yyyy-mm-dd
   orgaoEmissor: string | null     // SSP, DETRAN, etc.
   estadoEmissor: string | null    // SP, RJ, MG, etc.
+  naturalidade: string | null     // cidade de nascimento
+  naturalidadeEstado: string | null // UF da naturalidade (ex: SP, RJ)
+  nacionalidade: string | null    // Brasileira, etc.
+  filiacao: string[] | null       // nomes dos pais (até 2)
   confianca: {
     nome: boolean
     cpf: boolean
@@ -34,6 +38,10 @@ export interface DadosRG {
     dataNascimento: boolean
     orgaoEmissor: boolean
     estadoEmissor: boolean
+    naturalidade: boolean
+    naturalidadeEstado: boolean
+    nacionalidade: boolean
+    filiacao: boolean
   }
 }
 
@@ -330,6 +338,260 @@ function extrairEstadoEmissor(texto: string): string | null {
 }
 
 // ===================================================
+// EXTRATORES DE NATURALIDADE, NACIONALIDADE E FILIAÇÃO
+// ===================================================
+
+/**
+ * Extrai naturalidade (cidade de nascimento) do RG.
+ * Formato típico: "NATURALIDADE São Paulo" ou "NATURALIDADE\nSão Paulo"
+ */
+function extrairNaturalidade(texto: string): string | null {
+  const linhas = texto.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 0)
+
+  for (let i = 0; i < linhas.length; i++) {
+    const upper = linhas[i].toUpperCase()
+
+    // "NATURALIDADE São Paulo" na mesma linha
+    const matchMesma = linhas[i].match(/NATURALIDADE[:\s]+([A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç\s]+)/i)
+    if (matchMesma) {
+      const cidade = matchMesma[1].trim()
+      // Remover se colou com outro campo (ex: "São Paulo DATA")
+      const limpa = cidade.replace(/\s*(DATA|NASCIMENTO|DOC|CPF|FILIAÇÃO|FILIACAO|REGISTRO).*$/i, '').trim()
+      if (limpa.length >= 2) return formatarCidade(limpa)
+    }
+
+    // "NATURALIDADE" sozinha → próxima linha
+    if (/^NATURALIDADE\s*$/i.test(upper) && i + 1 < linhas.length) {
+      const proxLinha = linhas[i + 1].trim()
+      const limpa = proxLinha.replace(/\s*(DATA|NASCIMENTO|DOC|CPF|FILIAÇÃO|FILIACAO|REGISTRO).*$/i, '').trim()
+      if (limpa.length >= 2 && !/\d/.test(limpa)) return formatarCidade(limpa)
+    }
+  }
+  return null
+}
+
+/**
+ * Extrai naturalidade usando posição das palavras (OCR.space).
+ */
+function extrairNaturalidadeComPosicao(palavras: PalavraOCR[]): string | null {
+  const idxNat = palavras.findIndex(p => p.text.trim().toUpperCase() === 'NATURALIDADE')
+  if (idxNat < 0) return null
+
+  const pNat = palavras[idxNat]
+  const yNat = pNat.top + pNat.height / 2
+  const xNatDir = pNat.left + pNat.width
+  const toleranciaY = pNat.height * 2.0
+
+  const candidatas: PalavraOCR[] = []
+
+  for (let i = idxNat + 1; i < palavras.length; i++) {
+    const p = palavras[i]
+    const txt = p.text.trim().toUpperCase()
+    const yP = p.top + p.height / 2
+    const diffY = yP - yNat
+
+    if (ROTULOS_CAMPO.includes(txt) && txt !== 'NATURALIDADE') break
+
+    const mesmaLinha = Math.abs(diffY) < pNat.height * 0.8
+    const proximaLinha = diffY > 0 && diffY < toleranciaY
+
+    if (mesmaLinha && p.left >= xNatDir - 5) {
+      candidatas.push(p)
+    } else if (proximaLinha && !/\d/.test(p.text)) {
+      candidatas.push(p)
+    } else if (diffY > toleranciaY) {
+      break
+    }
+  }
+
+  if (candidatas.length === 0) return null
+
+  candidatas.sort((a, b) => {
+    const dy = a.top - b.top
+    if (Math.abs(dy) > a.height * 0.5) return dy
+    return a.left - b.left
+  })
+
+  const resultado = candidatas.map(p => p.text.trim()).join(' ')
+  if (resultado.length >= 2) return formatarCidade(resultado)
+  return null
+}
+
+/**
+ * Tenta detectar o estado (UF) da naturalidade.
+ * Alguns RGs trazem "São Paulo - SP" ou "São Paulo/SP".
+ */
+function extrairNaturalidadeEstado(texto: string, naturalidade: string | null): string | null {
+  const linhas = texto.split(/[\n\r]+/).map(l => l.trim())
+
+  for (const linha of linhas) {
+    if (!/NATURALIDADE/i.test(linha)) continue
+
+    // "NATURALIDADE São Paulo - SP" ou "São Paulo/SP"
+    for (const uf of UFS) {
+      const pattern = new RegExp(`[\\-\\/\\s]${uf}\\b`, 'i')
+      if (pattern.test(linha)) return uf
+    }
+  }
+
+  // Se temos a naturalidade, tentar mapear cidades conhecidas para UF
+  if (naturalidade) {
+    const cidadeUF: Record<string, string> = {
+      'SAO PAULO': 'SP', 'SÃO PAULO': 'SP', 'RIO DE JANEIRO': 'RJ',
+      'BELO HORIZONTE': 'MG', 'SALVADOR': 'BA', 'CURITIBA': 'PR',
+      'FORTALEZA': 'CE', 'RECIFE': 'PE', 'PORTO ALEGRE': 'RS',
+      'BRASILIA': 'DF', 'BRASÍLIA': 'DF', 'MANAUS': 'AM',
+      'GOIANIA': 'GO', 'GOIÂNIA': 'GO', 'BELEM': 'PA', 'BELÉM': 'PA',
+      'CAMPINAS': 'SP', 'SANTOS': 'SP', 'GUARULHOS': 'SP',
+      'SAO BERNARDO DO CAMPO': 'SP', 'OSASCO': 'SP', 'SOROCABA': 'SP',
+      'NITEROI': 'RJ', 'NITERÓI': 'RJ', 'VITORIA': 'ES', 'VITÓRIA': 'ES',
+      'FLORIANOPOLIS': 'SC', 'FLORIANÓPOLIS': 'SC', 'NATAL': 'RN',
+      'JOAO PESSOA': 'PB', 'JOÃO PESSOA': 'PB', 'MACEIO': 'AL', 'MACEIÓ': 'AL',
+      'SAO LUIS': 'MA', 'SÃO LUÍS': 'MA', 'TERESINA': 'PI', 'ARACAJU': 'SE',
+      'CAMPO GRANDE': 'MS', 'CUIABA': 'MT', 'CUIABÁ': 'MT',
+      'PORTO VELHO': 'RO', 'MACAPA': 'AP', 'MACAPÁ': 'AP',
+      'BOA VISTA': 'RR', 'PALMAS': 'TO', 'RIO BRANCO': 'AC',
+    }
+    const upper = naturalidade.toUpperCase().trim()
+    if (cidadeUF[upper]) return cidadeUF[upper]
+  }
+
+  return null
+}
+
+/**
+ * Extrai nacionalidade do RG.
+ * Quase sempre "BRASILEIRA" ou "BRASILEIRO", mas pode ser outra.
+ */
+function extrairNacionalidade(texto: string): string | null {
+  const linhas = texto.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 0)
+
+  for (let i = 0; i < linhas.length; i++) {
+    // "NACIONALIDADE Brasileira" na mesma linha
+    const match = linhas[i].match(/NACIONALIDADE[:\s]+([A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç\s]+)/i)
+    if (match) {
+      const nac = match[1].trim().replace(/\s*(NATURALIDADE|DATA|NASCIMENTO|FILIAÇÃO|FILIACAO).*$/i, '').trim()
+      if (nac.length >= 2) return formatarCidade(nac) // capitalizar
+    }
+
+    // "NACIONALIDADE" sozinha → próxima linha
+    if (/^NACIONALIDADE\s*$/i.test(linhas[i]) && i + 1 < linhas.length) {
+      const proxLinha = linhas[i + 1].trim()
+      if (proxLinha.length >= 2 && !/\d/.test(proxLinha)) {
+        const nac = proxLinha.replace(/\s*(NATURALIDADE|DATA|NASCIMENTO).*$/i, '').trim()
+        return formatarCidade(nac)
+      }
+    }
+  }
+
+  // Busca direta por palavras de nacionalidade comuns
+  const upper = texto.toUpperCase()
+  if (upper.includes('BRASILEIRA')) return 'Brasileira'
+  if (upper.includes('BRASILEIRO')) return 'Brasileira'
+
+  return null
+}
+
+/**
+ * Extrai filiação (nomes dos pais) do RG.
+ * Formato típico:
+ *   FILIAÇÃO
+ *   JOAO DA SILVA
+ *   MARIA DA SILVA
+ */
+function extrairFiliacao(texto: string): string[] | null {
+  const linhas = texto.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 0)
+  const pais: string[] = []
+
+  for (let i = 0; i < linhas.length; i++) {
+    const upper = linhas[i].toUpperCase()
+
+    if (/FILIA[ÇC][ÃA]O/i.test(upper)) {
+      // "FILIAÇÃO NOME PAI" na mesma linha
+      const matchMesma = linhas[i].match(/FILIA[ÇC][ÃA]O[:\s]+([A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç\s]+)/i)
+      if (matchMesma) {
+        const nome = matchMesma[1].trim()
+        if (isNomeValido(nome)) pais.push(formatarNome(nome))
+      }
+
+      // Próximas 1-2 linhas podem ter os nomes
+      for (let j = i + 1; j <= Math.min(i + 3, linhas.length - 1) && pais.length < 2; j++) {
+        const candidato = linhas[j].trim()
+        const candidatoUpper = candidato.toUpperCase()
+
+        // Parar se encontrou outro rótulo
+        if (ROTULOS_CAMPO.some(r => candidatoUpper.startsWith(r))) break
+        if (/\d{2}[\/\-\.]\d{2}[\/\-\.]\d{4}/.test(candidato)) break // data
+
+        if (isNomeValido(candidato)) {
+          pais.push(formatarNome(candidato))
+        }
+      }
+
+      break // só processar o primeiro bloco de filiação
+    }
+  }
+
+  return pais.length > 0 ? pais : null
+}
+
+/**
+ * Extrai filiação usando posição das palavras (OCR.space).
+ */
+function extrairFiliacaoComPosicao(palavras: PalavraOCR[]): string[] | null {
+  const idxFil = palavras.findIndex(p => /^FILIA[ÇC][ÃA]O$/i.test(p.text.trim()))
+  if (idxFil < 0) return null
+
+  const pFil = palavras[idxFil]
+  const yFil = pFil.top + pFil.height / 2
+  const toleranciaY = pFil.height * 4.0 // filiação pode ter 2 linhas de nomes
+
+  const linhasAgrupadas: Map<number, PalavraOCR[]> = new Map()
+
+  for (let i = idxFil + 1; i < palavras.length; i++) {
+    const p = palavras[i]
+    const txt = p.text.trim().toUpperCase()
+    const yP = p.top + p.height / 2
+    const diffY = yP - yFil
+
+    if (ROTULOS_CAMPO.includes(txt) && !/FILIA/i.test(txt)) break
+    if (diffY > toleranciaY) break
+    if (/\d/.test(p.text)) continue // pular números
+
+    // Agrupar por linha (top similar)
+    const linhaKey = Math.round(p.top / (p.height * 0.8))
+    if (!linhasAgrupadas.has(linhaKey)) linhasAgrupadas.set(linhaKey, [])
+    linhasAgrupadas.get(linhaKey)!.push(p)
+  }
+
+  const pais: string[] = []
+  const linhasOrdenadas = [...linhasAgrupadas.entries()].sort(([a], [b]) => a - b)
+
+  for (const [, palavrasDaLinha] of linhasOrdenadas) {
+    if (pais.length >= 2) break
+    palavrasDaLinha.sort((a, b) => a.left - b.left)
+    const nome = palavrasDaLinha.map(p => p.text.trim()).join(' ')
+    if (isNomeValido(nome)) {
+      pais.push(formatarNome(nome))
+    }
+  }
+
+  return pais.length > 0 ? pais : null
+}
+
+function formatarCidade(cidade: string): string {
+  return cidade
+    .trim()
+    .split(/\s+/)
+    .map(p => {
+      const lower = p.toLowerCase()
+      if (['da', 'de', 'do', 'das', 'dos', 'e'].includes(lower)) return lower
+      return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()
+    })
+    .join(' ')
+}
+
+// ===================================================
 // UTILITÁRIOS
 // ===================================================
 
@@ -406,6 +668,35 @@ export function parsearRG(
   const orgaoEmissor = extrairOrgaoEmissor(textoCompleto)
   const estadoEmissor = extrairEstadoEmissor(textoCompleto)
 
+  // ── NATURALIDADE: posição → texto ──
+  let naturalidade: string | null = null
+  if (palavras && palavras.length > 2) {
+    naturalidade = extrairNaturalidadeComPosicao(palavras)
+    if (naturalidade) console.log(`✅ Naturalidade por POSIÇÃO: "${naturalidade}"`)
+  }
+  if (!naturalidade) {
+    naturalidade = extrairNaturalidade(textoCompleto)
+    if (naturalidade) console.log(`✅ Naturalidade por TEXTO: "${naturalidade}"`)
+  }
+
+  const naturalidadeEstado = extrairNaturalidadeEstado(textoCompleto, naturalidade)
+  if (naturalidadeEstado) console.log(`✅ Estado naturalidade: "${naturalidadeEstado}"`)
+
+  // ── NACIONALIDADE ──
+  const nacionalidade = extrairNacionalidade(textoCompleto)
+  if (nacionalidade) console.log(`✅ Nacionalidade: "${nacionalidade}"`)
+
+  // ── FILIAÇÃO: posição → texto ──
+  let filiacao: string[] | null = null
+  if (palavras && palavras.length > 2) {
+    filiacao = extrairFiliacaoComPosicao(palavras)
+    if (filiacao) console.log(`✅ Filiação por POSIÇÃO: ${JSON.stringify(filiacao)}`)
+  }
+  if (!filiacao) {
+    filiacao = extrairFiliacao(textoCompleto)
+    if (filiacao) console.log(`✅ Filiação por TEXTO: ${JSON.stringify(filiacao)}`)
+  }
+
   const resultado: DadosRG = {
     nome,
     cpf,
@@ -413,6 +704,10 @@ export function parsearRG(
     dataNascimento,
     orgaoEmissor,
     estadoEmissor,
+    naturalidade,
+    naturalidadeEstado,
+    nacionalidade,
+    filiacao,
     confianca: {
       nome: nome !== null,
       cpf: cpf !== null,
@@ -420,6 +715,10 @@ export function parsearRG(
       dataNascimento: dataNascimento !== null,
       orgaoEmissor: orgaoEmissor !== null,
       estadoEmissor: estadoEmissor !== null,
+      naturalidade: naturalidade !== null,
+      naturalidadeEstado: naturalidadeEstado !== null,
+      nacionalidade: nacionalidade !== null,
+      filiacao: filiacao !== null,
     },
   }
 

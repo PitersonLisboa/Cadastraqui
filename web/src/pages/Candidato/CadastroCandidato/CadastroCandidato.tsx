@@ -982,6 +982,15 @@ export function CadastroCandidato() {
         return updated
       })
 
+      // Merge de campos adicionais (nacionalidade, naturalidade, estado)
+      setAdicionais(prev => {
+        const updated = { ...prev }
+        if (d.nacionalidade && !prev.nacionalidade?.trim()) { updated.nacionalidade = d.nacionalidade; preenchidos.push('nacionalidade') }
+        if (d.naturalidade && !prev.naturalidade?.trim()) { updated.naturalidade = d.naturalidade; preenchidos.push('naturalidade') }
+        if (d.naturalidadeEstado && !prev.estado?.trim()) { updated.estado = d.naturalidadeEstado; preenchidos.push('estado') }
+        return updated
+      })
+
       setOcrCamposPreenchidos(preenchidos)
 
       const lado = res.qualLado === 'verso' ? ' (verso)' : res.qualLado === 'frente' ? ' (frente)' : ''
@@ -1494,6 +1503,20 @@ export function CadastroCandidato() {
                     </select>
                   </div>
                   <div className={styles.field}><label>Órgão emissor do RG/RNE</label><input value={dados.rgOrgao} disabled={!editMode} placeholder="SSP" onChange={e => setDados({ ...dados, rgOrgao: e.target.value })} style={ocrCamposPreenchidos.includes('rgOrgao') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={`${styles.field} ${styles.fieldFull}`}><label>Nome social (quando houver)</label><input value={adicionais.nomeSocial} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, nomeSocial: e.target.value })} /></div>
+                  <div className={styles.field}><label>Sexo</label>
+                    <select value={adicionais.sexo} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, sexo: e.target.value })}>
+                      <option value="">Selecione...</option>{SEXO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+                  <div className={styles.field}><label>Profissão</label><input value={adicionais.profissao} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, profissao: e.target.value })} /></div>
+                  <div className={styles.field}><label>Nacionalidade</label><input value={adicionais.nacionalidade} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, nacionalidade: e.target.value })} style={ocrCamposPreenchidos.includes('nacionalidade') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={styles.field}><label>Naturalidade</label><input value={adicionais.naturalidade} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, naturalidade: e.target.value })} style={ocrCamposPreenchidos.includes('naturalidade') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} /></div>
+                  <div className={styles.field}><label>Estado</label>
+                    <select value={adicionais.estado} disabled={!editMode} onChange={e => setAdicionais({ ...adicionais, estado: e.target.value })} style={ocrCamposPreenchidos.includes('estado') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined}>
+                      <option value="">Selecione...</option>{ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div className={styles.fieldWide}>
                   <label>Documento de identificação {documentos.filter(d => d.tipo === 'RG').length === 1 ? '(Verso)' : '(Frente)'}</label>
