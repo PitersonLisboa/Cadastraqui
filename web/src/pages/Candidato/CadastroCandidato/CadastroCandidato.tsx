@@ -4,7 +4,7 @@ import { toast } from 'react-toastify'
 import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp, FiFileText, FiUpload, FiCheck, FiCamera } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
-import { api, rendaService, despesaService, moradiaService, veiculoService, saudeService, ocrService, ocrMembroService } from '@/services/api'
+import { api, rendaService, despesaService, moradiaService, veiculoService, saudeService, ocrService, ocrMembroService, getAuthToken, getApiBaseUrl } from '@/services/api'
 import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
 import { DateInput } from '@/components/common/DateInput/DateInput'
 import { MembroDetalhe } from './MembroDetalhe'
@@ -850,19 +850,10 @@ export function CadastroCandidato() {
     setUploadingDocMembro(false)
   }
 
-  const handleViewDocMembro = async (membroId: string, docId: string) => {
-    try {
-      const response = await api.get(`/familia/membros/${membroId}/documentos/${docId}/download`, { responseType: 'blob' })
-      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' })
-      abrirBlobNovaAba(blob)
-    } catch (err: any) {
-      console.error('❌ Erro ao visualizar doc membro:', err.response?.status, err.response?.data)
-      if (err.response?.status === 404) {
-        toast.error('Arquivo não encontrado no servidor. Pode ter sido perdido após um redeploy. Envie novamente.')
-      } else {
-        toast.error(err.response?.data?.message || 'Erro ao visualizar documento')
-      }
-    }
+  const handleViewDocMembro = (membroId: string, docId: string) => {
+    const token = getAuthToken()
+    if (!token) return toast.error('Sessão expirada. Faça login novamente.')
+    window.open(`${getApiBaseUrl()}/familia/membros/${membroId}/documentos/${docId}/download?token=${encodeURIComponent(token)}`, '_blank')
   }
 
   const handleExcluirDocMembro = async (membroId: string, docId: string) => {
@@ -1393,36 +1384,10 @@ export function CadastroCandidato() {
     } catch { toast.error('Erro ao remover documento') }
   }
 
-  /** Abre blob em nova aba (compatível com mobile, evita bloqueio de popup) */
-  const abrirBlobNovaAba = (blob: Blob) => {
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    // Em mobile, alguns browsers bloqueiam window.open mas permitem click em <a>
-    document.body.appendChild(a)
-    a.click()
-    // Limpar
-    setTimeout(() => {
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    }, 60000)
-  }
-
-  const handleViewDoc = async (docId: string) => {
-    try {
-      const response = await api.get(`/documentos/${docId}/download`, { responseType: 'blob' })
-      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' })
-      abrirBlobNovaAba(blob)
-    } catch (err: any) {
-      console.error('❌ Erro ao visualizar doc:', err.response?.status, err.response?.data)
-      if (err.response?.status === 404) {
-        toast.error('Arquivo não encontrado no servidor. Pode ter sido perdido após um redeploy. Envie novamente.')
-      } else {
-        toast.error(err.response?.data?.message || 'Erro ao visualizar documento')
-      }
-    }
+  const handleViewDoc = (docId: string) => {
+    const token = getAuthToken()
+    if (!token) return toast.error('Sessão expirada. Faça login novamente.')
+    window.open(`${getApiBaseUrl()}/documentos/${docId}/download?token=${encodeURIComponent(token)}`, '_blank')
   }
 
   // ── Handlers Saúde ──
@@ -1550,14 +1515,11 @@ export function CadastroCandidato() {
     }
   }
 
-  const handleViewSaudeArquivo = async (tipo: 'laudo' | 'receita') => {
+  const handleViewSaudeArquivo = (tipo: 'laudo' | 'receita') => {
     if (!saudeForm.id) return
-    try {
-      const blob = await saudeService.downloadArquivo(saudeForm.id, tipo)
-      abrirBlobNovaAba(blob)
-    } catch (err: any) {
-      toast.error('Erro ao visualizar arquivo')
-    }
+    const token = getAuthToken()
+    if (!token) return toast.error('Sessão expirada. Faça login novamente.')
+    window.open(`${getApiBaseUrl()}/saude/${saudeForm.id}/download/${tipo}?token=${encodeURIComponent(token)}`, '_blank')
   }
 
   const handleExcluirSaudeArquivo = async (tipo: 'laudo' | 'receita') => {

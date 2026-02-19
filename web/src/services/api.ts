@@ -19,6 +19,23 @@ export const api = axios.create({
   },
 })
 
+/** Retorna o token JWT atual do localStorage (para uso em URLs diretas de download) */
+export function getAuthToken(): string | null {
+  try {
+    const storage = localStorage.getItem('cadastraqui-persist')
+    if (storage) {
+      const { authState } = JSON.parse(storage)
+      return authState?.token || null
+    }
+  } catch {}
+  return null
+}
+
+/** Retorna a base URL da API */
+export function getApiBaseUrl(): string {
+  return API_URL
+}
+
 // Interceptor para adicionar token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {

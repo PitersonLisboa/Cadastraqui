@@ -26,13 +26,22 @@ declare module 'fastify' {
 
 export async function verificarJWT(request: FastifyRequest, reply: FastifyReply) {
   try {
-    const authHeader = request.headers.authorization
+    let token: string | undefined
 
-    if (!authHeader) {
-      throw new TokenInvalidoError()
+    // 1. Tentar extrair do header Authorization
+    const authHeader = request.headers.authorization
+    if (authHeader) {
+      const parts = authHeader.split(' ')
+      token = parts[1]
     }
 
-    const [, token] = authHeader.split(' ')
+    // 2. Fallback: query param ?token= (para downloads diretos em nova aba)
+    if (!token) {
+      const queryToken = (request.query as any)?.token
+      if (typeof queryToken === 'string' && queryToken.length > 0) {
+        token = queryToken
+      }
+    }
 
     if (!token) {
       throw new TokenInvalidoError()
