@@ -81,19 +81,50 @@ export async function detectarTexto(
   formData.append('detectOrientation', 'true')
   formData.append('filetype', mimeType.includes('png') ? 'PNG' : 'JPG')
 
-  let response: Response
-  try {
-    response = await fetch(OCR_SPACE_URL, {
-      method: 'POST',
-      headers: {
-        'apikey': OCR_SPACE_API_KEY,
-        // NÃO setar Content-Type — fetch define automaticamente com boundary correto
-      },
-      body: formData,
-    })
-  } catch (fetchErr: any) {
-    console.error('❌ OCR.space — Erro de rede:', fetchErr.message)
-    throw new Error(`Falha de conexão com OCR.space: ${fetchErr.message}`)
+  const MAX_TENTATIVAS = 2
+  const TIMEOUT_MS = 30000 // 30s timeout (evita travar 2min no rate limit)
+  const DELAY_RETRY_MS = 3000 // 3s entre tentativas
+
+  let response: Response | null = null
+  let ultimoErro: Error | null = null
+
+  for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+      if (tentativa > 1) {
+        console.log(`🔄 OCR.space — Tentativa ${tentativa}/${MAX_TENTATIVAS} (aguardou ${DELAY_RETRY_MS / 1000}s)...`)
+      }
+
+      response = await fetch(OCR_SPACE_URL, {
+        method: 'POST',
+        headers: {
+          'apikey': OCR_SPACE_API_KEY,
+        },
+        body: formData,
+        signal: controller.signal,
+      })
+      clearTimeout(timer)
+      break // sucesso, sair do loop
+    } catch (fetchErr: any) {
+      ultimoErro = fetchErr
+      const msg = fetchErr.name === 'AbortError'
+        ? `Timeout após ${TIMEOUT_MS / 1000}s`
+        : fetchErr.message
+      console.error(`❌ OCR.space — Tentativa ${tentativa}/${MAX_TENTATIVAS} falhou: ${msg}`)
+
+      if (tentativa < MAX_TENTATIVAS) {
+        await new Promise(r => setTimeout(r, DELAY_RETRY_MS))
+      }
+    }
+  }
+
+  if (!response) {
+    const msg = ultimoErro?.name === 'AbortError'
+      ? 'OCR.space não respondeu a tempo. Tente novamente em alguns instantes.'
+      : `Falha de conexão com OCR.space: ${ultimoErro?.message}`
+    throw new Error(msg)
   }
 
   const tempoMs = Date.now() - inicio
