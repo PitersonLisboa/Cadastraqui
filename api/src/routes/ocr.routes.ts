@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { verificarRole } from '../middlewares/auth'
-import { escanearRG, escanearComprovante, escanearCertidao } from '../controllers/ocr.controller'
+import { escanearRG, escanearComprovante, escanearCertidao, escanearRGMembro, escanearCertidaoMembro } from '../controllers/ocr.controller'
 
 export async function ocrRoutes(app: FastifyInstance) {
   app.addHook('preHandler', verificarRole('CANDIDATO', 'ASSISTENTE_SOCIAL', 'ADMIN', 'SUPERVISAO', 'OPERACIONAL'))
@@ -13,4 +13,8 @@ export async function ocrRoutes(app: FastifyInstance) {
 
   // Escanear certidão e extrair estado civil
   app.post('/ocr/certidao', escanearCertidao)
+
+  // ── OCR para membros da família ──
+  app.post('/ocr/membro/:membroId/rg', escanearRGMembro)
+  app.post('/ocr/membro/:membroId/certidao', escanearCertidaoMembro)
 }

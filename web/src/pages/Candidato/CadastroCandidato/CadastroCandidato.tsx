@@ -4,7 +4,7 @@ import { toast } from 'react-toastify'
 import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp, FiFileText, FiUpload, FiCheck, FiCamera } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
-import { api, rendaService, despesaService, moradiaService, veiculoService, saudeService, ocrService } from '@/services/api'
+import { api, rendaService, despesaService, moradiaService, veiculoService, saudeService, ocrService, ocrMembroService } from '@/services/api'
 import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
 import { DateInput } from '@/components/common/DateInput/DateInput'
 import { MembroDetalhe } from './MembroDetalhe'
@@ -122,7 +122,7 @@ const RELIGIAO_MEMBRO_OPTIONS = [
 ]
 
 const MEMBRO_SUB_STEP_LABELS = [
-  'Parentesco', 'Dados Pessoais', 'Informações Adicionais', 'Estado Civil',
+  'Dados Pessoais', 'Estado Civil',
   'Informações Pessoais', 'Documento de Identificação', 'Documento Adicional', 'Benefícios e Programas',
 ]
 
@@ -443,6 +443,16 @@ export function CadastroCandidato() {
   const [membroOutrosQtd, setMembroOutrosQtd] = useState(1)
   const [membroOutrosArquivos, setMembroOutrosArquivos] = useState<(File | null)[]>([null])
   const membroOutrosRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // --- OCR para Membro ---
+  const scanMembroRgRef = useRef<HTMLInputElement>(null)
+  const anexarMembroRgRef = useRef<HTMLInputElement>(null)
+  const scanMembroCertidaoRef = useRef<HTMLInputElement>(null)
+  const anexarMembroCertidaoRef = useRef<HTMLInputElement>(null)
+  const [scanningMembroRG, setScanningMembroRG] = useState(false)
+  const [ocrCamposMembroPreenchidos, setOcrCamposMembroPreenchidos] = useState<string[]>([])
+  const [scanningMembroCertidao, setScanningMembroCertidao] = useState(false)
+  const [ocrCamposMembroCertPreenchidos, setOcrCamposMembroCertPreenchidos] = useState<string[]>([])
 
   // --- Moradia ---
   const [subStepMoradia, setSubStepMoradia] = useState(0)
@@ -778,6 +788,8 @@ export function CadastroCandidato() {
     setMembroDocFile(null)
     setMembroDocTipo('')
     setMembroOutrosArquivos([null])
+    setOcrCamposMembroPreenchidos([])
+    setOcrCamposMembroCertPreenchidos([])
   }
 
   // ── Documentos do Membro (tabela documentos_membros) ──
@@ -865,6 +877,86 @@ export function CadastroCandidato() {
     if (!confirm('Excluir este membro?')) return
     try { await api.delete(`/familia/membros/${id}`); toast.success('Removido'); carregarDados() }
     catch { toast.error('Erro ao remover') }
+  }
+
+  // ── OCR Membro: Escanear RG ──
+  const handleScanMembroRG = async (file: File) => {
+    if (!editingMembroId) return toast.error('Salve o membro antes de escanear')
+    setScanningMembroRG(true)
+    setOcrCamposMembroPreenchidos([])
+
+    try {
+      const res = await ocrMembroService.escanearRG(editingMembroId, file)
+      const d = res.dados
+      const preenchidos: string[] = []
+
+      setNovoMembro(prev => {
+        const updated = { ...prev }
+        if (d.nome && !prev.nome?.trim()) { updated.nome = d.nome; preenchidos.push('nome') }
+        if (d.cpf && !prev.cpf?.trim()) { updated.cpf = maskCPF(d.cpf); preenchidos.push('cpf') }
+        if (d.dataNascimento && !prev.dataNascimento?.trim()) { updated.dataNascimento = d.dataNascimento; preenchidos.push('dataNascimento') }
+        if (d.rg && !prev.rg?.trim()) { updated.rg = d.rg; preenchidos.push('rg') }
+        if (d.orgaoEmissor && !prev.rgOrgao?.trim()) { updated.rgOrgao = d.orgaoEmissor; preenchidos.push('rgOrgao') }
+        if (d.estadoEmissor && !prev.rgEstado?.trim()) { updated.rgEstado = d.estadoEmissor; preenchidos.push('rgEstado') }
+        if (d.nacionalidade && !prev.nacionalidade?.trim()) { updated.nacionalidade = d.nacionalidade; preenchidos.push('nacionalidade') }
+        if (d.naturalidade && !prev.naturalidade?.trim()) { updated.naturalidade = d.naturalidade; preenchidos.push('naturalidade') }
+        if (d.naturalidadeEstado && !prev.estado?.trim()) { updated.estado = d.naturalidadeEstado; preenchidos.push('estado') }
+        return updated
+      })
+
+      setOcrCamposMembroPreenchidos(preenchidos)
+
+      const lado = res.qualLado === 'verso' ? ' (verso)' : res.qualLado === 'frente' ? ' (frente)' : ''
+      if (preenchidos.length > 0) {
+        toast.success(`${preenchidos.length} campo(s) preenchido(s) automaticamente${lado}! Revise e salve.`)
+      } else {
+        toast.warn(`Não foi possível extrair novos dados da imagem${lado}. Campos já preenchidos foram mantidos.`)
+      }
+
+      if (res.documentoSalvo) {
+        carregarDocsMembro(editingMembroId)
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao escanear documento')
+    } finally {
+      setScanningMembroRG(false)
+    }
+  }
+
+  // ── OCR Membro: Escanear Certidão ──
+  const handleScanMembroCertidao = async (file: File) => {
+    if (!editingMembroId) return toast.error('Salve o membro antes de escanear')
+    setScanningMembroCertidao(true)
+    setOcrCamposMembroCertPreenchidos([])
+
+    try {
+      const res = await ocrMembroService.escanearCertidao(editingMembroId, file)
+      const d = res.dados
+      const preenchidos: string[] = []
+
+      if (d.estadoCivil && !novoMembro.estadoCivil?.trim()) {
+        setNovoMembro(prev => ({ ...prev, estadoCivil: d.estadoCivil }))
+        preenchidos.push('estadoCivil')
+      }
+
+      setOcrCamposMembroCertPreenchidos(preenchidos)
+
+      if (preenchidos.length > 0) {
+        toast.success('Estado civil preenchido automaticamente! Revise e salve.')
+      } else if (d.estadoCivil && novoMembro.estadoCivil?.trim()) {
+        toast.info('Certidão processada. O campo estado civil já estava preenchido.')
+      } else {
+        toast.warn('Não foi possível detectar o estado civil na imagem. Preencha manualmente.')
+      }
+
+      if (res.documentoSalvo) {
+        carregarDocsMembro(editingMembroId)
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao processar certidão')
+    } finally {
+      setScanningMembroCertidao(false)
+    }
   }
 
   const sectionIndex = SECTION_IDS.indexOf(activeSection)
@@ -1974,7 +2066,7 @@ export function CadastroCandidato() {
       }
 
       // ════════════════════════════════════════
-      // GRUPO FAMILIAR — 8 sub-steps wizard
+      // GRUPO FAMILIAR — 6 sub-steps wizard
       // ════════════════════════════════════════
       case 'grupo-familiar': {
         // Se NÃO está no wizard de cadastro, mostra a lista de membros
@@ -2004,14 +2096,71 @@ export function CadastroCandidato() {
           )
         }
 
-        // ── WIZARD 8-STEP DE CADASTRO/EDIÇÃO ──
+        // ── WIZARD 6-STEP DE CADASTRO/EDIÇÃO ──
         const membroStepContent = () => {
           switch (subStepMembro) {
 
-            // ─── Step 1: Parentesco ───
+            // ─── Step 1: Dados Pessoais (Parentesco + Dados + Info Adicionais + OCR RG) ───
             case 0: return (
               <>
-                <h2 className={styles.sectionTitle}>Parentesco</h2>
+                <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
+
+                {/* OCR RG scan — replicando lógica do candidato */}
+                {editingMembroId && docsMembro.filter(d => d.tipo === 'RG_MEMBRO').length < 2 && (
+                  <div style={{ margin: '0.5rem 0 1rem', padding: '0.75rem 1rem', background: '#f0f7ff', borderRadius: 'var(--radius)', border: '1px solid #d0e3f7' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Auxílio ao preenchimento</label>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div
+                        onClick={() => !scanningMembroRG && scanMembroRgRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid var(--color-primary)', color: 'var(--color-primary)',
+                          cursor: scanningMembroRG ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        {scanningMembroRG
+                          ? <><div className={styles.spinnerSmall} /> Processando...</>
+                          : <><FiCamera size={17} /> Escanear RG ({docsMembro.filter(d => d.tipo === 'RG_MEMBRO').length === 0 ? 'Frente' : 'Verso'})</>
+                        }
+                      </div>
+                      <div
+                        onClick={() => !scanningMembroRG && anexarMembroRgRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid #64748b', color: '#475569',
+                          cursor: scanningMembroRG ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        <FiPlus size={17} /> Anexar arquivo
+                      </div>
+                    </div>
+                    <input ref={scanMembroRgRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroRG(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarMembroRgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroRG(e.target.files[0]); e.target.value = '' }} />
+                    <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
+                      Tire uma foto ou anexe a imagem do RG. Alguns campos serão preenchidos automaticamente. (máx. 2: frente e verso)
+                    </small>
+                  </div>
+                )}
+                {!editingMembroId && (
+                  <p style={{ fontSize: '0.85rem', color: '#f59e0b', marginBottom: '0.75rem' }}>
+                    Preencha o parentesco e nome, depois salve para habilitar o escaneamento de RG.
+                  </p>
+                )}
+                {ocrCamposMembroPreenchidos.length > 0 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', marginBottom: '0.75rem' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> {ocrCamposMembroPreenchidos.length} campo(s) preenchido(s) pelo scan. Revise e clique em Salvar.
+                  </p>
+                )}
+                {docsMembro.filter(d => d.tipo === 'RG_MEMBRO').length >= 2 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', margin: '0.5rem 0' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Frente e verso enviados (2/2). Exclua um para enviar outro.
+                  </p>
+                )}
+
                 <div className={styles.formGrid}>
                   <div className={styles.field}><label>Parentesco</label>
                     <select value={novoMembro.parentesco} onChange={e => setNovoMembro({ ...novoMembro, parentesco: e.target.value })}>
@@ -2019,20 +2168,11 @@ export function CadastroCandidato() {
                       {PARENTESCO_MEMBRO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
-                </div>
-              </>
-            )
-
-            // ─── Step 2: Dados Pessoais ───
-            case 1: return (
-              <>
-                <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
-                <div className={styles.formGrid}>
                   <div className={styles.field}><label>Nome completo</label>
-                    <input value={novoMembro.nome} onChange={e => setNovoMembro({ ...novoMembro, nome: e.target.value })} />
+                    <input value={novoMembro.nome} onChange={e => setNovoMembro({ ...novoMembro, nome: e.target.value })} style={ocrCamposMembroPreenchidos.includes('nome') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} />
                   </div>
                   <div className={styles.field}><label>CPF</label>
-                    <input value={novoMembro.cpf} onChange={e => setNovoMembro({ ...novoMembro, cpf: maskCPF(e.target.value) })} />
+                    <input value={novoMembro.cpf} onChange={e => setNovoMembro({ ...novoMembro, cpf: maskCPF(e.target.value) })} style={ocrCamposMembroPreenchidos.includes('cpf') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} />
                   </div>
                   <div className={styles.field}><label>Data de nascimento</label>
                     <DateInput value={novoMembro.dataNascimento || ''} onChange={v => setNovoMembro({ ...novoMembro, dataNascimento: v })} />
@@ -2044,27 +2184,17 @@ export function CadastroCandidato() {
                     <input type="email" value={novoMembro.email || ''} onChange={e => setNovoMembro({ ...novoMembro, email: e.target.value })} />
                   </div>
                   <div className={styles.field}><label>RG/RNE</label>
-                    <input value={novoMembro.rg || ''} onChange={e => setNovoMembro({ ...novoMembro, rg: e.target.value })} />
+                    <input value={novoMembro.rg || ''} onChange={e => setNovoMembro({ ...novoMembro, rg: e.target.value })} style={ocrCamposMembroPreenchidos.includes('rg') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} />
                   </div>
                   <div className={styles.field}><label>Estado emissor do RG/RNE</label>
-                    <select value={novoMembro.rgEstado || ''} onChange={e => setNovoMembro({ ...novoMembro, rgEstado: e.target.value })}>
+                    <select value={novoMembro.rgEstado || ''} onChange={e => setNovoMembro({ ...novoMembro, rgEstado: e.target.value })} style={ocrCamposMembroPreenchidos.includes('rgEstado') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined}>
                       <option value="">Selecione o estado</option>
                       {ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
                     </select>
                   </div>
                   <div className={styles.field}><label>Órgão emissor do RG/RNE</label>
-                    <input value={novoMembro.rgOrgao || ''} onChange={e => setNovoMembro({ ...novoMembro, rgOrgao: e.target.value })} />
+                    <input value={novoMembro.rgOrgao || ''} onChange={e => setNovoMembro({ ...novoMembro, rgOrgao: e.target.value })} style={ocrCamposMembroPreenchidos.includes('rgOrgao') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} />
                   </div>
-                </div>
-              </>
-            )
-
-            // ─── Step 3: Informações Adicionais ───
-            case 2: return (
-              <>
-                <h2 className={styles.sectionTitle}>Informações Adicionais</h2>
-                {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
-                <div className={styles.formGrid}>
                   <div className={`${styles.field} ${styles.fieldFull}`}><label>Nome social (quando houver)</label>
                     <input value={novoMembro.nomeSocial || ''} onChange={e => setNovoMembro({ ...novoMembro, nomeSocial: e.target.value })} />
                   </div>
@@ -2078,13 +2208,13 @@ export function CadastroCandidato() {
                     <input value={novoMembro.profissao || ''} onChange={e => setNovoMembro({ ...novoMembro, profissao: e.target.value })} />
                   </div>
                   <div className={`${styles.field} ${styles.fieldFull}`}><label>Nacionalidade</label>
-                    <input value={novoMembro.nacionalidade || ''} onChange={e => setNovoMembro({ ...novoMembro, nacionalidade: e.target.value })} placeholder="Brasileira" />
+                    <input value={novoMembro.nacionalidade || ''} onChange={e => setNovoMembro({ ...novoMembro, nacionalidade: e.target.value })} placeholder="Brasileira" style={ocrCamposMembroPreenchidos.includes('nacionalidade') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} />
                   </div>
                   <div className={`${styles.field} ${styles.fieldFull}`}><label>Naturalidade</label>
-                    <input value={novoMembro.naturalidade || ''} onChange={e => setNovoMembro({ ...novoMembro, naturalidade: e.target.value })} />
+                    <input value={novoMembro.naturalidade || ''} onChange={e => setNovoMembro({ ...novoMembro, naturalidade: e.target.value })} style={ocrCamposMembroPreenchidos.includes('naturalidade') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined} />
                   </div>
                   <div className={styles.field}><label>Estado</label>
-                    <select value={novoMembro.estado || ''} onChange={e => setNovoMembro({ ...novoMembro, estado: e.target.value })}>
+                    <select value={novoMembro.estado || ''} onChange={e => setNovoMembro({ ...novoMembro, estado: e.target.value })} style={ocrCamposMembroPreenchidos.includes('estado') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined}>
                       <option value="">Selecione o estado</option>
                       {ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
                     </select>
@@ -2093,24 +2223,92 @@ export function CadastroCandidato() {
               </>
             )
 
-            // ─── Step 4: Estado Civil ───
-            case 3: return (
+            // ─── Step 2: Estado Civil + OCR Certidão ───
+            case 1: return (
               <>
                 <h2 className={styles.sectionTitle}>Estado Civil</h2>
                 {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
+
+                {/* OCR Certidão scan */}
+                {editingMembroId && docsMembro.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').length === 0 && (
+                  <div style={{ margin: '0.5rem 0 1rem', padding: '0.75rem 1rem', background: '#f0f7ff', borderRadius: 'var(--radius)', border: '1px solid #d0e3f7' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Auxílio ao preenchimento</label>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      <div
+                        onClick={() => !scanningMembroCertidao && scanMembroCertidaoRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid var(--color-primary)', color: 'var(--color-primary)',
+                          cursor: scanningMembroCertidao ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        {scanningMembroCertidao
+                          ? <><div className={styles.spinnerSmall} /> Processando...</>
+                          : <><FiCamera size={17} /> Escanear Certidão</>
+                        }
+                      </div>
+                      <div
+                        onClick={() => !scanningMembroCertidao && anexarMembroCertidaoRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid #64748b', color: '#475569',
+                          cursor: scanningMembroCertidao ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        <FiPlus size={17} /> Anexar arquivo
+                      </div>
+                    </div>
+                    <input ref={scanMembroCertidaoRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroCertidao(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarMembroCertidaoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroCertidao(e.target.files[0]); e.target.value = '' }} />
+                    <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
+                      Tire uma foto ou anexe a certidão (casamento, nascimento, divórcio, união estável). O estado civil será preenchido automaticamente.
+                    </small>
+                  </div>
+                )}
+
+                {ocrCamposMembroCertPreenchidos.length > 0 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', marginBottom: '0.75rem' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Estado civil preenchido pelo scan. Revise e clique em Salvar.
+                  </p>
+                )}
+
                 <div className={styles.formGrid}>
                   <div className={styles.field}><label>Estado civil</label>
-                    <select value={novoMembro.estadoCivil || ''} onChange={e => setNovoMembro({ ...novoMembro, estadoCivil: e.target.value })}>
+                    <select value={novoMembro.estadoCivil || ''} onChange={e => setNovoMembro({ ...novoMembro, estadoCivil: e.target.value })} style={ocrCamposMembroCertPreenchidos.includes('estadoCivil') ? { borderColor: '#16a34a', boxShadow: '0 0 0 1px #16a34a' } : undefined}>
                       <option value="">Selecione</option>
                       {ESTADO_CIVIL_MEMBRO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                 </div>
+
+                {docsMembro.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').length > 0 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', margin: '0.5rem 0' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Certidão enviada.
+                  </p>
+                )}
+                {/* Lista de certidões enviadas */}
+                {docsMembro.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').length > 0 && (
+                  <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: '#334155' }}>Certidão enviada</p>
+                    {docsMembro.filter(d => d.tipo === 'CERTIDAO_CASAMENTO').map(doc => (
+                      <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0' }}>
+                        <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
+                          onClick={() => handleViewDocMembro(editingMembroId!, doc.id)}>Visualizar</button>
+                        <button className={styles.btnSmallDanger} onClick={() => handleExcluirDocMembro(editingMembroId!, doc.id)}><FiTrash2 size={14} /></button>
+                        <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{doc.nome}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )
 
-            // ─── Step 5: Informações Pessoais ───
-            case 4: return (
+            // ─── Step 3: Informações Pessoais ───
+            case 2: return (
               <>
                 <h2 className={styles.sectionTitle}>Informações Pessoais</h2>
                 {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
@@ -2152,27 +2350,13 @@ export function CadastroCandidato() {
               </>
             )
 
-            // ─── Step 6: Documento de Identificação ───
-            case 5: {
+            // ─── Step 4: Documento de Identificação ───
+            case 3: {
               const rgDocEnviado = docsMembro.find(d => d.tipo === 'RG_MEMBRO')
               return (
                 <>
                   <h2 className={styles.sectionTitle}>Documento de Identificação</h2>
                   {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
-                  <div className={styles.formGrid}>
-                    <div className={styles.field}><label>RG/RNE</label>
-                      <input value={novoMembro.rg || ''} onChange={e => setNovoMembro({ ...novoMembro, rg: e.target.value })} />
-                    </div>
-                    <div className={styles.field}><label>Estado emissor do RG/RNE</label>
-                      <select value={novoMembro.rgEstado || ''} onChange={e => setNovoMembro({ ...novoMembro, rgEstado: e.target.value })}>
-                        <option value="">Selecione o estado</option>
-                        {ESTADOS_EMISSOR.map(e => <option key={e.value} value={e.value}>{e.label}</option>)}
-                      </select>
-                    </div>
-                    <div className={styles.field}><label>Órgão emissor do RG/RNE</label>
-                      <input value={novoMembro.rgOrgao || ''} onChange={e => setNovoMembro({ ...novoMembro, rgOrgao: e.target.value })} />
-                    </div>
-                  </div>
 
                   {/* Upload RG */}
                   <div className={styles.fieldWide} style={{ marginTop: '1rem' }}>
@@ -2206,13 +2390,28 @@ export function CadastroCandidato() {
                       </>
                     )}
                   </div>
+
+                  {/* Lista de todos os RGs enviados (scan + manual) */}
+                  {docsMembro.filter(d => d.tipo === 'RG_MEMBRO').length > 0 && (
+                    <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: '#334155' }}>Documentos RG enviados</p>
+                      {docsMembro.filter(d => d.tipo === 'RG_MEMBRO').map(doc => (
+                        <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0', borderBottom: '1px solid #e2e8f0' }}>
+                          <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
+                            onClick={() => handleViewDocMembro(editingMembroId!, doc.id)}>Visualizar</button>
+                          <button className={styles.btnSmallDanger} onClick={() => handleExcluirDocMembro(editingMembroId!, doc.id)}><FiTrash2 size={14} /></button>
+                          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{doc.nome}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               )
             }
 
-            // ─── Step 7: Documento Adicional ───
-            case 6: {
-              const docsAdicionaisMembro = docsMembro.filter(d => d.tipo !== 'RG_MEMBRO')
+            // ─── Step 5: Documento Adicional ───
+            case 4: {
+              const docsAdicionaisMembro = docsMembro.filter(d => d.tipo !== 'RG_MEMBRO' && d.tipo !== 'CERTIDAO_CASAMENTO')
               const outrosRestantesMembro = 5 - docsMembro.filter(d => d.tipo === 'OUTROS').length
               return (
                 <>
@@ -2327,8 +2526,8 @@ export function CadastroCandidato() {
               )
             }
 
-            // ─── Step 8: Benefícios e Programas ───
-            case 7: return (
+            // ─── Step 6: Benefícios e Programas ───
+            case 5: return (
               <>
                 <h2 className={styles.sectionTitle}>Benefícios e Programas</h2>
                 {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
@@ -2361,7 +2560,7 @@ export function CadastroCandidato() {
 
         return (
           <>
-            <StepperBar totalSteps={8} currentStep={subStepMembro} onStepClick={setSubStepMembro} />
+            <StepperBar totalSteps={6} currentStep={subStepMembro} onStepClick={setSubStepMembro} />
             {membroStepContent()}
             <div className={styles.footerSplit}>
               {subStepMembro > 0
@@ -2371,7 +2570,7 @@ export function CadastroCandidato() {
               <button className={styles.btnOutline} onClick={handleSaveMembroStep} disabled={savingMembro}>
                 {savingMembro ? 'Salvando...' : 'Salvar'}
               </button>
-              {subStepMembro < 7
+              {subStepMembro < 5
                 ? <button className={styles.btnArrow} onClick={() => setSubStepMembro(s => s + 1)}><FiArrowRight size={20} /></button>
                 : <button className={styles.btnOutlineArrow} onClick={handleConcluirMembro} disabled={savingMembro}>
                     {savingMembro ? 'Salvando...' : 'Concluir'} <FiArrowRight size={16} />

@@ -411,3 +411,209 @@ export async function escanearCertidao(request: FastifyRequest, reply: FastifyRe
     camposExtraidos: Object.entries(dados.confianca).filter(([, v]) => v).map(([k]) => k).length,
   })
 }
+
+
+// ===========================================
+// OCR PARA MEMBROS DA FAMÍLIA
+// Mesmos parsers, mas salva em documentos_membros
+// ===========================================
+
+import { z } from 'zod'
+import { NaoAutorizadoError, RecursoNaoEncontradoError } from '../errors/index'
+
+/** Verifica se o membro pertence ao candidato do usuário logado */
+async function verificarPropriedadeMembroOCR(membroId: string, usuarioId: string) {
+  const membro = await prisma.membroFamilia.findUnique({
+    where: { id: membroId },
+    include: { candidato: true },
+  })
+  if (!membro) throw new RecursoNaoEncontradoError('Membro da família')
+  if (membro.candidato.usuarioId !== usuarioId) throw new NaoAutorizadoError()
+  return membro
+}
+
+/** Salva imagem como documento do membro (tabela documentos_membros) */
+async function salvarDocumentoMembro(
+  membroId: string,
+  buffer: Buffer,
+  filename: string,
+  mimetype: string,
+  tipo: string,
+  nomeExibicao: string,
+  totalSize: number,
+  maxDocs = 1
+) {
+  const existentes = await prisma.documentoMembro.count({
+    where: { membroFamiliaId: membroId, tipo },
+  })
+
+  if (existentes >= maxDocs) {
+    console.log(`⚠️ Já existem ${existentes} documentos do tipo ${tipo} para membro — máximo atingido`)
+    return false
+  }
+
+  const membroDir = path.join(UPLOADS_DIR, 'membros', membroId)
+  fs.mkdirSync(membroDir, { recursive: true })
+
+  const ext = path.extname(filename || '.jpg')
+  const nomeArquivo = `${tipo}_${Date.now()}${ext}`
+  const filePath = path.join(membroDir, nomeArquivo)
+
+  fs.writeFileSync(filePath, buffer)
+
+  await prisma.documentoMembro.create({
+    data: {
+      tipo,
+      nome: nomeExibicao,
+      url: filePath,
+      tamanho: totalSize,
+      mimeType: mimetype,
+      membroFamilia: { connect: { id: membroId } },
+    },
+  })
+
+  console.log(`💾 Documento ${tipo} do membro salvo automaticamente`)
+  return true
+}
+
+// POST /ocr/membro/:membroId/rg
+export async function escanearRGMembro(request: FastifyRequest, reply: FastifyReply) {
+  const { membroId } = z.object({ membroId: z.string().uuid() }).parse(request.params)
+  await verificarPropriedadeMembroOCR(membroId, request.usuario.id)
+
+  const data = await request.file()
+  if (!data) return reply.status(400).send({ message: 'Nenhum arquivo enviado' })
+
+  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  if (!allowedMimes.includes(data.mimetype)) {
+    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP.')
+  }
+
+  const chunks: Buffer[] = []
+  let totalSize = 0
+  const maxSize = 10 * 1024 * 1024
+
+  for await (const chunk of data.file) {
+    totalSize += chunk.length
+    if (totalSize > maxSize) return reply.status(400).send({ message: 'Arquivo excede o limite de 10MB' })
+    chunks.push(chunk)
+  }
+
+  const bufferOriginal = Buffer.concat(chunks)
+  const nomeOriginal = data.filename || 'rg-membro-scan.jpg'
+
+  console.log('📸 OCR RG Membro - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
+
+  const { buffer: bufferOCR, mimeType: ocrMimeType } = await prepararImagemParaOCR(bufferOriginal, data.mimetype)
+
+  let textoCompleto: string
+  let palavrasOCR: PalavraOCR[] = []
+  let linhasOCR: LinhaOCR[] = []
+
+  try {
+    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
+    textoCompleto = resultado.textoCompleto
+    for (const linha of resultado.linhas) {
+      const palavrasDaLinha: PalavraOCR[] = []
+      if (linha.Words) {
+        for (const word of linha.Words) {
+          const p: PalavraOCR = { text: word.WordText, left: word.Left, top: word.Top, width: word.Width, height: word.Height }
+          palavrasOCR.push(p)
+          palavrasDaLinha.push(p)
+        }
+      }
+      linhasOCR.push({ palavras: palavrasDaLinha, minTop: linha.MinTop, maxHeight: linha.MaxHeight })
+    }
+  } catch (err: any) {
+    console.error('❌ Erro no OCR:', err.message)
+    return reply.status(502).send({ message: 'Erro ao processar imagem com OCR. Tente novamente.', detalhe: err.message })
+  }
+
+  if (!textoCompleto || textoCompleto.trim().length === 0) {
+    return reply.status(422).send({ message: 'Não foi possível detectar texto na imagem. Tente com uma foto mais nítida.' })
+  }
+
+  const dados = parsearRG(textoCompleto, palavrasOCR, linhasOCR)
+
+  let documentoSalvo = false
+  let qualLado: 'frente' | 'verso' | null = null
+
+  try {
+    const rgExistentes = await prisma.documentoMembro.count({
+      where: { membroFamiliaId: membroId, tipo: 'RG_MEMBRO' },
+    })
+
+    if (rgExistentes < 2) {
+      qualLado = rgExistentes === 0 ? 'frente' : 'verso'
+      documentoSalvo = await salvarDocumentoMembro(
+        membroId, bufferOriginal, nomeOriginal, data.mimetype,
+        'RG_MEMBRO', `RG ${qualLado === 'frente' ? '(Frente)' : '(Verso)'} - escaneado`,
+        totalSize, 2
+      )
+    }
+  } catch (docErr: any) {
+    console.warn('⚠️ Não foi possível salvar documento automaticamente:', docErr.message)
+  }
+
+  return reply.status(200).send({ dados, documentoSalvo, qualLado, textoOriginal: textoCompleto,
+    camposExtraidos: Object.entries(dados.confianca).filter(([, v]) => v).map(([k]) => k).length, totalCampos: 6 })
+}
+
+// POST /ocr/membro/:membroId/certidao
+export async function escanearCertidaoMembro(request: FastifyRequest, reply: FastifyReply) {
+  const { membroId } = z.object({ membroId: z.string().uuid() }).parse(request.params)
+  await verificarPropriedadeMembroOCR(membroId, request.usuario.id)
+
+  const data = await request.file()
+  if (!data) return reply.status(400).send({ message: 'Nenhum arquivo enviado' })
+
+  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  if (!allowedMimes.includes(data.mimetype)) {
+    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP.')
+  }
+
+  const chunks: Buffer[] = []
+  let totalSize = 0
+  const maxSize = 10 * 1024 * 1024
+
+  for await (const chunk of data.file) {
+    totalSize += chunk.length
+    if (totalSize > maxSize) return reply.status(400).send({ message: 'Arquivo excede o limite de 10MB' })
+    chunks.push(chunk)
+  }
+
+  const bufferOriginal = Buffer.concat(chunks)
+  const nomeOriginal = data.filename || 'certidao-membro-scan.jpg'
+
+  console.log('📸 OCR Certidão Membro - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
+
+  const { buffer: bufferOCR, mimeType: ocrMimeType } = await prepararImagemParaOCR(bufferOriginal, data.mimetype)
+
+  let textoCompleto: string
+  try {
+    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
+    textoCompleto = resultado.textoCompleto
+  } catch (err: any) {
+    console.error('❌ Erro no OCR:', err.message)
+    return reply.status(502).send({ message: 'Erro ao processar imagem com OCR. Tente novamente.', detalhe: err.message })
+  }
+
+  if (!textoCompleto || textoCompleto.trim().length === 0) {
+    return reply.status(422).send({ message: 'Não foi possível detectar texto na imagem. Tente com uma foto mais nítida.' })
+  }
+
+  const dados = parsearCertidao(textoCompleto)
+
+  let documentoSalvo = false
+  try {
+    documentoSalvo = await salvarDocumentoMembro(
+      membroId, bufferOriginal, nomeOriginal, data.mimetype,
+      'CERTIDAO_CASAMENTO', 'Certidão - escaneada', totalSize, 1
+    )
+  } catch (docErr: any) {
+    console.warn('⚠️ Não foi possível salvar documento automaticamente:', docErr.message)
+  }
+
+  return reply.status(200).send({ dados, documentoSalvo, textoOriginal: textoCompleto,
+    camposExtraidos: Object.entries(dados.confianca).filter(([, v]) => v).map(([k]) => k).length })
+}

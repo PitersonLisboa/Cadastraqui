@@ -837,3 +837,24 @@ export const ocrService = {
     return response.data
   },
 }
+
+export const ocrMembroService = {
+  escanearRG: async (membroId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/ocr/membro/${membroId}/rg`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    })
+    return response.data
+  },
+  escanearCertidao: async (membroId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/ocr/membro/${membroId}/certidao`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    })
+    return response.data
+  },
+}
