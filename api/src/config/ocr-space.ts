@@ -3,12 +3,14 @@
 // Substitui o Google Vision para OCR de documentos
 // Docs: https://ocr.space/OCRAPI
 //
-// Envia imagem como FILE (multipart), não base64.
-// Mais confiável e eficiente no Node.js.
+// Estratégia de engines:
+//   1º) Engine 2 — melhor para docs com fundo variado (RG brasileiro)
+//   2º) Engine 1 — fallback mais leve quando Engine 2 retorna E500
 // ===========================================
 
 const OCR_SPACE_API_KEY = process.env.OCR_SPACE_API_KEY || ''
 const OCR_SPACE_URL = 'https://api.ocr.space/parse/image'
+const TIMEOUT_MS = 30000 // 30s
 
 /** Palavra individual com posição */
 export interface OcrWord {
@@ -33,7 +35,7 @@ export interface OcrParsedResult {
     HasOverlay: boolean
     Message: string | null
   } | null
-  FileParseExitCode: string
+  FileParseExitCode: number | string
   ParsedText: string
   ErrorMessage: string | null
   ErrorDetails: string | null
@@ -42,20 +44,85 @@ export interface OcrParsedResult {
 /** Resposta completa da API */
 export interface OcrSpaceResponse {
   ParsedResults: OcrParsedResult[]
-  OCRExitCode: string
+  OCRExitCode: number | string
   IsErroredOnProcessing: boolean
-  ErrorMessage: string | null
+  ErrorMessage: string | string[] | null
   ErrorDetails: string | null
   ProcessingTimeInMilliseconds: string
 }
 
 /**
- * Envia imagem (buffer) para o OCR.space API e retorna o texto detectado com posições.
- * Usa Engine 2 + português + scale + isTable para melhor resultado em RG brasileiro.
+ * Faz uma chamada ao OCR.space com a engine especificada.
+ */
+async function chamarOcrSpace(
+  imageBuffer: Buffer,
+  mimeType: string,
+  filename: string,
+  engine: '1' | '2',
+): Promise<OcrSpaceResponse> {
+  const blob = new Blob([imageBuffer], { type: mimeType })
+  const formData = new FormData()
+  formData.append('file', blob, filename)
+  formData.append('language', 'por')
+  formData.append('isOverlayRequired', 'true')
+  formData.append('OCREngine', engine)
+  formData.append('scale', 'true')
+  formData.append('isTable', 'true')
+  formData.append('detectOrientation', 'true')
+  formData.append('filetype', mimeType.includes('png') ? 'PNG' : 'JPG')
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+  try {
+    const response = await fetch(OCR_SPACE_URL, {
+      method: 'POST',
+      headers: { 'apikey': OCR_SPACE_API_KEY },
+      body: formData,
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+
+    const responseText = await response.text()
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${responseText.substring(0, 200)}`)
+    }
+
+    return JSON.parse(responseText) as OcrSpaceResponse
+  } catch (err: any) {
+    clearTimeout(timer)
+    if (err.name === 'AbortError') {
+      throw new Error(`Timeout após ${TIMEOUT_MS / 1000}s`)
+    }
+    throw err
+  }
+}
+
+/**
+ * Verifica se a resposta do OCR.space indica erro recuperável (servidor sobrecarregado).
+ * Nesses casos, vale tentar Engine 1 como fallback.
+ */
+function isErroRecuperavel(data: OcrSpaceResponse): boolean {
+  const exitCode = Number(data.OCRExitCode)
+  // ExitCode 6 = Timed out, 99 = System Resource Exhaustion
+  if (exitCode === 6 || exitCode === 99) return true
+
+  const msg = Array.isArray(data.ErrorMessage)
+    ? data.ErrorMessage.join(' ')
+    : data.ErrorMessage || ''
+  if (/E500|Resource Exhaustion|Timed out/i.test(msg)) return true
+
+  return false
+}
+
+/**
+ * Envia imagem para o OCR.space API e retorna o texto detectado com posições.
+ * Tenta Engine 2 primeiro; se falhar com erro de servidor, tenta Engine 1.
  *
- * @param imageBuffer - Buffer da imagem (não base64)
+ * @param imageBuffer - Buffer da imagem
  * @param mimeType - Tipo MIME (image/jpeg, image/png, etc.)
- * @param filename - Nome do arquivo para o upload
+ * @param filename - Nome do arquivo
  */
 export async function detectarTexto(
   imageBuffer: Buffer,
@@ -66,114 +133,53 @@ export async function detectarTexto(
     throw new Error('OCR_SPACE_API_KEY não configurada. Defina a variável de ambiente no Railway.')
   }
 
-  console.log(`🔍 OCR.space — Enviando imagem "${filename}" (${(imageBuffer.length / 1024).toFixed(0)}KB, ${mimeType})...`)
+  console.log(`🔍 OCR.space — Enviando "${filename}" (${(imageBuffer.length / 1024).toFixed(0)}KB, ${mimeType})...`)
   const inicio = Date.now()
 
-  // Montar FormData com arquivo (não base64)
-  const blob = new Blob([imageBuffer], { type: mimeType })
-  const formData = new FormData()
-  formData.append('file', blob, filename)
-  formData.append('language', 'por')
-  formData.append('isOverlayRequired', 'true')
-  formData.append('OCREngine', '2')
-  formData.append('scale', 'true')
-  formData.append('isTable', 'true')
-  formData.append('detectOrientation', 'true')
-  formData.append('filetype', mimeType.includes('png') ? 'PNG' : 'JPG')
+  // ── Tentativa 1: Engine 2 (melhor para RG) ──
+  let data: OcrSpaceResponse
+  try {
+    data = await chamarOcrSpace(imageBuffer, mimeType, filename, '2')
+    const ms = Date.now() - inicio
+    console.log(`⏱️ OCR.space Engine 2 respondeu em ${ms}ms — ExitCode: ${data.OCRExitCode}`)
+  } catch (err: any) {
+    console.warn(`⚠️ OCR.space Engine 2 falhou: ${err.message}`)
+    // Ir direto para Engine 1
+    data = { ParsedResults: [], OCRExitCode: 99, IsErroredOnProcessing: true, ErrorMessage: err.message, ErrorDetails: null, ProcessingTimeInMilliseconds: '0' }
+  }
 
-  const MAX_TENTATIVAS = 2
-  const TIMEOUT_MS = 30000 // 30s timeout (evita travar 2min no rate limit)
-  const DELAY_RETRY_MS = 3000 // 3s entre tentativas
+  // ── Se Engine 2 falhou com erro recuperável, tentar Engine 1 ──
+  if (data.IsErroredOnProcessing || isErroRecuperavel(data)) {
+    const msgOriginal = Array.isArray(data.ErrorMessage) ? data.ErrorMessage.join('; ') : data.ErrorMessage
+    console.log(`🔄 Engine 2 falhou (${msgOriginal}). Tentando Engine 1 como fallback...`)
 
-  let response: Response | null = null
-  let ultimoErro: Error | null = null
-
-  for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
     try {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+      const inicio2 = Date.now()
+      data = await chamarOcrSpace(imageBuffer, mimeType, filename, '1')
+      const ms2 = Date.now() - inicio2
+      console.log(`⏱️ OCR.space Engine 1 respondeu em ${ms2}ms — ExitCode: ${data.OCRExitCode}`)
+    } catch (err2: any) {
+      console.error(`❌ OCR.space Engine 1 também falhou: ${err2.message}`)
+      throw new Error('OCR.space indisponível no momento. Tente novamente em alguns instantes.')
+    }
 
-      if (tentativa > 1) {
-        console.log(`🔄 OCR.space — Tentativa ${tentativa}/${MAX_TENTATIVAS} (aguardou ${DELAY_RETRY_MS / 1000}s)...`)
-      }
-
-      response = await fetch(OCR_SPACE_URL, {
-        method: 'POST',
-        headers: {
-          'apikey': OCR_SPACE_API_KEY,
-        },
-        body: formData,
-        signal: controller.signal,
-      })
-      clearTimeout(timer)
-      break // sucesso, sair do loop
-    } catch (fetchErr: any) {
-      ultimoErro = fetchErr
-      const msg = fetchErr.name === 'AbortError'
-        ? `Timeout após ${TIMEOUT_MS / 1000}s`
-        : fetchErr.message
-      console.error(`❌ OCR.space — Tentativa ${tentativa}/${MAX_TENTATIVAS} falhou: ${msg}`)
-
-      if (tentativa < MAX_TENTATIVAS) {
-        await new Promise(r => setTimeout(r, DELAY_RETRY_MS))
-      }
+    // Se Engine 1 também deu erro
+    if (data.IsErroredOnProcessing) {
+      const msg2 = Array.isArray(data.ErrorMessage) ? data.ErrorMessage.join('; ') : data.ErrorMessage || 'Erro desconhecido'
+      console.error(`❌ OCR.space Engine 1 erro: ${msg2}`)
+      throw new Error('OCR.space indisponível no momento. Tente novamente em alguns instantes.')
     }
   }
 
-  if (!response) {
-    const msg = ultimoErro?.name === 'AbortError'
-      ? 'OCR.space não respondeu a tempo. Tente novamente em alguns instantes.'
-      : `Falha de conexão com OCR.space: ${ultimoErro?.message}`
-    throw new Error(msg)
-  }
+  const tempoTotal = Date.now() - inicio
 
-  const tempoMs = Date.now() - inicio
-
-  // Ler resposta como texto primeiro (para logging em caso de erro)
-  const responseText = await response.text()
-
-  if (!response.ok) {
-    console.error(`❌ OCR.space HTTP ${response.status} (${tempoMs}ms):`, responseText.substring(0, 500))
-    throw new Error(`OCR.space API retornou HTTP ${response.status}`)
-  }
-
-  // Parsear JSON
-  let data: OcrSpaceResponse
-  try {
-    data = JSON.parse(responseText) as OcrSpaceResponse
-  } catch (jsonErr) {
-    console.error('❌ OCR.space — Resposta não é JSON válido:', responseText.substring(0, 500))
-    throw new Error('OCR.space retornou resposta inválida')
-  }
-
-  console.log(`⏱️ OCR.space respondeu em ${tempoMs}ms — ExitCode: ${data.OCRExitCode}, Erro: ${data.IsErroredOnProcessing}`)
-
-  // Log completo se houver erro
-  if (data.IsErroredOnProcessing || data.ErrorMessage) {
-    console.error('❌ OCR.space resposta completa:', JSON.stringify(data, null, 2).substring(0, 1000))
-  }
-
-  // Verificar erros no nível da API
-  if (data.IsErroredOnProcessing) {
-    const msg = data.ErrorMessage || 'Erro de processamento'
-    const details = data.ErrorDetails || ''
-    throw new Error(`OCR.space: ${msg} ${details}`.trim())
-  }
-
-  const ocrExitCode = Number(data.OCRExitCode)
-  if (ocrExitCode === 3 || ocrExitCode === 4) {
-    const msg = data.ErrorMessage || data.ParsedResults?.[0]?.ErrorMessage || 'Falha no parse'
-    throw new Error(`OCR.space: ${msg}`)
-  }
-
-  // Extrair resultado da primeira página/imagem
+  // Extrair resultado
   const resultado = data.ParsedResults?.[0]
   if (!resultado) {
-    console.error('❌ OCR.space — Sem ParsedResults:', JSON.stringify(data).substring(0, 500))
+    console.error('❌ OCR.space — Sem ParsedResults')
     throw new Error('OCR.space não retornou resultado')
   }
 
-  // FileParseExitCode: 1 = sucesso (API retorna como número, não string)
   const exitCode = Number(resultado.FileParseExitCode)
   if (exitCode !== 1) {
     const msg = resultado.ErrorMessage || resultado.ErrorDetails || `ExitCode: ${exitCode}`
@@ -184,7 +190,6 @@ export async function detectarTexto(
   const textoCompleto = resultado.ParsedText || ''
   const linhas = resultado.TextOverlay?.Lines || []
 
-  // Coletar todas as palavras com posição
   const palavras: OcrWord[] = []
   for (const linha of linhas) {
     if (linha.Words) {
@@ -194,9 +199,9 @@ export async function detectarTexto(
     }
   }
 
-  console.log(`📝 OCR.space — ${linhas.length} linhas, ${palavras.length} palavras detectadas`)
+  console.log(`📝 OCR.space — ${linhas.length} linhas, ${palavras.length} palavras (${tempoTotal}ms total)`)
   if (textoCompleto) {
-    console.log(`📝 Texto extraído (primeiros 400 chars):\n${textoCompleto.substring(0, 400)}`)
+    console.log(`📝 Texto (primeiros 400 chars):\n${textoCompleto.substring(0, 400)}`)
   } else {
     console.warn('⚠️ OCR.space — Nenhum texto extraído da imagem')
   }
