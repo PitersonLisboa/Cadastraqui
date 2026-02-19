@@ -402,6 +402,7 @@ export function CadastroCandidato() {
   const docInputRef = useRef<HTMLInputElement>(null)
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const scanInputRef = useRef<HTMLInputElement>(null)
+  const anexarOcrRef = useRef<HTMLInputElement>(null)
   const [scanningRG, setScanningRG] = useState(false)
   const [ocrCamposPreenchidos, setOcrCamposPreenchidos] = useState<string[]>([])
   const [outrosQtd, setOutrosQtd] = useState(1)
@@ -1464,25 +1465,46 @@ export function CadastroCandidato() {
                 <h2 className={styles.sectionTitle}>Dados Pessoais</h2>
                 {dados.nome && <p className={styles.sectionName}>{dados.nome}</p>}
 
-                {/* Botão Escanear RG — permite 2 scans (frente + verso) */}
+                {/* ── Auxílio ao preenchimento ── */}
                 {documentos.filter(d => d.tipo === 'RG').length < 2 && (
-                  <div style={{ display: 'flex', justifyContent: 'center', margin: '0.5rem 0 1rem' }}>
-                    <div
-                      onClick={() => !scanningRG && scanInputRef.current?.click()}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '0.5rem',
-                        padding: '0.6rem 1.2rem', borderRadius: 'var(--radius)',
-                        border: '2px solid var(--color-primary)', color: 'var(--color-primary)',
-                        cursor: scanningRG ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.95rem',
-                        background: 'var(--color-white)',
-                      }}
-                    >
-                      {scanningRG
-                        ? <><div className={styles.spinnerSmall} /> Escaneando documento...</>
-                        : <><FiCamera size={18} /> Escanear RG ({documentos.filter(d => d.tipo === 'RG').length === 0 ? 'Frente' : 'Verso'})</>
-                      }
+                  <div style={{ margin: '0.5rem 0 1rem', padding: '0.75rem 1rem', background: '#f0f7ff', borderRadius: 'var(--radius)', border: '1px solid #d0e3f7' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '0.5rem' }}>Auxílio ao preenchimento</label>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {/* Botão 1: Escanear com câmera */}
+                      <div
+                        onClick={() => !scanningRG && scanInputRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid var(--color-primary)', color: 'var(--color-primary)',
+                          cursor: scanningRG ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        {scanningRG
+                          ? <><div className={styles.spinnerSmall} /> Processando...</>
+                          : <><FiCamera size={17} /> Escanear RG ({documentos.filter(d => d.tipo === 'RG').length === 0 ? 'Frente' : 'Verso'})</>
+                        }
+                      </div>
+                      {/* Botão 2: Anexar arquivo */}
+                      <div
+                        onClick={() => !scanningRG && anexarOcrRef.current?.click()}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          padding: '0.55rem 1rem', borderRadius: 'var(--radius)',
+                          border: '2px solid #64748b', color: '#475569',
+                          cursor: scanningRG ? 'wait' : 'pointer', fontWeight: 500, fontSize: '0.9rem',
+                          background: 'var(--color-white)', flex: '1', justifyContent: 'center', minWidth: '180px',
+                        }}
+                      >
+                        <FiPlus size={17} /> Anexar arquivo
+                      </div>
                     </div>
                     <input ref={scanInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarOcrRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
+                    <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
+                      Tire uma foto ou anexe a imagem do RG. Os campos serão preenchidos automaticamente. (máx. 2: frente e verso)
+                    </small>
                   </div>
                 )}
                 {ocrCamposPreenchidos.length > 0 && (
@@ -1518,36 +1540,11 @@ export function CadastroCandidato() {
                     </select>
                   </div>
                 </div>
-                <div className={styles.fieldWide}>
-                  <label>Documento de identificação {documentos.filter(d => d.tipo === 'RG').length === 1 ? '(Verso)' : '(Frente)'}</label>
-                  {documentos.filter(d => d.tipo === 'RG').length < 2 ? (
-                  <>
-                  <div className={styles.fileUpload} onClick={() => fileInputRef.current?.click()}>
-                    <span>{docFile ? docFile.name : 'Anexar arquivo'}</span><FiUpload size={16} />
-                  </div>
-                  <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setDocFile(e.target.files[0]) }} />
-                  <small className={styles.fileHint}>*Tamanho máximo de 10Mb — Envie frente e verso separadamente (máx. 2 arquivos)</small>
-                  {docFile && (
-                    <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDoc} onClick={async () => {
-                      setUploadingDoc(true)
-                      try {
-                        const formData = new FormData()
-                        formData.append('tipo', 'RG')
-                        formData.append('file', docFile)
-                        await api.post('/documentos', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-                        toast.success('Documento enviado!')
-                        setDocFile(null)
-                        if (fileInputRef.current) fileInputRef.current.value = ''
-                        carregarDados()
-                      } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao enviar') }
-                      finally { setUploadingDoc(false) }
-                    }}>{uploadingDoc ? 'Enviando...' : 'Enviar Documento'}</button>
-                  )}
-                  </>
-                  ) : (
-                    <p style={{ fontSize: '0.85rem', color: '#16a34a', marginTop: '0.25rem' }}>Frente e verso enviados (2/2). Exclua um para enviar outro.</p>
-                  )}
-                </div>
+                {documentos.filter(d => d.tipo === 'RG').length >= 2 && (
+                  <p style={{ fontSize: '0.85rem', color: '#16a34a', textAlign: 'center', margin: '0.5rem 0' }}>
+                    <FiCheck size={14} style={{ verticalAlign: 'middle' }} /> Frente e verso enviados (2/2). Exclua um para enviar outro.
+                  </p>
+                )}
                 <DocListBlock tipos={['RG']} titulo="Documento(s) RG enviado(s)" />
               </>
             )
