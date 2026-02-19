@@ -851,20 +851,12 @@ export function CadastroCandidato() {
   }
 
   const handleViewDocMembro = async (membroId: string, docId: string) => {
-    // Abre janela ANTES do fetch (síncrono, no contexto do gesto do usuário) para evitar bloqueio de popup no mobile
-    const novaAba = window.open('about:blank', '_blank')
     try {
       const response = await api.get(`/familia/membros/${membroId}/documentos/${docId}/download`, { responseType: 'blob' })
       const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      if (novaAba && !novaAba.closed) {
-        novaAba.location.href = url
-      } else {
-        // Fallback: usa abordagem de link
-        abrirBlobNovaAba(blob)
-      }
+      abrirBlobNovaAba(blob)
     } catch (err: any) {
-      if (novaAba && !novaAba.closed) novaAba.close()
+      console.error('❌ Erro ao visualizar doc membro:', err.response?.status, err.response?.data)
       if (err.response?.status === 404) {
         toast.error('Arquivo não encontrado no servidor. Pode ter sido perdido após um redeploy. Envie novamente.')
       } else {
