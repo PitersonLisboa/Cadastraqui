@@ -4,7 +4,7 @@ import path from 'path'
 import { prisma } from '../lib/prisma'
 import { CandidatoNaoEncontradoError, ArquivoInvalidoError } from '../errors/index'
 import { UPLOADS_DIR, gerarNomeArquivo } from '../config/upload'
-import { detectarTexto } from '../config/ocr-space'
+import { detectarTexto } from '../config/google-vision'
 import { parsearRG, PalavraOCR, LinhaOCR } from '../services/rg-parser'
 import { parsearEndereco } from '../services/endereco-parser'
 
