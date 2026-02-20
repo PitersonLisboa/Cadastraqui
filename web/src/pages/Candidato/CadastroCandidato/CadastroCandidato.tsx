@@ -2877,7 +2877,7 @@ export function CadastroCandidato() {
                     {/* ═══ WIZARD INLINE (3 Steps) ═══ */}
                     {isWizardOpen && (
                       <div className={styles.rendaWizardInline}>
-                        <StepperBar steps={RENDA_STEP_LABELS} currentStep={rendaWizardStep} />
+                        <StepperBar totalSteps={3} currentStep={rendaWizardStep} />
 
                         {/* Step 1: Fonte de Renda */}
                         {rendaWizardStep === 0 && (
