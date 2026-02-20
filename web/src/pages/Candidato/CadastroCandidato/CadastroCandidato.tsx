@@ -1660,9 +1660,9 @@ export function CadastroCandidato() {
                       </div>
                     </div>
                     <input ref={scanInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
-                    <input ref={anexarOcrRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarOcrRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanRG(e.target.files[0]); e.target.value = '' }} />
                     <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
-                      Tire uma foto ou anexe a imagem do RG. Alguns campos serão preenchidos automaticamente. Se necessário, incluir ou corrigir em seguida. (máx. 2: frente e verso)
+                      Tire uma foto ou anexe a imagem/PDF do RG. Alguns campos serão preenchidos automaticamente. Se necessário, incluir ou corrigir em seguida. (máx. 2: frente e verso)
                     </small>
                   </div>
                 )}
@@ -1749,9 +1749,9 @@ export function CadastroCandidato() {
                       </div>
                     </div>
                     <input ref={scanComprovanteRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanComprovante(e.target.files[0]); e.target.value = '' }} />
-                    <input ref={anexarComprovanteRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanComprovante(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarComprovanteRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanComprovante(e.target.files[0]); e.target.value = '' }} />
                     <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
-                      Tire uma foto ou anexe o comprovante de endereço (conta de luz, água, gás). Os campos de endereço serão preenchidos automaticamente.
+                      Tire uma foto ou anexe o comprovante de endereço em imagem/PDF (conta de luz, água, gás). Os campos de endereço serão preenchidos automaticamente.
                     </small>
                   </div>
                 )}
@@ -1824,9 +1824,9 @@ export function CadastroCandidato() {
                       </div>
                     </div>
                     <input ref={scanCertidaoRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanCertidao(e.target.files[0]); e.target.value = '' }} />
-                    <input ref={anexarCertidaoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanCertidao(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarCertidaoRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanCertidao(e.target.files[0]); e.target.value = '' }} />
                     <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
-                      Tire uma foto ou anexe a certidão (casamento, nascimento, divórcio, união estável). O estado civil será preenchido automaticamente.
+                      Tire uma foto ou anexe a certidão em imagem/PDF (casamento, nascimento, divórcio, união estável). O estado civil será preenchido automaticamente.
                     </small>
                   </div>
                 )}
@@ -2102,9 +2102,9 @@ export function CadastroCandidato() {
                       </div>
                     </div>
                     <input ref={scanMembroRgRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroRG(e.target.files[0]); e.target.value = '' }} />
-                    <input ref={anexarMembroRgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroRG(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarMembroRgRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroRG(e.target.files[0]); e.target.value = '' }} />
                     <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
-                      Tire uma foto ou anexe a imagem do RG. Alguns campos serão preenchidos automaticamente. (máx. 2: frente e verso)
+                      Tire uma foto ou anexe a imagem/PDF do RG. Alguns campos serão preenchidos automaticamente. (máx. 2: frente e verso)
                     </small>
                   </div>
                 )}
@@ -2243,9 +2243,9 @@ export function CadastroCandidato() {
                       </div>
                     </div>
                     <input ref={scanMembroCertidaoRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroCertidao(e.target.files[0]); e.target.value = '' }} />
-                    <input ref={anexarMembroCertidaoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroCertidao(e.target.files[0]); e.target.value = '' }} />
+                    <input ref={anexarMembroCertidaoRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleScanMembroCertidao(e.target.files[0]); e.target.value = '' }} />
                     <small style={{ display: 'block', marginTop: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
-                      Tire uma foto ou anexe a certidão (casamento, nascimento, divórcio, união estável). O estado civil será preenchido automaticamente.
+                      Tire uma foto ou anexe a certidão em imagem/PDF (casamento, nascimento, divórcio, união estável). O estado civil será preenchido automaticamente.
                     </small>
                   </div>
                 )}

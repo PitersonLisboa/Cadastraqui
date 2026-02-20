@@ -231,3 +231,120 @@ export async function detectarTexto(
 
   return { textoCompleto, palavras, linhas }
 }
+
+/**
+ * Envia PDF para o Google Vision API (endpoint files:annotate) e retorna texto.
+ * Suporta até 5 páginas (limite do modo síncrono).
+ *
+ * @param pdfBuffer - Buffer do PDF
+ * @param filename - Nome do arquivo (para logs)
+ */
+export async function detectarTextoPDF(
+  pdfBuffer: Buffer,
+  filename: string = 'document.pdf'
+): Promise<{ textoCompleto: string; palavras: OcrWord[]; linhas: OcrLine[] }> {
+  if (!GOOGLE_VISION_API_KEY) {
+    throw new Error('GOOGLE_VISION_API_KEY não configurada. Defina a variável de ambiente no Railway.')
+  }
+
+  const pdfBase64 = pdfBuffer.toString('base64')
+  const tamanhoKB = (pdfBuffer.length / 1024).toFixed(0)
+
+  console.log(`🔍 Google Vision PDF — Enviando "${filename}" (${tamanhoKB}KB)...`)
+  const inicio = Date.now()
+
+  const body = {
+    requests: [
+      {
+        inputConfig: {
+          content: pdfBase64,
+          mimeType: 'application/pdf',
+        },
+        features: [
+          { type: 'DOCUMENT_TEXT_DETECTION' },
+        ],
+        // Processar até 5 páginas (limite síncrono)
+        pages: [1, 2, 3, 4, 5],
+      },
+    ],
+  }
+
+  const FILES_API_URL = 'https://vision.googleapis.com/v1/files:annotate'
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+  let response: Response
+  try {
+    response = await fetch(`${FILES_API_URL}?key=${GOOGLE_VISION_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+  } catch (err: any) {
+    clearTimeout(timer)
+    if (err.name === 'AbortError') {
+      throw new Error(`Google Vision PDF timeout após ${TIMEOUT_MS / 1000}s`)
+    }
+    throw new Error(`Google Vision PDF fetch error: ${err.message}`)
+  }
+
+  const ms = Date.now() - inicio
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`❌ Google Vision PDF API error (${ms}ms):`, response.status, errorText.substring(0, 300))
+    throw new Error(`Google Vision PDF API retornou ${response.status}`)
+  }
+
+  const data = await response.json() as any
+  const fileResponses = data.responses?.[0]?.responses || []
+
+  console.log(`⏱️ Google Vision PDF respondeu em ${ms}ms — ${fileResponses.length} página(s)`)
+
+  // Concatenar texto de todas as páginas
+  const textosPaginas: string[] = []
+  const todasPalavras: OcrWord[] = []
+
+  for (let pageIdx = 0; pageIdx < fileResponses.length; pageIdx++) {
+    const pageResult = fileResponses[pageIdx]
+
+    if (pageResult?.error) {
+      console.warn(`⚠️ Erro na página ${pageIdx + 1}:`, pageResult.error.message)
+      continue
+    }
+
+    const textoPagina = pageResult?.fullTextAnnotation?.text || ''
+    if (textoPagina) textosPaginas.push(textoPagina)
+
+    // Extrair palavras com posições (annotations[0] = texto completo da página)
+    const annotations = pageResult?.textAnnotations || []
+    for (let i = 1; i < annotations.length; i++) {
+      const ann = annotations[i]
+      if (!ann.boundingPoly?.vertices) continue
+
+      const rect = boundingToRect(ann.boundingPoly.vertices)
+      todasPalavras.push({
+        WordText: ann.description,
+        Left: rect.left,
+        Top: rect.top + (pageIdx * 10000), // Offset vertical por página para não misturar linhas
+        Width: rect.width,
+        Height: rect.height,
+      })
+    }
+  }
+
+  const textoCompleto = textosPaginas.join('\n')
+  const linhas = agruparEmLinhas(todasPalavras)
+
+  console.log(`📝 Google Vision PDF — ${fileResponses.length} páginas, ${linhas.length} linhas, ${todasPalavras.length} palavras (${ms}ms)`)
+  if (textoCompleto) {
+    console.log(`📝 Texto PDF (primeiros 400 chars):\n${textoCompleto.substring(0, 400)}`)
+  } else {
+    console.warn('⚠️ Google Vision PDF — Nenhum texto extraído do PDF')
+  }
+
+  return { textoCompleto, palavras: todasPalavras, linhas }
+}

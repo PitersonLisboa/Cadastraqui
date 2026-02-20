@@ -4,7 +4,7 @@ import path from 'path'
 import { prisma } from '../lib/prisma'
 import { CandidatoNaoEncontradoError, ArquivoInvalidoError } from '../errors/index'
 import { UPLOADS_DIR, gerarNomeArquivo } from '../config/upload'
-import { detectarTexto } from '../config/google-vision'
+import { detectarTexto, detectarTextoPDF } from '../config/google-vision'
 import { parsearRG, PalavraOCR, LinhaOCR } from '../services/rg-parser'
 import { parsearEndereco } from '../services/endereco-parser'
 import { parsearCertidao } from '../services/certidao-parser'
@@ -62,6 +62,24 @@ async function prepararImagemParaOCR(
   }
 }
 
+const ALLOWED_OCR_MIMES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf']
+
+/**
+ * Executa OCR no buffer, roteando para a API correta (imagem ou PDF).
+ */
+async function executarOCR(
+  bufferOriginal: Buffer,
+  mimetype: string,
+  filename: string
+): Promise<{ textoCompleto: string; palavras: import('../config/google-vision').OcrWord[]; linhas: import('../config/google-vision').OcrLine[] }> {
+  if (mimetype === 'application/pdf') {
+    return detectarTextoPDF(bufferOriginal, filename)
+  }
+  // Imagem: redimensionar se necessário
+  const { buffer: bufferOCR, mimeType: ocrMimeType } = await prepararImagemParaOCR(bufferOriginal, mimetype)
+  return detectarTexto(bufferOCR, ocrMimeType, filename)
+}
+
 export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
   // Buscar candidato
   const candidato = await prisma.candidato.findUnique({
@@ -74,10 +92,9 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(400).send({ message: 'Nenhum arquivo enviado' })
   }
 
-  // Validar tipo (apenas imagens)
-  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-  if (!allowedMimes.includes(data.mimetype)) {
-    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP.')
+  // Validar tipo (imagens e PDF)
+  if (!ALLOWED_OCR_MIMES.includes(data.mimetype)) {
+    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG, WebP ou PDF.')
   }
 
   // Ler arquivo em buffer
@@ -96,19 +113,15 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
   const bufferOriginal = Buffer.concat(chunks)
   const nomeOriginal = data.filename || 'rg-scan.jpg'
 
-  console.log('📸 OCR RG - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
+  console.log('📸 OCR RG - Arquivo recebido:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB, ${data.mimetype})`)
 
-  // Preparar imagem (redimensionar se necessário)
-  const { buffer: bufferOCR, mimeType: ocrMimeType } =
-    await prepararImagemParaOCR(bufferOriginal, data.mimetype)
-
-  // Chamar OCR.space API — agora passando Buffer direto
+  // Chamar OCR (imagem ou PDF)
   let textoCompleto: string
   let palavrasOCR: PalavraOCR[] = []
   let linhasOCR: LinhaOCR[] = []
 
   try {
-    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
+    const resultado = await executarOCR(bufferOriginal, data.mimetype, nomeOriginal)
     textoCompleto = resultado.textoCompleto
 
     // Converter formato OCR.space → formato do parser
@@ -143,7 +156,7 @@ export async function escanearRG(request: FastifyRequest, reply: FastifyReply) {
 
   if (!textoCompleto || textoCompleto.trim().length === 0) {
     return reply.status(422).send({
-      message: 'Não foi possível detectar texto na imagem. Tente com uma foto mais nítida.',
+      message: 'Não foi possível detectar texto no arquivo. Tente com uma foto mais nítida ou um PDF legível.',
     })
   }
 
@@ -215,9 +228,8 @@ export async function escanearComprovante(request: FastifyRequest, reply: Fastif
     return reply.status(400).send({ message: 'Nenhum arquivo enviado' })
   }
 
-  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-  if (!allowedMimes.includes(data.mimetype)) {
-    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP.')
+  if (!ALLOWED_OCR_MIMES.includes(data.mimetype)) {
+    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG, WebP ou PDF.')
   }
 
   const chunks: Buffer[] = []
@@ -235,15 +247,12 @@ export async function escanearComprovante(request: FastifyRequest, reply: Fastif
   const bufferOriginal = Buffer.concat(chunks)
   const nomeOriginal = data.filename || 'comprovante-scan.jpg'
 
-  console.log('📸 OCR Comprovante - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
-
-  const { buffer: bufferOCR, mimeType: ocrMimeType } =
-    await prepararImagemParaOCR(bufferOriginal, data.mimetype)
+  console.log('📸 OCR Comprovante - Arquivo recebido:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB, ${data.mimetype})`)
 
   let textoCompleto: string
 
   try {
-    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
+    const resultado = await executarOCR(bufferOriginal, data.mimetype, nomeOriginal)
     textoCompleto = resultado.textoCompleto
   } catch (err: any) {
     console.error('❌ Erro no OCR:', err.message)
@@ -255,7 +264,7 @@ export async function escanearComprovante(request: FastifyRequest, reply: Fastif
 
   if (!textoCompleto || textoCompleto.trim().length === 0) {
     return reply.status(422).send({
-      message: 'Não foi possível detectar texto na imagem. Tente com uma foto mais nítida.',
+      message: 'Não foi possível detectar texto no arquivo. Tente com uma foto mais nítida ou um PDF legível.',
     })
   }
 
@@ -322,9 +331,8 @@ export async function escanearCertidao(request: FastifyRequest, reply: FastifyRe
     return reply.status(400).send({ message: 'Nenhum arquivo enviado' })
   }
 
-  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-  if (!allowedMimes.includes(data.mimetype)) {
-    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP.')
+  if (!ALLOWED_OCR_MIMES.includes(data.mimetype)) {
+    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG, WebP ou PDF.')
   }
 
   const chunks: Buffer[] = []
@@ -342,15 +350,12 @@ export async function escanearCertidao(request: FastifyRequest, reply: FastifyRe
   const bufferOriginal = Buffer.concat(chunks)
   const nomeOriginal = data.filename || 'certidao-scan.jpg'
 
-  console.log('📸 OCR Certidão - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
-
-  const { buffer: bufferOCR, mimeType: ocrMimeType } =
-    await prepararImagemParaOCR(bufferOriginal, data.mimetype)
+  console.log('📸 OCR Certidão - Arquivo recebido:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB, ${data.mimetype})`)
 
   let textoCompleto: string
 
   try {
-    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
+    const resultado = await executarOCR(bufferOriginal, data.mimetype, nomeOriginal)
     textoCompleto = resultado.textoCompleto
   } catch (err: any) {
     console.error('❌ Erro no OCR:', err.message)
@@ -362,7 +367,7 @@ export async function escanearCertidao(request: FastifyRequest, reply: FastifyRe
 
   if (!textoCompleto || textoCompleto.trim().length === 0) {
     return reply.status(422).send({
-      message: 'Não foi possível detectar texto na imagem. Tente com uma foto mais nítida.',
+      message: 'Não foi possível detectar texto no arquivo. Tente com uma foto mais nítida ou um PDF legível.',
     })
   }
 
@@ -484,9 +489,8 @@ export async function escanearRGMembro(request: FastifyRequest, reply: FastifyRe
   const data = await request.file()
   if (!data) return reply.status(400).send({ message: 'Nenhum arquivo enviado' })
 
-  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-  if (!allowedMimes.includes(data.mimetype)) {
-    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP.')
+  if (!ALLOWED_OCR_MIMES.includes(data.mimetype)) {
+    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG, WebP ou PDF.')
   }
 
   const chunks: Buffer[] = []
@@ -502,16 +506,14 @@ export async function escanearRGMembro(request: FastifyRequest, reply: FastifyRe
   const bufferOriginal = Buffer.concat(chunks)
   const nomeOriginal = data.filename || 'rg-membro-scan.jpg'
 
-  console.log('📸 OCR RG Membro - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
-
-  const { buffer: bufferOCR, mimeType: ocrMimeType } = await prepararImagemParaOCR(bufferOriginal, data.mimetype)
+  console.log('📸 OCR RG Membro - Arquivo recebido:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB, ${data.mimetype})`)
 
   let textoCompleto: string
   let palavrasOCR: PalavraOCR[] = []
   let linhasOCR: LinhaOCR[] = []
 
   try {
-    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
+    const resultado = await executarOCR(bufferOriginal, data.mimetype, nomeOriginal)
     textoCompleto = resultado.textoCompleto
     for (const linha of resultado.linhas) {
       const palavrasDaLinha: PalavraOCR[] = []
@@ -530,7 +532,7 @@ export async function escanearRGMembro(request: FastifyRequest, reply: FastifyRe
   }
 
   if (!textoCompleto || textoCompleto.trim().length === 0) {
-    return reply.status(422).send({ message: 'Não foi possível detectar texto na imagem. Tente com uma foto mais nítida.' })
+    return reply.status(422).send({ message: 'Não foi possível detectar texto no arquivo. Tente com uma foto mais nítida ou um PDF legível.' })
   }
 
   const dados = parsearRG(textoCompleto, palavrasOCR, linhasOCR)
@@ -567,9 +569,8 @@ export async function escanearCertidaoMembro(request: FastifyRequest, reply: Fas
   const data = await request.file()
   if (!data) return reply.status(400).send({ message: 'Nenhum arquivo enviado' })
 
-  const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-  if (!allowedMimes.includes(data.mimetype)) {
-    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP.')
+  if (!ALLOWED_OCR_MIMES.includes(data.mimetype)) {
+    throw new ArquivoInvalidoError('Tipo de arquivo não permitido. Use JPG, PNG, WebP ou PDF.')
   }
 
   const chunks: Buffer[] = []
@@ -585,13 +586,11 @@ export async function escanearCertidaoMembro(request: FastifyRequest, reply: Fas
   const bufferOriginal = Buffer.concat(chunks)
   const nomeOriginal = data.filename || 'certidao-membro-scan.jpg'
 
-  console.log('📸 OCR Certidão Membro - Imagem recebida:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB)`)
-
-  const { buffer: bufferOCR, mimeType: ocrMimeType } = await prepararImagemParaOCR(bufferOriginal, data.mimetype)
+  console.log('📸 OCR Certidão Membro - Arquivo recebido:', nomeOriginal, `(${(totalSize / 1024).toFixed(1)}KB, ${data.mimetype})`)
 
   let textoCompleto: string
   try {
-    const resultado = await detectarTexto(bufferOCR, ocrMimeType, nomeOriginal)
+    const resultado = await executarOCR(bufferOriginal, data.mimetype, nomeOriginal)
     textoCompleto = resultado.textoCompleto
   } catch (err: any) {
     console.error('❌ Erro no OCR:', err.message)
@@ -599,7 +598,7 @@ export async function escanearCertidaoMembro(request: FastifyRequest, reply: Fas
   }
 
   if (!textoCompleto || textoCompleto.trim().length === 0) {
-    return reply.status(422).send({ message: 'Não foi possível detectar texto na imagem. Tente com uma foto mais nítida.' })
+    return reply.status(422).send({ message: 'Não foi possível detectar texto no arquivo. Tente com uma foto mais nítida ou um PDF legível.' })
   }
 
   const dados = parsearCertidao(textoCompleto)
