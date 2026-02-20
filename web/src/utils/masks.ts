@@ -56,6 +56,37 @@ export function maskMoney(value: string): string {
   })
 }
 
+/**
+ * Máscara monetária estilo ATM/calculadora.
+ * Digita-se apenas números; os centavos são empurrados da direita pra esquerda.
+ *   "" → "0,00"
+ *   "1" → "0,01"
+ *   "10" → "0,10"
+ *   "100" → "1,00"
+ *   "100000" → "1.000,00"
+ * Retorna string formatada SEM prefixo "R$".
+ */
+export function maskMoneyInput(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  if (!digits || digits === '0') return '0,00'
+  const num = parseInt(digits, 10)
+  if (isNaN(num)) return '0,00'
+  return (num / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+/**
+ * Converte valor formatado (ex: "1.000,00") para número float.
+ */
+export function unmaskMoneyInput(value: string): number {
+  if (!value) return 0
+  const cleaned = value.replace(/\./g, '').replace(',', '.')
+  const num = parseFloat(cleaned)
+  return isNaN(num) ? 0 : num
+}
+
 // ===========================================
 // FUNÇÕES DE UNMASK (remover máscara)
 // ===========================================

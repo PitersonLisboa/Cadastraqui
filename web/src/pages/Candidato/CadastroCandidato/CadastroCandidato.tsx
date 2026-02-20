@@ -5,7 +5,7 @@ import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, 
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
 import { api, rendaService, fonteRendaService, despesaService, moradiaService, veiculoService, saudeService, ocrService, ocrMembroService, getAuthToken, getApiBaseUrl } from '@/services/api'
-import { maskCPF, maskCNPJ, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
+import { maskCPF, maskCNPJ, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP, maskMoneyInput, unmaskMoneyInput } from '@/utils/masks'
 import { DateInput } from '@/components/common/DateInput/DateInput'
 import { MembroDetalhe } from './MembroDetalhe'
 import styles from './CadastroCandidato.module.scss'
@@ -1077,13 +1077,13 @@ export function CadastroCandidato() {
     const mesesFormInit: Record<string, RendaMesForm> = {}
     for (const r of fonte.rendasMensais) {
       mesesFormInit[`${r.ano}-${r.mes}`] = {
-        rendaBruta: r.rendaBruta?.toString() || '0',
-        auxilioAlimentacao: r.auxilioAlimentacao?.toString() || '0',
-        auxilioTransporte: r.auxilioTransporte?.toString() || '0',
-        adiantamentos: r.adiantamentos?.toString() || '0',
-        indenizacoes: r.indenizacoes?.toString() || '0',
-        estornosCompensacoes: r.estornosCompensacoes?.toString() || '0',
-        pensaoAlimenticiaPaga: r.pensaoAlimenticiaPaga?.toString() || '0',
+        rendaBruta: formatCurrency(r.rendaBruta || 0),
+        auxilioAlimentacao: formatCurrency(r.auxilioAlimentacao || 0),
+        auxilioTransporte: formatCurrency(r.auxilioTransporte || 0),
+        adiantamentos: formatCurrency(r.adiantamentos || 0),
+        indenizacoes: formatCurrency(r.indenizacoes || 0),
+        estornosCompensacoes: formatCurrency(r.estornosCompensacoes || 0),
+        pensaoAlimenticiaPaga: formatCurrency(r.pensaoAlimenticiaPaga || 0),
       }
     }
     setRendaMesesForm(mesesFormInit)
@@ -1154,13 +1154,13 @@ export function CadastroCandidato() {
         const form = rendaMesesForm[`${year}-${month}`] || EMPTY_RENDA_MES
         return {
           mes: month, ano: year,
-          rendaBruta: parseFloat(form.rendaBruta.replace(/\./g, '').replace(',', '.')) || 0,
-          auxilioAlimentacao: parseFloat(form.auxilioAlimentacao.replace(/\./g, '').replace(',', '.')) || 0,
-          auxilioTransporte: parseFloat(form.auxilioTransporte.replace(/\./g, '').replace(',', '.')) || 0,
-          adiantamentos: parseFloat(form.adiantamentos.replace(/\./g, '').replace(',', '.')) || 0,
-          indenizacoes: parseFloat(form.indenizacoes.replace(/\./g, '').replace(',', '.')) || 0,
-          estornosCompensacoes: parseFloat(form.estornosCompensacoes.replace(/\./g, '').replace(',', '.')) || 0,
-          pensaoAlimenticiaPaga: parseFloat(form.pensaoAlimenticiaPaga.replace(/\./g, '').replace(',', '.')) || 0,
+          rendaBruta: unmaskMoneyInput(form.rendaBruta),
+          auxilioAlimentacao: unmaskMoneyInput(form.auxilioAlimentacao),
+          auxilioTransporte: unmaskMoneyInput(form.auxilioTransporte),
+          adiantamentos: unmaskMoneyInput(form.adiantamentos),
+          indenizacoes: unmaskMoneyInput(form.indenizacoes),
+          estornosCompensacoes: unmaskMoneyInput(form.estornosCompensacoes),
+          pensaoAlimenticiaPaga: unmaskMoneyInput(form.pensaoAlimenticiaPaga),
         }
       })
       await rendaService.salvarBatch({ fonteRendaId: rendaEditingFonteId, rendas })
@@ -1196,7 +1196,7 @@ export function CadastroCandidato() {
   const updateRendaMesField = (mesKey: string, field: keyof RendaMesForm, value: string) => {
     setRendaMesesForm(prev => ({
       ...prev,
-      [mesKey]: { ...(prev[mesKey] || EMPTY_RENDA_MES), [field]: value },
+      [mesKey]: { ...(prev[mesKey] || EMPTY_RENDA_MES), [field]: maskMoneyInput(value) },
     }))
   }
 
@@ -1414,7 +1414,7 @@ export function CadastroCandidato() {
         return {
           categoria: cat.value,
           label: cat.label,
-          valor: encontrada ? Number(encontrada.valor).toFixed(2).replace('.', ',') : '0,00',
+          valor: encontrada ? formatCurrency(Number(encontrada.valor)) : '0,00',
           naoSeAplica: encontrada?.naoSeAplica || false,
           justificativa: encontrada?.justificativa || '',
           existenteId: encontrada?.id,
@@ -1429,7 +1429,7 @@ export function CadastroCandidato() {
         .map(e => ({
           categoria: e.categoria,
           label: e.descricao || e.categoria,
-          valor: Number(e.valor).toFixed(2).replace('.', ','),
+          valor: formatCurrency(Number(e.valor)),
           naoSeAplica: e.naoSeAplica || false,
           justificativa: e.justificativa || '',
           existenteId: e.id,
@@ -1442,12 +1442,11 @@ export function CadastroCandidato() {
   }
 
   const handleDespesaValorChange = (index: number, rawValue: string, isExtra = false) => {
-    // Aceitar apenas dígitos e vírgula
-    const sanitized = rawValue.replace(/[^0-9,]/g, '')
+    const masked = maskMoneyInput(rawValue)
     if (isExtra) {
-      setDespesasExtras(prev => prev.map((l, i) => i === index ? { ...l, valor: sanitized } : l))
+      setDespesasExtras(prev => prev.map((l, i) => i === index ? { ...l, valor: masked } : l))
     } else {
-      setDespesaLinhas(prev => prev.map((l, i) => i === index ? { ...l, valor: sanitized } : l))
+      setDespesaLinhas(prev => prev.map((l, i) => i === index ? { ...l, valor: masked } : l))
     }
   }
 
@@ -1492,7 +1491,7 @@ export function CadastroCandidato() {
     try {
       const todasLinhas = [...despesaLinhas, ...despesasExtras]
       const despesasPayload = todasLinhas.map(l => {
-        const valorNum = parseFloat(l.valor.replace(/\./g, '').replace(',', '.')) || 0
+        const valorNum = unmaskMoneyInput(l.valor)
         return {
           categoria: l.categoria,
           descricao: CATEGORIAS_DESPESA.find(c => c.value === l.categoria)?.label || l.label || l.categoria,
@@ -3008,7 +3007,7 @@ export function CadastroCandidato() {
                                   const mesKey = `${year}-${month}`
                                   const isAberto = rendaMesAberto === mesKey
                                   const form = rendaMesesForm[mesKey] || EMPTY_RENDA_MES
-                                  const temDados = form.rendaBruta && parseFloat(form.rendaBruta.replace(',', '.')) > 0
+                                  const temDados = form.rendaBruta && unmaskMoneyInput(form.rendaBruta) > 0
 
                                   return (
                                     <div key={mesKey} className={styles.rendaMesCard}>
