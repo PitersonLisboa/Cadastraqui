@@ -123,7 +123,7 @@ const RELIGIAO_MEMBRO_OPTIONS = [
 
 const MEMBRO_SUB_STEP_LABELS = [
   'Dados Pessoais', 'Estado Civil',
-  'Informações Pessoais', 'Documento de Identificação', 'Documento Adicional', 'Benefícios e Programas',
+  'Informações Pessoais', 'Documento Adicional', 'Benefícios e Programas',
 ]
 
 const EMPTY_MEMBRO: Membro = {
@@ -2330,67 +2330,8 @@ export function CadastroCandidato() {
               </>
             )
 
-            // ─── Step 4: Documento de Identificação ───
+            // ─── Step 4: Documento Adicional ───
             case 3: {
-              const rgDocEnviado = docsMembro.find(d => d.tipo === 'RG_MEMBRO')
-              return (
-                <>
-                  <h2 className={styles.sectionTitle}>Documento de Identificação</h2>
-                  {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
-
-                  {/* Upload RG */}
-                  <div className={styles.fieldWide} style={{ marginTop: '1rem' }}>
-                    <label>Cópia do RG/RNE</label>
-                    {!editingMembroId ? (
-                      <p style={{ fontSize: '0.85rem', color: '#f59e0b' }}>Salve o membro primeiro para poder enviar documentos.</p>
-                    ) : rgDocEnviado ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
-                        <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
-                          onClick={() => handleViewDocMembro(editingMembroId!, rgDocEnviado.id)}>Visualizar</button>
-                        <button className={styles.btnSmallDanger} onClick={() => handleExcluirDocMembro(editingMembroId!, rgDocEnviado.id)}><FiTrash2 size={14} /></button>
-                        <span style={{ fontSize: '0.8rem', color: '#16a34a' }}>{rgDocEnviado.nome}</span>
-                      </div>
-                    ) : (
-                      <>
-                        <div className={styles.fileUpload} onClick={() => membroDocRgRef.current?.click()}>
-                          <span>{membroDocRgFile ? membroDocRgFile.name : 'Anexar arquivo'}</span><FiPlus size={16} />
-                        </div>
-                        <input ref={membroDocRgRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) setMembroDocRgFile(e.target.files[0]) }} />
-                        <small className={styles.fileHint}>*Tamanho máximo de 10Mb</small>
-                        {membroDocRgFile && (
-                          <button type="button" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }} disabled={uploadingDocMembro}
-                            onClick={async () => {
-                              await handleUploadDocMembro(membroDocRgFile, 'RG_MEMBRO')
-                              setMembroDocRgFile(null)
-                              if (membroDocRgRef.current) membroDocRgRef.current.value = ''
-                            }}>
-                            {uploadingDocMembro ? 'Enviando...' : 'Enviar RG'}
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Lista de todos os RGs enviados (scan + manual) */}
-                  {docsMembro.filter(d => d.tipo === 'RG_MEMBRO').length > 0 && (
-                    <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <p style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.5rem', color: '#334155' }}>Documentos RG enviados</p>
-                      {docsMembro.filter(d => d.tipo === 'RG_MEMBRO').map(doc => (
-                        <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem 0', borderBottom: '1px solid #e2e8f0' }}>
-                          <button type="button" className={styles.btnPrimary} style={{ fontSize: '0.85rem', padding: '0.4rem 1rem' }}
-                            onClick={() => handleViewDocMembro(editingMembroId!, doc.id)}>Visualizar</button>
-                          <button className={styles.btnSmallDanger} onClick={() => handleExcluirDocMembro(editingMembroId!, doc.id)}><FiTrash2 size={14} /></button>
-                          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{doc.nome}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )
-            }
-
-            // ─── Step 5: Documento Adicional ───
-            case 4: {
               const docsAdicionaisMembro = docsMembro.filter(d => d.tipo !== 'RG_MEMBRO' && d.tipo !== 'CERTIDAO_CASAMENTO')
               const outrosRestantesMembro = 5 - docsMembro.filter(d => d.tipo === 'OUTROS').length
               return (
@@ -2506,8 +2447,8 @@ export function CadastroCandidato() {
               )
             }
 
-            // ─── Step 6: Benefícios e Programas ───
-            case 5: return (
+            // ─── Step 5: Benefícios e Programas ───
+            case 4: return (
               <>
                 <h2 className={styles.sectionTitle}>Benefícios e Programas</h2>
                 {novoMembro.nome && <p className={styles.sectionName}>{novoMembro.nome}</p>}
@@ -2540,7 +2481,7 @@ export function CadastroCandidato() {
 
         return (
           <>
-            <StepperBar totalSteps={6} currentStep={subStepMembro} onStepClick={setSubStepMembro} />
+            <StepperBar totalSteps={5} currentStep={subStepMembro} onStepClick={setSubStepMembro} />
             {membroStepContent()}
             <div className={styles.footerSplit}>
               {subStepMembro > 0
@@ -2550,7 +2491,7 @@ export function CadastroCandidato() {
               <button className={styles.btnOutline} onClick={handleSaveMembroStep} disabled={savingMembro}>
                 {savingMembro ? 'Salvando...' : 'Salvar'}
               </button>
-              {subStepMembro < 5
+              {subStepMembro < 4
                 ? <button className={styles.btnArrow} onClick={() => setSubStepMembro(s => s + 1)}><FiArrowRight size={20} /></button>
                 : <button className={styles.btnOutlineArrow} onClick={handleConcluirMembro} disabled={savingMembro}>
                     {savingMembro ? 'Salvando...' : 'Concluir'} <FiArrowRight size={16} />
