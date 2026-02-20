@@ -213,6 +213,8 @@ model Candidato {
   moradia           Moradia?
   veiculos          Veiculo[]
   saude             SaudeFamiliar[]
+  fontesRenda       FonteRenda[]
+  rendasMensais     RendaMensal[]
 
   @@map("candidatos")
 }
@@ -305,6 +307,7 @@ model MembroFamilia {
   rendaMensal     RendaMensal[]
   documentos      DocumentoMembro[]
   saude           SaudeFamiliar[]
+  fontesRenda     FonteRenda[]
 
   criadoEm        DateTime @default(now())
   atualizadoEm    DateTime @updatedAt
@@ -313,7 +316,7 @@ model MembroFamilia {
 }
 
 // ===========================================
-// RENDA MENSAL (detalhamento por mês/membro)
+// RENDA MENSAL (detalhamento por mês/fonte)
 // ===========================================
 
 model RendaMensal {
@@ -321,18 +324,76 @@ model RendaMensal {
   mes             Int      // 1-12
   ano             Int
   valor           Decimal
-  fonte           String?  // CLT, Autônomo, Aposentadoria, Pensão, etc.
+  fonte           String?  // campo antigo — mantido para backward compat
   descricao       String?
-  comprovante     String?  // URL do comprovante
-  
-  membro          MembroFamilia @relation(fields: [membroId], references: [id], onDelete: Cascade)
-  membroId        String
-  
+  comprovante     String?  // campo antigo URL — mantido para backward compat
+
+  // Novos campos 2.x
+  rendaBruta              Decimal? @default(0) @map("renda_bruta")
+  auxilioAlimentacao       Decimal? @default(0) @map("auxilio_alimentacao")
+  auxilioTransporte        Decimal? @default(0) @map("auxilio_transporte")
+  adiantamentos            Decimal? @default(0)
+  indenizacoes             Decimal? @default(0)
+  estornosCompensacoes     Decimal? @default(0) @map("estornos_compensacoes")
+  pensaoAlimenticiaPaga    Decimal? @default(0) @map("pensao_alimenticia_paga")
+  comprovanteUrl           String?  @map("comprovante_url")
+  comprovanteNome          String?  @map("comprovante_nome")
+
+  // Vínculos (todos opcionais para backward compat)
+  membro          MembroFamilia? @relation(fields: [membroId], references: [id], onDelete: Cascade)
+  membroId        String?
+
+  fonteRenda      FonteRenda? @relation(fields: [fonteRendaId], references: [id], onDelete: Cascade)
+  fonteRendaId    String?     @map("fonte_renda_id")
+
+  candidato       Candidato? @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId     String?    @map("candidato_id")
+
   criadoEm        DateTime @default(now())
   atualizadoEm    DateTime @updatedAt
 
-  @@unique([membroId, mes, ano])
   @@map("rendas_mensais")
+}
+
+// ===========================================
+// FONTE DE RENDA (vínculo empregatício / ocupação)
+// ===========================================
+
+model FonteRenda {
+  id                    String   @id @default(uuid())
+
+  // Vínculo dual: candidato OU membro
+  candidato             Candidato?     @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId           String?        @map("candidato_id")
+  membroFamilia         MembroFamilia? @relation(fields: [membroFamiliaId], references: [id], onDelete: Cascade)
+  membroFamiliaId       String?        @map("membro_id")
+
+  tipo                  String
+
+  // Dados do vínculo (condicional por tipo)
+  documentoEmpregador   String?  @map("documento_empregador")
+  nomeFontePagadora     String?  @map("nome_fonte_pagadora")
+  telefoneFonte         String?  @map("telefone_fonte")
+  atividadeExercida     String?  @map("atividade_exercida")
+  dataInicio            DateTime? @db.Date @map("data_inicio")
+
+  // Benefício
+  descricaoBeneficio    String?  @map("descricao_beneficio")
+  numeroBeneficio       String?  @map("numero_beneficio")
+
+  // Estudante
+  instituicaoEnsino     String?  @map("instituicao_ensino")
+  cursoSerie            String?  @map("curso_serie")
+  comprovanteMatriculaUrl  String?  @map("comprovante_matricula_url")
+  comprovanteMatriculaNome String?  @map("comprovante_matricula_nome")
+
+  // Relação com rendas mensais
+  rendasMensais         RendaMensal[]
+
+  criadoEm              DateTime @default(now()) @map("criado_em")
+  atualizadoEm          DateTime @updatedAt     @map("atualizado_em")
+
+  @@map("fontes_renda")
 }
 
 // ===========================================

@@ -1,0 +1,41 @@
+// ===========================================
+// RENDA MENSAL (detalhamento por mês/fonte)
+// SUBSTITUIR o model RendaMensal existente no schema.prisma
+// ===========================================
+
+model RendaMensal {
+  id              String   @id @default(uuid())
+  mes             Int      // 1-12
+  ano             Int
+  valor           Decimal  // mantido para backward compat
+  fonte           String?  // campo antigo — mantido para backward compat
+  descricao       String?
+
+  // Novos campos 2.x
+  rendaBruta              Decimal? @default(0)
+  auxilioAlimentacao       Decimal? @default(0)
+  auxilioTransporte        Decimal? @default(0)
+  adiantamentos            Decimal? @default(0)
+  indenizacoes             Decimal? @default(0)
+  estornosCompensacoes     Decimal? @default(0)
+  pensaoAlimenticiaPaga    Decimal? @default(0)
+  comprovanteUrl           String?
+  comprovanteNome          String?
+
+  // Vínculos (todos opcionais para backward compat)
+  membro          MembroFamilia? @relation(fields: [membroId], references: [id], onDelete: Cascade)
+  membroId        String?
+
+  fonteRenda      FonteRenda? @relation(fields: [fonteRendaId], references: [id], onDelete: Cascade)
+  fonteRendaId    String?
+
+  candidato       Candidato? @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId     String?
+
+  comprovante     String?  // campo antigo URL — mantido para backward compat
+
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("rendas_mensais")
+}

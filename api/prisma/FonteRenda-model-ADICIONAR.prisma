@@ -1,0 +1,42 @@
+// ===========================================
+// FONTE DE RENDA (vínculo empregatício / ocupação)
+// Adicionar APÓS o model RendaMensal no schema.prisma
+// ===========================================
+
+model FonteRenda {
+  id                    String   @id @default(uuid())
+
+  // Vínculo dual: candidato OU membro
+  candidato             Candidato?     @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+  candidatoId           String?
+  membroFamilia         MembroFamilia? @relation(fields: [membroFamiliaId], references: [id], onDelete: Cascade)
+  membroFamiliaId       String?
+
+  // Step 1
+  tipo                  String         // EMPREGADO_PRIVADO, ESTUDANTE, etc.
+
+  // Step 2 - Dados do vínculo (condicional)
+  documentoEmpregador   String?        // CNPJ ou CPF
+  nomeFontePagadora     String?
+  telefoneFonte         String?
+  atividadeExercida     String?
+  dataInicio            DateTime?      @db.Date
+
+  // Específico: Benefício
+  descricaoBeneficio    String?
+  numeroBeneficio       String?
+
+  // Específico: Estudante
+  instituicaoEnsino     String?
+  cursoSerie            String?
+  comprovanteMatriculaUrl  String?
+  comprovanteMatriculaNome String?
+
+  // Relação com rendas mensais
+  rendasMensais         RendaMensal[]
+
+  criadoEm              DateTime @default(now())
+  atualizadoEm          DateTime @updatedAt
+
+  @@map("fontes_renda")
+}

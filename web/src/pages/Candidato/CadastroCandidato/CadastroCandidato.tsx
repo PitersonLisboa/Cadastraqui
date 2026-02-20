@@ -4,8 +4,8 @@ import { toast } from 'react-toastify'
 import { FiArrowRight, FiArrowLeft, FiTrash2, FiEye, FiPlus, FiX, FiDollarSign, FiChevronDown, FiChevronUp, FiFileText, FiUpload, FiCheck, FiCamera } from 'react-icons/fi'
 import { sidebarModeState } from '@/atoms'
 import { StepperBar } from '@/components/common/StepperBar/StepperBar'
-import { api, rendaService, despesaService, moradiaService, veiculoService, saudeService, ocrService, ocrMembroService, getAuthToken, getApiBaseUrl } from '@/services/api'
-import { maskCPF, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
+import { api, rendaService, fonteRendaService, despesaService, moradiaService, veiculoService, saudeService, ocrService, ocrMembroService, getAuthToken, getApiBaseUrl } from '@/services/api'
+import { maskCPF, maskCNPJ, maskPhone, maskCEP, unmaskValue, fetchAddressByCEP } from '@/utils/masks'
 import { DateInput } from '@/components/common/DateInput/DateInput'
 import { MembroDetalhe } from './MembroDetalhe'
 import styles from './CadastroCandidato.module.scss'
@@ -276,15 +276,86 @@ const CATEGORIAS_DESPESA = [
 ]
 
 const FONTES_RENDA = [
-  { value: 'CLT', label: 'CLT (carteira assinada)' },
-  { value: 'AUTONOMO', label: 'Trabalho autônomo' },
-  { value: 'APOSENTADORIA', label: 'Aposentadoria' },
-  { value: 'PENSAO', label: 'Pensão' },
-  { value: 'ALUGUEL', label: 'Renda de aluguel' },
-  { value: 'BENEFICIO', label: 'Benefício social' },
-  { value: 'INFORMAL', label: 'Trabalho informal' },
-  { value: 'OUTRO', label: 'Outra fonte' },
+  { value: 'EMPREGADO_PRIVADO', label: 'Empregado Privado' },
+  { value: 'EMPREGADO_PUBLICO', label: 'Empregado Público' },
+  { value: 'EMPREGADO_DOMESTICO', label: 'Empregado Doméstico' },
+  { value: 'EMPREGADO_RURAL_TEMPORARIO', label: 'Empregado Rural Temporário' },
+  { value: 'EMPRESARIO_SIMPLES', label: 'Empresário - Regime Simples' },
+  { value: 'EMPRESARIO', label: 'Empresário' },
+  { value: 'EMPREENDEDOR_INDIVIDUAL', label: 'Empreendedor Individual' },
+  { value: 'AUTONOMO', label: 'Autônomo' },
+  { value: 'APOSENTADO', label: 'Aposentado' },
+  { value: 'PENSIONISTA', label: 'Pensionista' },
+  { value: 'PROGRAMAS_TRANSFERENCIA', label: 'Programas de Transferência de Renda' },
+  { value: 'APRENDIZ', label: 'Aprendiz' },
+  { value: 'VOLUNTARIO', label: 'Voluntário' },
+  { value: 'RENDA_ALUGUEL', label: 'Renda de Aluguel' },
+  { value: 'ESTUDANTE', label: 'Estudante' },
+  { value: 'TRABALHADOR_INFORMAL', label: 'Trabalhador Informal' },
+  { value: 'DESEMPREGADO', label: 'Desempregado' },
+  { value: 'BENEFICIO_INCAPACIDADE', label: 'Benefício por Incapacidade Temporária' },
+  { value: 'PROFISSIONAL_LIBERAL', label: 'Profissional Liberal' },
+  { value: 'AJUDA_TERCEIROS', label: 'Ajuda Financeira de Terceiros' },
+  { value: 'PENSAO_ALIMENTICIA', label: 'Pensão Alimentícia' },
+  { value: 'PREVIDENCIA_PRIVADA', label: 'Previdência Privada' },
 ]
+
+const FONTES_GRUPO_CNPJ = ['EMPREGADO_PRIVADO', 'EMPREGADO_PUBLICO', 'EMPREGADO_RURAL_TEMPORARIO', 'EMPRESARIO_SIMPLES', 'EMPRESARIO', 'EMPREENDEDOR_INDIVIDUAL', 'APRENDIZ']
+const FONTES_GRUPO_CPF = ['EMPREGADO_DOMESTICO']
+const FONTES_GRUPO_ATIVIDADE = ['AUTONOMO', 'PROFISSIONAL_LIBERAL', 'TRABALHADOR_INFORMAL']
+const FONTES_GRUPO_BENEFICIO = ['APOSENTADO', 'PENSIONISTA', 'PROGRAMAS_TRANSFERENCIA', 'BENEFICIO_INCAPACIDADE', 'PENSAO_ALIMENTICIA', 'PREVIDENCIA_PRIVADA']
+const FONTES_GRUPO_ESTUDANTE = ['ESTUDANTE']
+const FONTES_GRUPO_SEM_DADOS = ['VOLUNTARIO', 'RENDA_ALUGUEL', 'DESEMPREGADO', 'AJUDA_TERCEIROS']
+
+const RENDA_STEP_LABELS = ['Fonte de Renda', 'Dados do Vínculo', 'Registro Mensal']
+
+function getGrupoFonte(tipo: string): 'CNPJ' | 'CPF' | 'ATIVIDADE' | 'BENEFICIO' | 'ESTUDANTE' | 'SEM_DADOS' {
+  if (FONTES_GRUPO_CNPJ.includes(tipo)) return 'CNPJ'
+  if (FONTES_GRUPO_CPF.includes(tipo)) return 'CPF'
+  if (FONTES_GRUPO_ATIVIDADE.includes(tipo)) return 'ATIVIDADE'
+  if (FONTES_GRUPO_BENEFICIO.includes(tipo)) return 'BENEFICIO'
+  if (FONTES_GRUPO_ESTUDANTE.includes(tipo)) return 'ESTUDANTE'
+  return 'SEM_DADOS'
+}
+
+function getLabelFonte(tipo: string): string {
+  return FONTES_RENDA.find(f => f.value === tipo)?.label || tipo
+}
+
+interface FonteRendaItem {
+  id: string; tipo: string; documentoEmpregador?: string; nomeFontePagadora?: string
+  telefoneFonte?: string; atividadeExercida?: string; dataInicio?: string
+  descricaoBeneficio?: string; numeroBeneficio?: string; instituicaoEnsino?: string
+  cursoSerie?: string; comprovanteMatriculaUrl?: string; comprovanteMatriculaNome?: string
+  rendasMensais: RendaMensal2Item[]
+}
+interface RendaMensal2Item {
+  id: string; mes: number; ano: number; rendaBruta: number
+  auxilioAlimentacao: number; auxilioTransporte: number; adiantamentos: number
+  indenizacoes: number; estornosCompensacoes: number; pensaoAlimenticiaPaga: number
+  comprovanteUrl?: string; comprovanteNome?: string
+}
+interface IntegranteRenda {
+  id: string; nome: string; parentesco: string; tipo: 'candidato' | 'membro'; fontes: FonteRendaItem[]
+}
+interface FonteRendaForm {
+  tipo: string; documentoEmpregador: string; nomeFontePagadora: string; telefoneFonte: string
+  atividadeExercida: string; dataInicio: string; descricaoBeneficio: string; numeroBeneficio: string
+  instituicaoEnsino: string; cursoSerie: string
+}
+interface RendaMesForm {
+  rendaBruta: string; auxilioAlimentacao: string; auxilioTransporte: string; adiantamentos: string
+  indenizacoes: string; estornosCompensacoes: string; pensaoAlimenticiaPaga: string
+}
+const EMPTY_FONTE_FORM: FonteRendaForm = {
+  tipo: '', documentoEmpregador: '', nomeFontePagadora: '', telefoneFonte: '',
+  atividadeExercida: '', dataInicio: '', descricaoBeneficio: '', numeroBeneficio: '',
+  instituicaoEnsino: '', cursoSerie: '',
+}
+const EMPTY_RENDA_MES: RendaMesForm = {
+  rendaBruta: '', auxilioAlimentacao: '0', auxilioTransporte: '0', adiantamentos: '0',
+  indenizacoes: '0', estornosCompensacoes: '0', pensaoAlimenticiaPaga: '0',
+}
 
 const formatCurrency = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -471,12 +542,15 @@ export function CadastroCandidato() {
   const [rendaMedia, setRendaMedia] = useState('0,00')
   const [rendaPerCapita, setRendaPerCapita] = useState('0,00')
   const [membrosRenda, setMembrosRenda] = useState<any[]>([])
-  const [rendaDrawerMembro, setRendaDrawerMembro] = useState<string | null>(null)
-  const [rendaDrawerData, setRendaDrawerData] = useState<{ membro: any; rendas: RendaMensalItem[]; resumo: any } | null>(null)
-  const [rendaDrawerLoading, setRendaDrawerLoading] = useState(false)
-  const [showRendaForm, setShowRendaForm] = useState<string | null>(null) // mesKey  
-  const [novaRenda, setNovaRenda] = useState({ valor: '', fonte: '', descricao: '' })
-  const [savingRenda, setSavingRenda] = useState(false)
+  const [integrantesRenda, setIntegrantesRenda] = useState<IntegranteRenda[]>([])
+  const [rendaWizardOpen, setRendaWizardOpen] = useState<string | null>(null)
+  const [rendaWizardStep, setRendaWizardStep] = useState(0)
+  const [rendaFonteForm, setRendaFonteForm] = useState<FonteRendaForm>({ ...EMPTY_FONTE_FORM })
+  const [rendaEditingFonteId, setRendaEditingFonteId] = useState<string | null>(null)
+  const [rendaMesesForm, setRendaMesesForm] = useState<Record<string, RendaMesForm>>({})
+  const [rendaMesAberto, setRendaMesAberto] = useState<string | null>(null)
+  const [savingFonteRenda, setSavingFonteRenda] = useState(false)
+  const [savingRendaMes, setSavingRendaMes] = useState(false)
 
   // Gastos
   const [gastoUltimoMes, setGastoUltimoMes] = useState(0)
@@ -557,13 +631,21 @@ export function CadastroCandidato() {
         setEditMode(true)
       }
       try { const m = await api.get('/familia/membros'); setMembros(m.data.membros || []) } catch {}
-      // Carregar rendas
+      // Carregar rendas 2.x (fontes + rendas mensais)
       try {
-        const r = await rendaService.listar()
-        setMembrosRenda(r.membros || [])
+        const r = await fonteRendaService.listar()
+        setIntegrantesRenda(r.integrantes || [])
         setRendaMedia(formatCurrency(r.resumo?.rendaMediaMensal || 0))
         setRendaPerCapita(formatCurrency(r.resumo?.rendaPerCapita || 0))
-      } catch {}
+      } catch {
+        // Fallback para API antiga
+        try {
+          const r = await rendaService.listar()
+          setMembrosRenda(r.membros || [])
+          setRendaMedia(formatCurrency(r.resumo?.rendaMediaMensal || 0))
+          setRendaPerCapita(formatCurrency(r.resumo?.rendaPerCapita || 0))
+        } catch {}
+      }
       // Carregar despesas
       try {
         const d = await despesaService.listar()
@@ -959,48 +1041,163 @@ export function CadastroCandidato() {
     if (i >= 0 && i < SECTION_IDS.length) setSidebarMode({ mode: 'cadastro', activeSection: SECTION_IDS[i] })
   }
 
-  // ── Renda Drawer ──
-  const abrirRendaDrawer = async (membroId: string) => {
-    setRendaDrawerMembro(membroId)
-    setRendaDrawerLoading(true)
-    try {
-      const res = await rendaService.doMembro(membroId)
-      setRendaDrawerData({
-        membro: res.membro,
-        rendas: res.rendas || [],
-        resumo: res.resumo,
-      })
-    } catch { toast.error('Erro ao carregar rendas') }
-    finally { setRendaDrawerLoading(false) }
+  // ── Renda 2.x — Handlers ──
+  const getUltimos6Meses = () => {
+    const now = new Date()
+    return Array.from({ length: 6 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      return { month: d.getMonth() + 1, year: d.getFullYear() }
+    })
   }
 
-  const handleSalvarRenda = async (membroId: string, mes: number, ano: number) => {
-    const valor = parseFloat(novaRenda.valor.replace(/\./g, '').replace(',', '.'))
-    if (isNaN(valor) || valor < 0) return toast.error('Informe um valor válido')
-    setSavingRenda(true)
-    try {
-      await rendaService.salvar({
-        membroId, mes, ano, valor,
-        fonte: novaRenda.fonte || undefined,
-        descricao: novaRenda.descricao || undefined,
-      })
-      toast.success('Renda salva!')
-      setNovaRenda({ valor: '', fonte: '', descricao: '' })
-      setShowRendaForm(null)
-      abrirRendaDrawer(membroId)
-      carregarDados()
-    } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao salvar') }
-    finally { setSavingRenda(false) }
+  const handleAbrirRendaWizard = (integranteId: string) => {
+    setRendaWizardOpen(integranteId)
+    setRendaWizardStep(0)
+    setRendaFonteForm({ ...EMPTY_FONTE_FORM })
+    setRendaEditingFonteId(null)
+    setRendaMesesForm({})
+    setRendaMesAberto(null)
   }
 
-  const handleExcluirRenda = async (rendaId: string, membroId: string) => {
-    if (!confirm('Excluir este registro de renda?')) return
+  const handleEditarFonte = (integranteId: string, fonte: FonteRendaItem) => {
+    setRendaWizardOpen(integranteId)
+    setRendaEditingFonteId(fonte.id)
+    setRendaFonteForm({
+      tipo: fonte.tipo,
+      documentoEmpregador: fonte.documentoEmpregador || '',
+      nomeFontePagadora: fonte.nomeFontePagadora || '',
+      telefoneFonte: fonte.telefoneFonte || '',
+      atividadeExercida: fonte.atividadeExercida || '',
+      dataInicio: fonte.dataInicio ? fonte.dataInicio.substring(0, 10) : '',
+      descricaoBeneficio: fonte.descricaoBeneficio || '',
+      numeroBeneficio: fonte.numeroBeneficio || '',
+      instituicaoEnsino: fonte.instituicaoEnsino || '',
+      cursoSerie: fonte.cursoSerie || '',
+    })
+    const mesesFormInit: Record<string, RendaMesForm> = {}
+    for (const r of fonte.rendasMensais) {
+      mesesFormInit[`${r.ano}-${r.mes}`] = {
+        rendaBruta: r.rendaBruta?.toString() || '0',
+        auxilioAlimentacao: r.auxilioAlimentacao?.toString() || '0',
+        auxilioTransporte: r.auxilioTransporte?.toString() || '0',
+        adiantamentos: r.adiantamentos?.toString() || '0',
+        indenizacoes: r.indenizacoes?.toString() || '0',
+        estornosCompensacoes: r.estornosCompensacoes?.toString() || '0',
+        pensaoAlimenticiaPaga: r.pensaoAlimenticiaPaga?.toString() || '0',
+      }
+    }
+    setRendaMesesForm(mesesFormInit)
+    const grupo = getGrupoFonte(fonte.tipo)
+    setRendaWizardStep(grupo === 'SEM_DADOS' ? 2 : 1)
+  }
+
+  const handleFecharRendaWizard = () => {
+    setRendaWizardOpen(null)
+    setRendaWizardStep(0)
+    setRendaFonteForm({ ...EMPTY_FONTE_FORM })
+    setRendaEditingFonteId(null)
+    setRendaMesesForm({})
+  }
+
+  const handleRendaProximoStep = () => {
+    const grupo = getGrupoFonte(rendaFonteForm.tipo)
+    if (rendaWizardStep === 0) {
+      if (!rendaFonteForm.tipo) return toast.error('Selecione uma fonte de renda')
+      setRendaWizardStep(grupo === 'SEM_DADOS' ? 2 : 1)
+    } else if (rendaWizardStep === 1) {
+      setRendaWizardStep(2)
+    }
+  }
+
+  const handleRendaStepAnterior = () => {
+    const grupo = getGrupoFonte(rendaFonteForm.tipo)
+    if (rendaWizardStep === 2) setRendaWizardStep(grupo === 'SEM_DADOS' ? 0 : 1)
+    else if (rendaWizardStep === 1) setRendaWizardStep(0)
+  }
+
+  const handleSalvarFonte = async () => {
+    if (!rendaWizardOpen || !rendaFonteForm.tipo) return
+    setSavingFonteRenda(true)
     try {
-      await rendaService.excluir(rendaId)
-      toast.success('Removido')
-      abrirRendaDrawer(membroId)
+      const integrante = integrantesRenda.find(i => i.id === rendaWizardOpen)
+      const dados: any = {
+        tipo: rendaFonteForm.tipo,
+        documentoEmpregador: rendaFonteForm.documentoEmpregador || undefined,
+        nomeFontePagadora: rendaFonteForm.nomeFontePagadora || undefined,
+        telefoneFonte: rendaFonteForm.telefoneFonte || undefined,
+        atividadeExercida: rendaFonteForm.atividadeExercida || undefined,
+        dataInicio: rendaFonteForm.dataInicio || undefined,
+        descricaoBeneficio: rendaFonteForm.descricaoBeneficio || undefined,
+        numeroBeneficio: rendaFonteForm.numeroBeneficio || undefined,
+        instituicaoEnsino: rendaFonteForm.instituicaoEnsino || undefined,
+        cursoSerie: rendaFonteForm.cursoSerie || undefined,
+      }
+      if (rendaEditingFonteId) {
+        await fonteRendaService.atualizar(rendaEditingFonteId, dados)
+      } else {
+        if (integrante?.tipo === 'membro') dados.membroFamiliaId = integrante.id
+        const res = await fonteRendaService.criar(dados)
+        setRendaEditingFonteId(res.fonte.id)
+      }
+      toast.success('Fonte de renda salva!')
+      setRendaWizardStep(2)
       carregarDados()
-    } catch { toast.error('Erro ao remover') }
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao salvar fonte') }
+    finally { setSavingFonteRenda(false) }
+  }
+
+  const handleSalvarRendasMensais = async () => {
+    if (!rendaEditingFonteId) return toast.error('Salve a fonte de renda primeiro')
+    setSavingRendaMes(true)
+    try {
+      const rendas = getUltimos6Meses().map(({ month, year }) => {
+        const form = rendaMesesForm[`${year}-${month}`] || EMPTY_RENDA_MES
+        return {
+          mes: month, ano: year,
+          rendaBruta: parseFloat(form.rendaBruta.replace(/\./g, '').replace(',', '.')) || 0,
+          auxilioAlimentacao: parseFloat(form.auxilioAlimentacao.replace(/\./g, '').replace(',', '.')) || 0,
+          auxilioTransporte: parseFloat(form.auxilioTransporte.replace(/\./g, '').replace(',', '.')) || 0,
+          adiantamentos: parseFloat(form.adiantamentos.replace(/\./g, '').replace(',', '.')) || 0,
+          indenizacoes: parseFloat(form.indenizacoes.replace(/\./g, '').replace(',', '.')) || 0,
+          estornosCompensacoes: parseFloat(form.estornosCompensacoes.replace(/\./g, '').replace(',', '.')) || 0,
+          pensaoAlimenticiaPaga: parseFloat(form.pensaoAlimenticiaPaga.replace(/\./g, '').replace(',', '.')) || 0,
+        }
+      })
+      await rendaService.salvarBatch({ fonteRendaId: rendaEditingFonteId, rendas })
+      toast.success('Rendas salvas com sucesso!')
+      handleFecharRendaWizard()
+      carregarDados()
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao salvar rendas') }
+    finally { setSavingRendaMes(false) }
+  }
+
+  const handleExcluirFonte = async (fonteId: string) => {
+    if (!confirm('Excluir esta fonte de renda e todos os registros mensais vinculados?')) return
+    try { await fonteRendaService.excluir(fonteId); toast.success('Fonte removida'); carregarDados() }
+    catch { toast.error('Erro ao remover') }
+  }
+
+  const handleUploadComprovante = async (fonteId: string, mes: number, ano: number, file: File) => {
+    try { await rendaService.uploadComprovante(fonteId, mes, ano, file); toast.success('Comprovante enviado!'); carregarDados() }
+    catch { toast.error('Erro ao enviar comprovante') }
+  }
+
+  const handleCopiarMesAnterior = (mesAtualKey: string) => {
+    const meses = getUltimos6Meses()
+    const idx = meses.findIndex(m => `${m.year}-${m.month}` === mesAtualKey)
+    if (idx < 0 || idx >= meses.length - 1) return toast.error('Não há mês anterior para copiar')
+    const mesAnterior = meses[idx + 1]
+    const formAnterior = rendaMesesForm[`${mesAnterior.year}-${mesAnterior.month}`]
+    if (!formAnterior || !formAnterior.rendaBruta) return toast.error('Mês anterior sem dados')
+    setRendaMesesForm(prev => ({ ...prev, [mesAtualKey]: { ...formAnterior } }))
+    toast.success('Valores copiados do mês anterior')
+  }
+
+  const updateRendaMesField = (mesKey: string, field: keyof RendaMesForm, value: string) => {
+    setRendaMesesForm(prev => ({
+      ...prev,
+      [mesKey]: { ...(prev[mesKey] || EMPTY_RENDA_MES), [field]: value },
+    }))
   }
 
   // ── Despesa Drawer ──
@@ -2596,6 +2793,8 @@ export function CadastroCandidato() {
         return (
           <>
             <h2 className={styles.sectionTitle}>Renda Familiar</h2>
+
+            {/* Cards de resumo */}
             <div className={styles.rendaCards}>
               <div className={styles.rendaCard}>
                 <span className={styles.rendaCardLabel}>Renda média mensal</span>
@@ -2608,33 +2807,284 @@ export function CadastroCandidato() {
             </div>
 
             <p className={styles.sectionSub}>
-              {membrosRenda.length > 0
-                ? 'Clique em cada membro para registrar a renda mensal dos últimos 3 meses.'
-                : ''}
+              Cadastre a fonte e os valores de renda dos últimos 6 meses para cada integrante.
             </p>
 
+            {/* Lista de Integrantes */}
             <div className={styles.listItems}>
-              {membrosRenda.map((m: any) => {
-                const ultimaRenda = m.rendaMensal?.[0]
+              {integrantesRenda.map((integrante) => {
+                const totalFontes = integrante.fontes.length
+                const totalMesesPreenchidos = integrante.fontes.reduce((acc, f) => acc + f.rendasMensais.length, 0)
+                const isWizardOpen = rendaWizardOpen === integrante.id
+
                 return (
-                  <div key={m.id} className={styles.membroRendaRow} onClick={() => abrirRendaDrawer(m.id)} style={{ cursor: 'pointer' }}>
-                    <FiDollarSign size={18} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
-                    <div className={styles.membroInfo}>
-                      <span className={styles.membroNome}>{m.nome}</span>
-                      <span className={styles.membroMeta}>{m.parentesco}{m.ocupacao ? ` · ${m.ocupacao}` : ''}</span>
+                  <div key={integrante.id} className={styles.integranteRendaBlock}>
+                    {/* Header do integrante */}
+                    <div className={styles.integranteRendaHeader}>
+                      <div className={styles.membroInfo}>
+                        <span className={styles.membroNome}>
+                          {integrante.nome}
+                          {integrante.tipo === 'candidato' && (
+                            <span className={styles.badgeCandidato}>Candidato(a)</span>
+                          )}
+                        </span>
+                        <span className={styles.membroMeta}>
+                          {integrante.parentesco}
+                          {totalFontes > 0 && ` · ${totalFontes} fonte${totalFontes > 1 ? 's' : ''}`}
+                        </span>
+                      </div>
+                      <div className={styles.indicators}>
+                        <span className={
+                          totalMesesPreenchidos >= 6 ? styles.indicatorGreen
+                            : totalMesesPreenchidos > 0 ? styles.indicatorYellow
+                            : styles.indicatorRed
+                        } />
+                      </div>
                     </div>
-                    <span className={styles.membroRenda}>
-                      {ultimaRenda ? `R$ ${formatCurrency(Number(ultimaRenda.valor))}` : 'Sem registro'}
-                    </span>
-                    <div className={styles.indicators}>
-                      <span className={m.rendaMensal?.length > 0 ? styles.indicatorGreen : styles.indicatorYellow} />
-                    </div>
+
+                    {/* Fontes cadastradas */}
+                    {integrante.fontes.map((fonte) => {
+                      const ultimaRenda = fonte.rendasMensais[0]
+                      return (
+                        <div key={fonte.id} className={styles.fonteRendaCard}>
+                          <div className={styles.fonteRendaInfo}>
+                            <FiDollarSign size={16} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                            <div>
+                              <span className={styles.fonteRendaTipo}>{getLabelFonte(fonte.tipo)}</span>
+                              {fonte.nomeFontePagadora && (
+                                <span className={styles.membroMeta}>{fonte.nomeFontePagadora}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className={styles.fonteRendaActions}>
+                            <span className={styles.membroRenda}>
+                              {ultimaRenda ? `R$ ${formatCurrency(ultimaRenda.rendaBruta)}` : '—'}
+                            </span>
+                            <button className={styles.btnSmallOutline} onClick={() => handleEditarFonte(integrante.id, fonte)}>Editar</button>
+                            <button className={styles.btnSmallDanger} onClick={() => handleExcluirFonte(fonte.id)}><FiTrash2 size={12} /></button>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Botão adicionar fonte */}
+                    {!isWizardOpen && (
+                      <button className={styles.btnAddFonte} onClick={() => handleAbrirRendaWizard(integrante.id)}>
+                        <FiPlus size={14} /> Adicionar fonte de renda
+                      </button>
+                    )}
+
+                    {/* ═══ WIZARD INLINE (3 Steps) ═══ */}
+                    {isWizardOpen && (
+                      <div className={styles.rendaWizardInline}>
+                        <StepperBar steps={RENDA_STEP_LABELS} currentStep={rendaWizardStep} />
+
+                        {/* Step 1: Fonte de Renda */}
+                        {rendaWizardStep === 0 && (
+                          <div className={styles.rendaWizardBody}>
+                            <h3 className={styles.rendaStepTitle}>Fonte de Renda</h3>
+                            <div className={styles.field}>
+                              <label>Integrante</label>
+                              <input value={integrante.nome} disabled className={styles.inputDisabled} />
+                            </div>
+                            <div className={styles.field}>
+                              <label>Fonte de renda <span className={styles.req}>*</span></label>
+                              <select value={rendaFonteForm.tipo} onChange={e => setRendaFonteForm({ ...rendaFonteForm, tipo: e.target.value })}>
+                                <option value="">Selecione...</option>
+                                {FONTES_RENDA.map(f => (<option key={f.value} value={f.value}>{f.label}</option>))}
+                              </select>
+                            </div>
+                            <div className={styles.wizardFooter}>
+                              <button className={styles.btnGhost} onClick={handleFecharRendaWizard}>Cancelar</button>
+                              <button className={styles.btnPrimary} onClick={handleRendaProximoStep} disabled={!rendaFonteForm.tipo}>
+                                Próximo <FiArrowRight size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step 2: Dados do Vínculo */}
+                        {rendaWizardStep === 1 && (() => {
+                          const grupo = getGrupoFonte(rendaFonteForm.tipo)
+                          return (
+                            <div className={styles.rendaWizardBody}>
+                              <h3 className={styles.rendaStepTitle}>Dados do Vínculo</h3>
+
+                              {(grupo === 'CNPJ' || grupo === 'CPF') && (
+                                <>
+                                  <div className={styles.field}>
+                                    <label>{grupo === 'CPF' ? 'CPF do empregador' : 'CNPJ'}</label>
+                                    <input value={rendaFonteForm.documentoEmpregador}
+                                      onChange={e => setRendaFonteForm({ ...rendaFonteForm, documentoEmpregador: grupo === 'CPF' ? maskCPF(e.target.value) : maskCNPJ(e.target.value) })}
+                                      placeholder={grupo === 'CPF' ? '000.000.000-00' : '00.000.000/0000-00'} />
+                                  </div>
+                                  <div className={styles.field}>
+                                    <label>Data de início/admissão</label>
+                                    <input type="date" value={rendaFonteForm.dataInicio} onChange={e => setRendaFonteForm({ ...rendaFonteForm, dataInicio: e.target.value })} />
+                                  </div>
+                                  <div className={styles.field}>
+                                    <label>Atividade exercida</label>
+                                    <input value={rendaFonteForm.atividadeExercida} onChange={e => setRendaFonteForm({ ...rendaFonteForm, atividadeExercida: e.target.value })} />
+                                  </div>
+                                  <div className={styles.field}>
+                                    <label>{grupo === 'CPF' ? 'Nome do empregador' : 'Fonte pagadora'}</label>
+                                    <input value={rendaFonteForm.nomeFontePagadora} onChange={e => setRendaFonteForm({ ...rendaFonteForm, nomeFontePagadora: e.target.value })} />
+                                  </div>
+                                  <div className={styles.field}>
+                                    <label>Telefone da fonte pagadora</label>
+                                    <input value={rendaFonteForm.telefoneFonte} onChange={e => setRendaFonteForm({ ...rendaFonteForm, telefoneFonte: maskPhone(e.target.value) })} placeholder="(00) 00000-0000" />
+                                  </div>
+                                </>
+                              )}
+
+                              {grupo === 'ATIVIDADE' && (
+                                <>
+                                  <div className={styles.field}>
+                                    <label>Atividade exercida</label>
+                                    <input value={rendaFonteForm.atividadeExercida} onChange={e => setRendaFonteForm({ ...rendaFonteForm, atividadeExercida: e.target.value })} />
+                                  </div>
+                                  <div className={styles.field}>
+                                    <label>Data de início</label>
+                                    <input type="date" value={rendaFonteForm.dataInicio} onChange={e => setRendaFonteForm({ ...rendaFonteForm, dataInicio: e.target.value })} />
+                                  </div>
+                                </>
+                              )}
+
+                              {grupo === 'BENEFICIO' && (
+                                <>
+                                  <div className={styles.field}>
+                                    <label>Descrição do benefício</label>
+                                    <input value={rendaFonteForm.descricaoBeneficio} onChange={e => setRendaFonteForm({ ...rendaFonteForm, descricaoBeneficio: e.target.value })} />
+                                  </div>
+                                  <div className={styles.field}>
+                                    <label>Número do benefício (opcional)</label>
+                                    <input value={rendaFonteForm.numeroBeneficio} onChange={e => setRendaFonteForm({ ...rendaFonteForm, numeroBeneficio: e.target.value })} />
+                                  </div>
+                                </>
+                              )}
+
+                              {grupo === 'ESTUDANTE' && (
+                                <>
+                                  <div className={styles.field}>
+                                    <label>Instituição de ensino</label>
+                                    <input value={rendaFonteForm.instituicaoEnsino} onChange={e => setRendaFonteForm({ ...rendaFonteForm, instituicaoEnsino: e.target.value })} />
+                                  </div>
+                                  <div className={styles.field}>
+                                    <label>Curso / série</label>
+                                    <input value={rendaFonteForm.cursoSerie} onChange={e => setRendaFonteForm({ ...rendaFonteForm, cursoSerie: e.target.value })} />
+                                  </div>
+                                  <p className={styles.hintText}>O comprovante de matrícula poderá ser anexado após salvar.</p>
+                                </>
+                              )}
+
+                              <div className={styles.wizardFooter}>
+                                <button className={styles.btnGhost} onClick={handleRendaStepAnterior}><FiArrowLeft size={14} /> Voltar</button>
+                                <button className={styles.btnPrimary} onClick={handleSalvarFonte} disabled={savingFonteRenda}>
+                                  {savingFonteRenda ? 'Salvando...' : 'Salvar e continuar'} <FiArrowRight size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })()}
+
+                        {/* Step 3: Registro Mensal (6 meses) */}
+                        {rendaWizardStep === 2 && (
+                          <div className={styles.rendaWizardBody}>
+                            <h3 className={styles.rendaStepTitle}>Cadastrar Renda</h3>
+                            <p className={styles.rendaStepSub}>{integrante.nome} — {getLabelFonte(rendaFonteForm.tipo)}</p>
+                            <p className={styles.hintText}>Preencha os valores recebidos em cada mês. Deixe R$ 0,00 nos campos que não se aplicam.</p>
+
+                            {!rendaEditingFonteId && (
+                              <div style={{ textAlign: 'center', padding: '1rem' }}>
+                                <button className={styles.btnPrimary} onClick={handleSalvarFonte} disabled={savingFonteRenda}>
+                                  {savingFonteRenda ? 'Salvando fonte...' : 'Salvar fonte de renda primeiro'}
+                                </button>
+                              </div>
+                            )}
+
+                            {rendaEditingFonteId && (
+                              <>
+                                {getUltimos6Meses().map(({ month, year }, idx) => {
+                                  const mesKey = `${year}-${month}`
+                                  const isAberto = rendaMesAberto === mesKey
+                                  const form = rendaMesesForm[mesKey] || EMPTY_RENDA_MES
+                                  const temDados = form.rendaBruta && parseFloat(form.rendaBruta.replace(',', '.')) > 0
+
+                                  return (
+                                    <div key={mesKey} className={styles.rendaMesCard}>
+                                      <div className={styles.rendaMesHeader} onClick={() => setRendaMesAberto(isAberto ? null : mesKey)}>
+                                        <span className={styles.rendaMesLabel}>{MESES_LABEL[month]} de {year}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                          {temDados && <span className={styles.rendaMesValor}>R$ {form.rendaBruta}</span>}
+                                          <span className={temDados ? styles.indicatorGreen : styles.indicatorYellow} />
+                                          {isAberto ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                                        </div>
+                                      </div>
+
+                                      {isAberto && (
+                                        <div className={styles.rendaMesBody}>
+                                          {idx < 5 && (
+                                            <button className={styles.btnCopiarMes} onClick={() => handleCopiarMesAnterior(mesKey)}>
+                                              Copiar valores do mês anterior
+                                            </button>
+                                          )}
+
+                                          <div className={styles.field}>
+                                            <label className={styles.rendaBrutaLabel}>Renda bruta <span className={styles.req}>*</span></label>
+                                            <div className={styles.inputPrefix}>
+                                              <span>R$</span>
+                                              <input value={form.rendaBruta} placeholder="0,00" onChange={e => updateRendaMesField(mesKey, 'rendaBruta', e.target.value)} />
+                                            </div>
+                                          </div>
+
+                                          <div className={styles.rendaDetalhamento}>
+                                            <span className={styles.rendaDetalhamentoLabel}>Detalhamento</span>
+                                            <div className={styles.rendaDetRow}><label>Auxílio alimentação</label><div className={styles.inputPrefix}><span>R$</span><input value={form.auxilioAlimentacao} placeholder="0,00" onChange={e => updateRendaMesField(mesKey, 'auxilioAlimentacao', e.target.value)} /></div></div>
+                                            <div className={styles.rendaDetRow}><label>Auxílio transporte</label><div className={styles.inputPrefix}><span>R$</span><input value={form.auxilioTransporte} placeholder="0,00" onChange={e => updateRendaMesField(mesKey, 'auxilioTransporte', e.target.value)} /></div></div>
+                                            <div className={styles.rendaDetRow}><label>Adiantamentos/antecipações</label><div className={styles.inputPrefix}><span>R$</span><input value={form.adiantamentos} placeholder="0,00" onChange={e => updateRendaMesField(mesKey, 'adiantamentos', e.target.value)} /></div></div>
+                                            <div className={styles.rendaDetRow}><label>Indenizações</label><div className={styles.inputPrefix}><span>R$</span><input value={form.indenizacoes} placeholder="0,00" onChange={e => updateRendaMesField(mesKey, 'indenizacoes', e.target.value)} /></div></div>
+                                            <div className={styles.rendaDetRow}><label>Estornos/compensações</label><div className={styles.inputPrefix}><span>R$</span><input value={form.estornosCompensacoes} placeholder="0,00" onChange={e => updateRendaMesField(mesKey, 'estornosCompensacoes', e.target.value)} /></div></div>
+                                          </div>
+
+                                          <div className={styles.rendaDeducao}>
+                                            <span className={styles.rendaDetalhamentoLabel}>Dedução</span>
+                                            <div className={styles.rendaDetRow}><label>Pensão alimentícia paga</label><div className={styles.inputPrefix}><span>R$</span><input value={form.pensaoAlimenticiaPaga} placeholder="0,00" onChange={e => updateRendaMesField(mesKey, 'pensaoAlimenticiaPaga', e.target.value)} /></div></div>
+                                            <p className={styles.hintTextSmall}>Exclusivamente no caso de decisão judicial, acordo homologado judicialmente ou por meio de escritura pública.</p>
+                                          </div>
+
+                                          <div className={styles.rendaComprovante}>
+                                            <label>Comprovante mensal de receitas brutas</label>
+                                            <div className={styles.uploadArea}>
+                                              <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => { const file = e.target.files?.[0]; if (file && rendaEditingFonteId) handleUploadComprovante(rendaEditingFonteId, month, year, file) }} id={`comprovante-${mesKey}`} style={{ display: 'none' }} />
+                                              <label htmlFor={`comprovante-${mesKey}`} className={styles.uploadLabel}><FiUpload size={14} /> Anexar arquivo</label>
+                                              <span className={styles.uploadHint}>*Tamanho máximo de 10Mb</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+
+                                <div className={styles.wizardFooter}>
+                                  <button className={styles.btnGhost} onClick={handleRendaStepAnterior}><FiArrowLeft size={14} /> Voltar</button>
+                                  <button className={styles.btnPrimary} onClick={handleSalvarRendasMensais} disabled={savingRendaMes}>
+                                    {savingRendaMes ? 'Salvando...' : 'Salvar'}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}
-              {membrosRenda.length === 0 && (
+
+              {integrantesRenda.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '2rem 0' }}>
-                  <p className={styles.emptyMsg}>Nenhum membro do grupo familiar cadastrado ainda.</p>
+                  <p className={styles.emptyMsg}>Carregando integrantes...</p>
                   <p className={styles.emptyMsg} style={{ marginTop: '0.5rem' }}>
                     Para registrar renda, primeiro cadastre os membros na seção{' '}
                     <button className={styles.linkBtn} onClick={() => goToSection(1)}>Grupo Familiar</button>.
@@ -2642,102 +3092,12 @@ export function CadastroCandidato() {
                 </div>
               )}
             </div>
+
             <div className={styles.footerCenter}>
-              <button className={styles.btnOutlineArrow} onClick={goToNextSection}>Próxima Etapa <FiArrowRight size={16} /></button>
+              <button className={styles.btnOutlineArrow} onClick={goToNextSection}>
+                Próxima Etapa <FiArrowRight size={16} />
+              </button>
             </div>
-
-            {/* Drawer de Renda por Membro */}
-            {rendaDrawerMembro && (
-              <div className={styles.rendaDrawerOverlay} onClick={() => { setRendaDrawerMembro(null); setRendaDrawerData(null) }}>
-                <div className={styles.rendaDrawer} onClick={e => e.stopPropagation()}>
-                  <div className={styles.rendaDrawerHeader}>
-                    <h3>{rendaDrawerData?.membro?.nome || 'Renda'}</h3>
-                    <button className={styles.btnGhost} onClick={() => { setRendaDrawerMembro(null); setRendaDrawerData(null) }}><FiX size={20} /></button>
-                  </div>
-
-                  <div className={styles.rendaDrawerBody}>
-                    {rendaDrawerLoading ? (
-                      <div className={styles.loadingContainer}><div className={styles.spinner} /></div>
-                    ) : (
-                      <>
-                        {rendaDrawerData?.resumo && (
-                          <div className={styles.rendaBadge} style={{ marginBottom: '1.25rem' }}>
-                            <span>Média mensal:</span>
-                            <div className={styles.rendaValue}>R$ {formatCurrency(rendaDrawerData.resumo.mediaRenda)}</div>
-                          </div>
-                        )}
-
-                        {getUltimosMeses().map(({ month, year }) => {
-                          const mesKey = `${year}-${month}`
-                          const rendaExistente = rendaDrawerData?.rendas?.find(r => r.mes === month && r.ano === year)
-                          const expanded = showRendaForm === mesKey
-
-                          return (
-                            <div key={mesKey} className={styles.rendaMesCard}>
-                              <div className={styles.rendaMesHeader} onClick={() => setShowRendaForm(expanded ? null : mesKey)}>
-                                <span>{MESES_LABEL[month]} de {year}</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  {rendaExistente && (
-                                    <span className={styles.rendaMesValor}>R$ {formatCurrency(Number(rendaExistente.valor))}</span>
-                                  )}
-                                  {expanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-                                </div>
-                              </div>
-
-                              {expanded && (
-                                <div className={styles.rendaMesBody}>
-                                  {rendaExistente && (
-                                    <div style={{ marginBottom: '0.75rem' }}>
-                                      <div className={styles.despesaItem}>
-                                        <div className={styles.despesaItemInfo}>
-                                          <span className={styles.despesaItemDesc}>{rendaExistente.fonte || 'Sem fonte especificada'}</span>
-                                          {rendaExistente.descricao && <span className={styles.membroMeta}>{rendaExistente.descricao}</span>}
-                                        </div>
-                                        <span className={styles.despesaItemValor}>R$ {formatCurrency(Number(rendaExistente.valor))}</span>
-                                        <button className={styles.btnSmallDanger} onClick={() => handleExcluirRenda(rendaExistente.id, rendaDrawerMembro!)}><FiTrash2 size={12} /></button>
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  <div className={styles.rendaInlineForm}>
-                                    <div className={styles.rendaInlineRow}>
-                                      <div className={styles.field}>
-                                        <label>Valor (R$)</label>
-                                        <input value={novaRenda.valor} placeholder="0,00" onChange={e => setNovaRenda({ ...novaRenda, valor: e.target.value })} />
-                                      </div>
-                                      <div className={styles.field}>
-                                        <label>Fonte de renda</label>
-                                        <select value={novaRenda.fonte} onChange={e => setNovaRenda({ ...novaRenda, fonte: e.target.value })}>
-                                          <option value="">Selecione...</option>
-                                          {FONTES_RENDA.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                                        </select>
-                                      </div>
-                                    </div>
-                                    <div className={styles.field}>
-                                      <label>Descrição (opcional)</label>
-                                      <input value={novaRenda.descricao} placeholder="Ex: Salário empresa X" onChange={e => setNovaRenda({ ...novaRenda, descricao: e.target.value })} />
-                                    </div>
-                                    <div className={styles.inlineActions}>
-                                      <button className={styles.btnPrimary} disabled={savingRenda} onClick={() => handleSalvarRenda(rendaDrawerMembro!, month, year)}>
-                                        {savingRenda ? 'Salvando...' : rendaExistente ? 'Atualizar' : 'Salvar'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </>
-                    )}
-                  </div>
-
-                  <div className={styles.rendaDrawerFooter}>
-                    <button className={styles.btnGhost} onClick={() => { setRendaDrawerMembro(null); setRendaDrawerData(null) }}>Fechar</button>
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )
 

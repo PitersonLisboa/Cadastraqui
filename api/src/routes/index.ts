@@ -21,6 +21,7 @@ import { conviteRoutes } from './convite.routes'
 import { tenantRoutes } from './tenant.routes'
 import { painelRoutes } from './painel.routes'
 import { rendaRoutes } from './renda.routes'
+import { fonteRendaRoutes } from './fonte-renda.routes'
 import { despesaRoutes } from './despesa.routes'
 import { moradiaRoutes } from './moradia.routes'
 import { veiculoRoutes } from './veiculo.routes'
@@ -59,6 +60,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(conviteRoutes)
   await app.register(painelRoutes)
   await app.register(rendaRoutes)
+  await app.register(fonteRendaRoutes)
   await app.register(despesaRoutes)
   await app.register(moradiaRoutes)
   await app.register(veiculoRoutes)
