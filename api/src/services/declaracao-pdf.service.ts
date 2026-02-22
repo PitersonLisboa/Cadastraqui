@@ -401,9 +401,10 @@ export async function gerarPdfDeclaracoes(
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i)
       const bottom = doc.page.height - 40
+      const pageWidth = doc.page.width - 100 // margem 50 de cada lado
       doc.fontSize(8).fillColor('#666')
-      doc.text('CADASTRAQUI', 50, bottom, { continued: false, lineBreak: false })
-      doc.text(`Pág. ${i + 1}/${totalPages}`, 50, bottom, { align: 'right' })
+      doc.text('CADASTRAQUI', 50, bottom, { lineBreak: false, width: pageWidth })
+      doc.text(`Pág. ${i + 1}/${totalPages}`, 50, bottom, { lineBreak: false, width: pageWidth, align: 'right' })
     }
     doc.fillColor('#000')
 
