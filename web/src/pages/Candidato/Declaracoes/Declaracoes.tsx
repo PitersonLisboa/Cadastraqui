@@ -148,11 +148,12 @@ export function Declaracoes() {
       setLoading(true)
       const res = await api.get('/declaracoes')
       setCandidato(res.data.candidato)
-      setDeclaracoes(res.data.declaracoes || [])
+      const decls = res.data.declaracoes || []
+      setDeclaracoes(decls)
 
       // Popular formData a partir das declarações existentes
       const fd: Record<string, any> = {}
-      for (const d of res.data.declaracoes || []) {
+      for (const d of decls) {
         fd[d.tipo] = {
           resposta: d.resposta,
           dados: d.dados || {},
@@ -162,6 +163,20 @@ export function Declaracoes() {
         }
       }
       setFormData(fd)
+
+      // Restaurar posição: ir para o primeiro step NÃO preenchido
+      // (ou último step se todos já foram preenchidos)
+      if (decls.length > 0) {
+        const filledTypes = new Set(decls.map((d: any) => d.tipo))
+        let resumeStep = STEPS.length - 1
+        for (let i = 0; i < STEPS.length; i++) {
+          if (!filledTypes.has(STEPS[i])) {
+            resumeStep = i
+            break
+          }
+        }
+        setCurrentStep(resumeStep)
+      }
     } catch (e) {
       console.error('Erro ao carregar declarações:', e)
     } finally {
@@ -182,11 +197,19 @@ export function Declaracoes() {
     setSaving(true)
     setMsg('')
     try {
-      await api.put('/declaracoes', {
+      const res = await api.put('/declaracoes', {
         tipo,
         resposta: form.resposta,
         dados: form.dados,
         confirmado: form.confirmado,
+      })
+      // Atualizar lista local de declarações preenchidas
+      setDeclaracoes(prev => {
+        const exists = prev.find(d => d.tipo === tipo)
+        if (exists) {
+          return prev.map(d => d.tipo === tipo ? { ...d, ...form, id: d.id } : d)
+        }
+        return [...prev, { id: res.data.declaracao?.id || tipo, tipo, ...form }]
       })
       setMsg('Salvo com sucesso!')
       setTimeout(() => setMsg(''), 2000)
@@ -246,8 +269,8 @@ export function Declaracoes() {
     }
   }
 
-  const goNext = () => {
-    salvarStep(STEPS[currentStep])
+  const goNext = async () => {
+    await salvarStep(STEPS[currentStep])
     if (currentStep < STEPS.length - 1) setCurrentStep(currentStep + 1)
   }
   const goPrev = () => { if (currentStep > 0) setCurrentStep(currentStep - 1) }
@@ -258,6 +281,11 @@ export function Declaracoes() {
 
   const tipo = STEPS[currentStep]
   const form = getForm(tipo)
+
+  // Calcular quais steps já têm dados salvos
+  const filledTypes = new Set(declaracoes.map(d => d.tipo))
+  const filledCount = STEPS.filter(s => filledTypes.has(s)).length
+  const isCurrentFilled = filledTypes.has(tipo)
 
   return (
     <div className={styles.container}>
@@ -270,7 +298,7 @@ export function Declaracoes() {
 
       {/* Progress */}
       <div className={styles.progress}>
-        <span>Etapa {currentStep + 1} de {STEPS.length}</span>
+        <span>Etapa {currentStep + 1} de {STEPS.length} — {filledCount} preenchida{filledCount !== 1 ? 's' : ''}{isCurrentFilled ? ' (esta etapa já foi salva)' : ''}</span>
         <div className={styles.progressBar}>
           <div className={styles.progressFill} style={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }} />
         </div>

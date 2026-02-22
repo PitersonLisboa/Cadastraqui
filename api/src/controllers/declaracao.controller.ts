@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../lib/prisma'
 import { CandidatoNaoEncontradoError, RecursoNaoEncontradoError, NaoAutorizadoError } from '../errors/index'
 import { gerarPdfDeclaracoes } from '../services/declaracao-pdf.service'
+import { UPLOADS_DIR } from '../config/upload'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -216,7 +217,7 @@ export async function uploadArquivoDeclaracao(request: FastifyRequest, reply: Fa
   }
 
   // Salvar no storage
-  const uploadsDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads', 'declaracoes')
+  const uploadsDir = path.join(UPLOADS_DIR, 'declaracoes')
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 
   const ext = path.extname(data.filename || '.pdf')
@@ -287,7 +288,7 @@ export async function uploadArquivoDeclaracaoMembro(request: FastifyRequest, rep
     return reply.status(400).send({ message: 'Arquivo excede 10MB' })
   }
 
-  const uploadsDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads', 'declaracoes')
+  const uploadsDir = path.join(UPLOADS_DIR, 'declaracoes')
   if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
 
   const ext = path.extname(data.filename || '.pdf')
@@ -358,7 +359,7 @@ export async function downloadArquivoDeclaracao(request: FastifyRequest, reply: 
     return reply.status(404).send({ message: 'Arquivo não encontrado' })
   }
 
-  const baseDir = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads', 'declaracoes')
+  const baseDir = path.join(UPLOADS_DIR, 'declaracoes')
   const fileName = path.basename(decl.arquivo_url)
   const filePath = path.join(baseDir, fileName)
 
