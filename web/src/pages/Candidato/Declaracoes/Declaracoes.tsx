@@ -317,20 +317,56 @@ export function Declaracoes() {
               const count = membrosDeclaracoes[m.id] || 0
               const completo = count >= STEPS.length
               return (
-                <button
-                  key={m.id}
-                  className={`${styles.membroItem} ${completo ? styles.membroCompleto : ''}`}
-                  onClick={() => navigate(`membro/${m.id}`)}
-                >
-                  <span className={styles.membroNome}>{m.nome}</span>
+                <div key={m.id} className={`${styles.membroItem} ${completo ? styles.membroCompleto : ''}`}>
+                  <span className={styles.membroNome} onClick={() => navigate(`membro/${m.id}`)} style={{ cursor: 'pointer' }}>
+                    {m.nome}
+                  </span>
                   <span className={styles.membroParentesco}>{m.parentesco}</span>
                   <span className={styles.membroStatus}>
                     {completo ? '✓ Completo' : `${count}/${STEPS.length}`}
                   </span>
-                </button>
+                  {completo && (
+                    <button
+                      className={styles.btnPdfSmall}
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        try {
+                          const blob = await api.get(`/declaracoes/membro/${m.id}/pdf`, { responseType: 'blob' })
+                          const url = window.URL.createObjectURL(blob.data)
+                          const link = document.createElement('a')
+                          link.href = url
+                          link.download = `declaracao_${m.nome.replace(/\s/g, '_')}.pdf`
+                          document.body.appendChild(link)
+                          link.click()
+                          document.body.removeChild(link)
+                          window.URL.revokeObjectURL(url)
+                        } catch { setMsg('Erro ao gerar PDF do membro') }
+                      }}
+                      title="Baixar PDF"
+                    >
+                      PDF
+                    </button>
+                  )}
+                  <button
+                    className={styles.btnEditSmall}
+                    onClick={() => navigate(`membro/${m.id}`)}
+                    title="Preencher declarações"
+                  >
+                    {completo ? 'Editar' : 'Preencher'}
+                  </button>
+                </div>
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Download PDF do Candidato */}
+      {filledCount >= STEPS.length && (
+        <div style={{ textAlign: 'center', margin: '0.75rem 0' }}>
+          <button className={styles.btnPdf} onClick={baixarPdf} style={{ marginRight: 8 }}>
+            Baixar PDF do Candidato
+          </button>
         </div>
       )}
 

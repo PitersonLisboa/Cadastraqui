@@ -400,11 +400,26 @@ export async function gerarPdfDeclaracoes(
     const totalPages = range.count
     for (let i = 0; i < totalPages; i++) {
       doc.switchToPage(i)
-      const bottom = doc.page.height - 40
-      const pageWidth = doc.page.width - 100 // margem 50 de cada lado
+      const bottom = doc.page.height - 35
+      doc.save()
       doc.fontSize(8).fillColor('#666')
-      doc.text('CADASTRAQUI', 50, bottom, { lineBreak: false, width: pageWidth })
-      doc.text(`Pág. ${i + 1}/${totalPages}`, 50, bottom, { lineBreak: false, width: pageWidth, align: 'right' })
+      // Escrever CADASTRAQUI à esquerda
+      doc.text('CADASTRAQUI', 50, bottom, {
+        lineBreak: false,
+        continued: false,
+        height: 10,
+        ellipsis: false,
+      })
+      // Escrever paginação à direita (posição X calculada)
+      const pageText = `Pág. ${i + 1}/${totalPages}`
+      const textWidth = doc.widthOfString(pageText)
+      doc.text(pageText, doc.page.width - 50 - textWidth, bottom, {
+        lineBreak: false,
+        continued: false,
+        height: 10,
+        ellipsis: false,
+      })
+      doc.restore()
     }
     doc.fillColor('#000')
 

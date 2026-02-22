@@ -366,7 +366,11 @@ export function DeclaracoesMembro() {
         {currentStep < STEPS.length - 1 ? (
           <button className={styles.btnNext} onClick={goNext}>→</button>
         ) : (
-          <button className={styles.btnNext} onClick={voltarCandidato}>
+          <button
+            className={styles.btnSave}
+            onClick={async () => { await salvarStep(tipo); voltarCandidato() }}
+            style={{ background: '#1F4B73', color: '#fff' }}
+          >
             ✓ Concluir
           </button>
         )}

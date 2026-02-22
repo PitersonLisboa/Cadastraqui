@@ -437,6 +437,69 @@ export async function gerarPdf(request: FastifyRequest, reply: FastifyReply) {
 }
 
 // ===========================================
+// GERAR PDF de declarações de um membro
+// ===========================================
+
+export async function gerarPdfMembro(request: FastifyRequest, reply: FastifyReply) {
+  const { membroId } = z.object({ membroId: z.string().min(1) }).parse(request.params)
+
+  const candidato = await prisma.candidato.findUnique({
+    where: { usuarioId: request.usuario.id },
+    include: {
+      membrosFamilia: true,
+      usuario: { select: { email: true } },
+      veiculos: true,
+    },
+  })
+  if (!candidato) throw new CandidatoNaoEncontradoError()
+
+  const membro = candidato.membrosFamilia.find(m => m.id === membroId)
+  if (!membro) throw new RecursoNaoEncontradoError('Membro familiar')
+
+  const declaracoes = await prisma.$queryRaw<any[]>`
+    SELECT d.*
+    FROM declaracoes d
+    WHERE d.membro_id = ${membroId}
+    ORDER BY d.criado_em ASC
+  `
+
+  // Montar objeto compatível com gerarPdfDeclaracoes
+  const membroAsCandidato = {
+    nome: membro.nome,
+    cpf: membro.cpf || '',
+    rg: (membro as any).rg || null,
+    rgOrgao: (membro as any).rgOrgao || null,
+    rgEstado: (membro as any).rgEstado || null,
+    nacionalidade: (membro as any).nacionalidade || 'Brasileira',
+    estadoCivil: (membro as any).estadoCivil || null,
+    profissao: (membro as any).profissao || null,
+    cep: null,
+    endereco: null,
+    numero: null,
+    complemento: null,
+    bairro: candidato.bairro,
+    cidade: candidato.cidade,
+    uf: candidato.uf,
+    usuario: { email: (membro as any).email || '' },
+    membrosFamilia: [],
+    veiculos: [],
+  }
+
+  const buffer = await gerarPdfDeclaracoes(
+    membroAsCandidato,
+    declaracoes.map(normalizeRow),
+  )
+
+  const cpfClean = (membro.cpf || membroId).replace(/\D/g, '')
+  const filename = `declaracao_membro_${cpfClean}_${Date.now()}.pdf`
+
+  return reply
+    .header('Content-Type', 'application/pdf')
+    .header('Content-Disposition', `attachment; filename="${filename}"`)
+    .send(buffer)
+}
+
+// ===========================================
 // ENVIAR por e-mail (placeholder)
 // ===========================================
 

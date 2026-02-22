@@ -1018,6 +1018,13 @@ export const declaracaoService = {
     return response.data
   },
 
+  gerarPdfMembro: async (membroId: string) => {
+    const response = await api.get(`/declaracoes/membro/${membroId}/pdf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
   enviarEmail: async () => {
     const response = await api.post('/declaracoes/email')
     return response.data

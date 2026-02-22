@@ -501,3 +501,37 @@
     background: #dcfce7;
   }
 }
+
+// =============================================
+// Botões pequenos no painel de membros
+// =============================================
+
+.btnPdfSmall {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #1F4B73;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+
+  &:hover { background: #163a5a; }
+}
+
+.btnEditSmall {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #e0ecf7;
+  color: #1F4B73;
+  border: 1px solid #bdd4ed;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+
+  &:hover { background: #ccdff2; }
+}

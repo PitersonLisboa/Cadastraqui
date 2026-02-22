@@ -9,6 +9,7 @@ import {
   uploadArquivoDeclaracaoMembro,
   downloadArquivoDeclaracao,
   gerarPdf,
+  gerarPdfMembro,
   enviarPorEmail,
 } from '../controllers/declaracao.controller'
 
@@ -41,8 +42,11 @@ export async function declaracaoRoutes(app: FastifyInstance) {
   app.get('/declaracoes/:id/download', downloadArquivoDeclaracao)
 
   // === PDF ===
-  // Gerar PDF completo das declarações
+  // Gerar PDF completo das declarações do candidato
   app.get('/declaracoes/pdf', gerarPdf)
+
+  // Gerar PDF das declarações de um membro familiar
+  app.get('/declaracoes/membro/:membroId/pdf', gerarPdfMembro)
 
   // Enviar PDF por e-mail
   app.post('/declaracoes/email', enviarPorEmail)
