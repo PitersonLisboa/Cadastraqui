@@ -960,3 +960,66 @@ export const ocrMembroService = {
     return response.data
   },
 }
+
+// ===========================================
+// DECLARAÇÕES CEBAS
+// ===========================================
+
+export const declaracaoService = {
+  listar: async () => {
+    const response = await api.get('/declaracoes')
+    return response.data
+  },
+
+  listarMembro: async (membroId: string) => {
+    const response = await api.get(`/declaracoes/membro/${membroId}`)
+    return response.data
+  },
+
+  salvar: async (data: { tipo: string; resposta?: boolean | null; dados?: any; confirmado?: boolean }) => {
+    const response = await api.put('/declaracoes', data)
+    return response.data
+  },
+
+  salvarMembro: async (data: { tipo: string; membroId: string; resposta?: boolean | null; dados?: any; confirmado?: boolean }) => {
+    const response = await api.put('/declaracoes/membro', data)
+    return response.data
+  },
+
+  uploadArquivo: async (tipo: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/declaracoes/upload/${tipo}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
+  uploadArquivoMembro: async (membroId: string, tipo: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/declaracoes/membro/${membroId}/upload/${tipo}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response.data
+  },
+
+  downloadArquivo: async (id: string) => {
+    const response = await api.get(`/declaracoes/${id}/download`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  gerarPdf: async () => {
+    const response = await api.get('/declaracoes/pdf', {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  enviarEmail: async () => {
+    const response = await api.post('/declaracoes/email')
+    return response.data
+  },
+}

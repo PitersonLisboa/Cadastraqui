@@ -3439,28 +3439,37 @@ export function CadastroCandidato() {
         return (
           <>
             <h2 className={styles.sectionTitle}>Declarações para fins de processo seletivo CEBAS</h2>
-            <div className={styles.listItems}>
-              {dados.nome && (
+            <p style={{ fontSize: '0.95rem', color: '#333', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              Nesta seção você preencherá as <b>22 declarações obrigatórias</b> exigidas pela Lei Complementar nº 187/2021
+              para o processo seletivo CEBAS. O preenchimento é feito em um wizard passo a passo, com salvamento
+              automático a cada etapa. Ao final, você poderá <b>baixar o PDF</b> completo com todas as declarações.
+            </p>
+            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+                onClick={() => {
+                  const path = window.location.pathname.replace(/\/cadastro\/?$/, '/declaracoes')
+                  window.location.href = path
+                }}
+              >
+                Preencher Declarações
+              </button>
+            </div>
+            {dados.nome && (
+              <div className={styles.listItems} style={{ marginTop: '2rem' }}>
                 <div className={styles.listRow}>
                   <span className={styles.listName}>{dados.nome}</span>
                   {documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').length > 0
                     ? documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').map(doc => (
                         <button key={doc.id} type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
                       ))
-                    : <span style={{ fontSize: '0.8rem', color: '#999' }}>Nenhuma declaração enviada</span>
+                    : <span style={{ fontSize: '0.8rem', color: '#999' }}>Nenhuma declaração preenchida ainda</span>
                   }
                 </div>
-              )}
-              {membros.map(m => (
-                <div key={m.id} className={styles.listRow}>
-                  <span className={styles.listName}>{m.nome}</span>
-                  <span style={{ fontSize: '0.8rem', color: '#999' }}>Nenhuma declaração enviada</span>
-                </div>
-              ))}
-            </div>
-            <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '1rem' }}>
-              As declarações podem ser enviadas na seção "Documento Adicional" do cadastro.
-            </p>
+              </div>
+            )}
           </>
         )
 

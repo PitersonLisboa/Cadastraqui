@@ -1,0 +1,423 @@
+// =============================================
+// Declarações CEBAS - Estilos
+// =============================================
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+// Header
+.header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+
+  h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1F4B73;
+    margin-bottom: 0.5rem;
+  }
+  h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1F4B73;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+  h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+  }
+}
+
+// Barra de progresso
+.progress {
+  margin-bottom: 1.5rem;
+
+  span {
+    display: block;
+    text-align: right;
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 0.25rem;
+  }
+}
+
+.progressBar {
+  width: 100%;
+  height: 6px;
+  background: #e0e0e0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: #1F4B73;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+// Step content
+.stepContent {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  min-height: 200px;
+}
+
+// Textos
+.declaracaoTexto {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #333;
+  text-align: justify;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border-left: 3px solid #1F4B73;
+
+  b {
+    color: #1F4B73;
+  }
+}
+
+// Radio group
+.radioGroup {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 1rem 0;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-size: 0.95rem;
+
+    input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #1F4B73;
+    }
+  }
+}
+
+// Centro
+.center {
+  text-align: center;
+
+  p {
+    margin-bottom: 0.5rem;
+  }
+}
+
+// Formulários
+.formGroup {
+  margin-top: 1rem;
+}
+
+.field {
+  margin-bottom: 0.75rem;
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 0.25rem;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 0.625rem;
+    border: 1.5px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: #1F4B73;
+      outline: none;
+    }
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  select[multiple] {
+    min-height: 60px;
+  }
+
+  small {
+    display: block;
+    color: #888;
+    font-size: 0.8rem;
+    margin-top: 0.2rem;
+  }
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Endereço grid
+.enderecoGrid {
+  margin-top: 1rem;
+
+  h3 {
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+}
+
+// Upload area
+.uploadArea {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  text-align: center;
+
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #555;
+  }
+
+  input[type="file"] {
+    margin: 0.5rem 0;
+  }
+}
+
+.fileInput {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fileName {
+  display: block;
+  color: #1F4B73;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.hint {
+  color: #e53e3e;
+  font-size: 0.8rem;
+}
+
+// Sub-navegação dentro de steps
+.subNav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+
+  button {
+    padding: 0.5rem 1.25rem;
+    border: 1.5px solid #1F4B73;
+    border-radius: 6px;
+    background: #fff;
+    color: #1F4B73;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: #f0f4f8;
+    }
+  }
+}
+
+.subTitle {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1F4B73;
+  margin-bottom: 1rem;
+}
+
+// Pensão card
+.pensaoCard {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  background: #fafafa;
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+
+  span {
+    font-weight: 700;
+    color: #1F4B73;
+  }
+}
+
+// Mensagem
+.message {
+  text-align: center;
+  padding: 0.5rem;
+  color: #1F4B73;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+// Navegação principal
+.navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+// Botões
+.btnBack, .btnNext {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: 2px solid #1F4B73;
+  border-radius: 8px;
+  background: #fff;
+  color: #1F4B73;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #1F4B73;
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.btnSave {
+  padding: 0.625rem 2rem;
+  border: 2px solid #1F4B73;
+  border-radius: 8px;
+  background: #fff;
+  color: #1F4B73;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    background: #1F4B73;
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.btnAdd {
+  padding: 0.5rem 1rem;
+  border: 1.5px solid #1F4B73;
+  border-radius: 6px;
+  background: #fff;
+  color: #1F4B73;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: #f0f4f8; }
+}
+
+.btnRemove {
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  background: #e53e3e;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+
+  &:hover { background: #c53030; }
+}
+
+.btnGerar {
+  display: inline-block;
+  padding: 0.625rem 2rem;
+  background: #1F4B73;
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  margin: 1rem 0;
+
+  &:hover { background: #163a5a; }
+}
+
+// Botões finais
+.finalButtons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.btnPdf, .btnEmail {
+  padding: 0.625rem 1.5rem;
+  border: 2px solid #1F4B73;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btnPdf {
+  background: #1F4B73;
+  color: #fff;
+  &:hover { background: #163a5a; }
+}
+
+.btnEmail {
+  background: #fff;
+  color: #1F4B73;
+  &:hover { background: #f0f4f8; }
+}
