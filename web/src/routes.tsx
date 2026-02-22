@@ -30,6 +30,7 @@ import { MeusAgendamentos } from './pages/Candidato/Agendamentos/MeusAgendamento
 import { MembrosFamilia } from './pages/Candidato/Familia/MembrosFamilia'
 import { WizardInscricao } from './pages/Candidato/Inscricao/WizardInscricao'
 import { Declaracoes } from './pages/Candidato/Declaracoes/Declaracoes'
+import { DeclaracoesMembro } from './pages/Candidato/Declaracoes/DeclaracoesMembro'
 
 // Instituição
 import { DashboardInstituicao } from './pages/Instituicao/Dashboard/DashboardInstituicao'
@@ -136,6 +137,7 @@ const candidatoChildren = [
   { path: 'agendamentos', element: <MeusAgendamentos /> },
   { path: 'familia', element: <MembrosFamilia /> },
   { path: 'declaracoes', element: <Declaracoes /> },
+  { path: 'declaracoes/membro/:membroId', element: <DeclaracoesMembro /> },
   { path: 'perfil', element: <Perfil /> },
 ]
 

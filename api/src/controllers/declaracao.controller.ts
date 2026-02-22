@@ -21,7 +21,7 @@ const declaracaoUpsertSchema = z.object({
 
 const declaracaoMembroUpsertSchema = z.object({
   tipo: z.string().min(1),
-  membroId: z.string().uuid(),
+  membroId: z.string().min(1),
   resposta: z.boolean().nullable().optional(),
   dados: z.any().optional(),
   confirmado: z.boolean().optional(),
@@ -35,7 +35,12 @@ async function getCandidato(usuarioId: string) {
   const candidato = await prisma.candidato.findUnique({
     where: { usuarioId },
     include: {
-      membrosFamilia: { select: { id: true, nome: true, parentesco: true, cpf: true } },
+      membrosFamilia: { select: {
+        id: true, nome: true, parentesco: true, cpf: true,
+        rg: true, rgOrgao: true, rgEstado: true,
+        nacionalidade: true, estadoCivil: true, profissao: true,
+        dataNascimento: true,
+      } },
       usuario: { select: { email: true } },
       veiculos: true,
     },
@@ -58,6 +63,19 @@ export async function listarDeclaracoes(request: FastifyRequest, reply: FastifyR
       AND d.membro_id IS NULL
     ORDER BY d.criado_em ASC
   `
+
+  // Contar declarações preenchidas por membro
+  const membrosCount = await prisma.$queryRaw<any[]>`
+    SELECT membro_id, COUNT(*)::int as total
+    FROM declaracoes
+    WHERE candidato_id = ${candidato.id}
+      AND membro_id IS NOT NULL
+    GROUP BY membro_id
+  `
+  const membrosDeclaracoes: Record<string, number> = {}
+  for (const row of membrosCount) {
+    membrosDeclaracoes[row.membro_id] = row.total
+  }
 
   return reply.status(200).send({
     declaracoes: declaracoes.map(normalizeRow),
@@ -82,6 +100,7 @@ export async function listarDeclaracoes(request: FastifyRequest, reply: FastifyR
       membrosFamilia: candidato.membrosFamilia,
       veiculos: candidato.veiculos,
     },
+    membrosDeclaracoes,
   })
 }
 
@@ -90,7 +109,7 @@ export async function listarDeclaracoes(request: FastifyRequest, reply: FastifyR
 // ===========================================
 
 export async function listarDeclaracoesMembro(request: FastifyRequest, reply: FastifyReply) {
-  const { membroId } = z.object({ membroId: z.string().uuid() }).parse(request.params)
+  const { membroId } = z.object({ membroId: z.string().min(1) }).parse(request.params)
 
   const candidato = await getCandidato(request.usuario.id)
   if (!candidato) throw new CandidatoNaoEncontradoError()
@@ -107,6 +126,13 @@ export async function listarDeclaracoesMembro(request: FastifyRequest, reply: Fa
   `
 
   return reply.status(200).send({
+    membro,
+    candidato: {
+      id: candidato.id,
+      nome: candidato.nome,
+      cpf: candidato.cpf,
+      membrosFamilia: candidato.membrosFamilia,
+    },
     declaracoes: declaracoes.map(normalizeRow),
   })
 }
@@ -269,7 +295,7 @@ export async function uploadArquivoDeclaracao(request: FastifyRequest, reply: Fa
 
 export async function uploadArquivoDeclaracaoMembro(request: FastifyRequest, reply: FastifyReply) {
   const { membroId, tipo } = z.object({
-    membroId: z.string().uuid(),
+    membroId: z.string().min(1),
     tipo: z.string(),
   }).parse(request.params)
 

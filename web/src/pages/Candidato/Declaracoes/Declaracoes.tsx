@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../../../services/api'
 import styles from './Declaracoes.module.scss'
 
@@ -132,8 +133,10 @@ const emptyEndereco = (): Endereco => ({ cep: '', rua: '', numero: '', bairro: '
 // =============================================
 
 export function Declaracoes() {
+  const navigate = useNavigate()
   const [candidato, setCandidato] = useState<Candidato | null>(null)
   const [declaracoes, setDeclaracoes] = useState<Declaracao[]>([])
+  const [membrosDeclaracoes, setMembrosDeclaracoes] = useState<Record<string, number>>({})
   const [currentStep, setCurrentStep] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -150,6 +153,7 @@ export function Declaracoes() {
       setCandidato(res.data.candidato)
       const decls = res.data.declaracoes || []
       setDeclaracoes(decls)
+      setMembrosDeclaracoes(res.data.membrosDeclaracoes || {})
 
       // Popular formData a partir das declarações existentes
       const fd: Record<string, any> = {}
@@ -303,6 +307,32 @@ export function Declaracoes() {
           <div className={styles.progressFill} style={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }} />
         </div>
       </div>
+
+      {/* Painel de Membros Familiares */}
+      {candidato.membrosFamilia && candidato.membrosFamilia.length > 0 && (
+        <div className={styles.membrosPanel}>
+          <h4>Declarações dos Membros Familiares</h4>
+          <div className={styles.membrosList}>
+            {candidato.membrosFamilia.map(m => {
+              const count = membrosDeclaracoes[m.id] || 0
+              const completo = count >= STEPS.length
+              return (
+                <button
+                  key={m.id}
+                  className={`${styles.membroItem} ${completo ? styles.membroCompleto : ''}`}
+                  onClick={() => navigate(`membro/${m.id}`)}
+                >
+                  <span className={styles.membroNome}>{m.nome}</span>
+                  <span className={styles.membroParentesco}>{m.parentesco}</span>
+                  <span className={styles.membroStatus}>
+                    {completo ? '✓ Completo' : `${count}/${STEPS.length}`}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Step Content */}
       <div className={styles.stepContent}>

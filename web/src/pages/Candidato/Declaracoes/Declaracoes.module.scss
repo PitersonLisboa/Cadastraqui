@@ -421,3 +421,83 @@
   color: #1F4B73;
   &:hover { background: #f0f4f8; }
 }
+
+// =============================================
+// Painel de Membros Familiares
+// =============================================
+
+.membrosPanel {
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+
+  h4 {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+    color: #1F4B73;
+    font-weight: 600;
+  }
+}
+
+.membrosList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.membroItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  font-size: 0.9rem;
+
+  &:hover {
+    border-color: #1F4B73;
+    background: #f0f6ff;
+  }
+}
+
+.membroCompleto {
+  border-color: #22c55e;
+  background: #f0fdf4;
+  &:hover {
+    background: #dcfce7;
+    border-color: #16a34a;
+  }
+}
+
+.membroNome {
+  flex: 1;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.membroParentesco {
+  font-size: 0.8rem;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
+.membroStatus {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1F4B73;
+  background: #e0ecf7;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  white-space: nowrap;
+
+  .membroCompleto & {
+    color: #16a34a;
+    background: #dcfce7;
+  }
+}
