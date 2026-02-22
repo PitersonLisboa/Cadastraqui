@@ -241,8 +241,26 @@ export function DeclaracoesMembro() {
   return (
     <div className={styles.container}>
       {/* Botão voltar */}
-      <button className={styles.btnBack} onClick={voltarCandidato} style={{ marginBottom: 10 }}>
-        ← Voltar para Declarações do Candidato
+      <button
+        className={styles.btnBack}
+        onClick={voltarCandidato}
+        style={{
+          marginBottom: 16,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '0.5rem 1rem',
+          fontSize: '0.85rem',
+          background: '#f1f5f9',
+          border: '1px solid #cbd5e1',
+          borderRadius: 6,
+          cursor: 'pointer',
+          color: '#1F4B73',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        ← Voltar
       </button>
 
       {/* Header */}

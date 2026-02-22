@@ -419,6 +419,101 @@ interface PessoaSaude {
 // COMPONENTE
 // ===========================================
 
+// ═══════════════════════════════════════════
+// COMPONENTE: Seção de Declarações (consulta tabela declaracoes)
+// ═══════════════════════════════════════════
+
+function DeclaracoesSection({ dados }: { dados: any }) {
+  const [declCount, setDeclCount] = useState(0)
+  const [membros, setMembros] = useState<any[]>([])
+  const [membrosDecl, setMembrosDecl] = useState<Record<string, number>>({})
+  const [declLoading, setDeclLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    api.get('/declaracoes')
+      .then(res => {
+        if (!cancelled) {
+          setDeclCount((res.data.declaracoes || []).length)
+          setMembros(res.data.candidato?.membrosFamilia || [])
+          setMembrosDecl(res.data.membrosDeclaracoes || {})
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setDeclLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const candidatoCompleto = declCount >= 22
+  const todosCompletos = candidatoCompleto && membros.length > 0 && membros.every(m => (membrosDecl[m.id] || 0) >= 22)
+
+  return (
+    <>
+      <h2 className={styles.sectionTitle}>Declarações para fins de processo seletivo CEBAS</h2>
+      <p style={{ fontSize: '0.95rem', color: '#333', lineHeight: 1.6, marginBottom: '1rem' }}>
+        Nesta seção você preencherá as <b>22 declarações obrigatórias</b> exigidas pela Lei Complementar nº 187/2021
+        para o processo seletivo CEBAS. O preenchimento é feito em um wizard passo a passo, com salvamento
+        automático a cada etapa. Ao final, você poderá <b>baixar o PDF</b> completo com todas as declarações.
+      </p>
+
+      {!declLoading && (
+        <div style={{
+          background: candidatoCompleto ? '#f0f7f0' : '#fef9e7',
+          border: `1px solid ${candidatoCompleto ? '#c3e6cb' : '#f5e6a8'}`,
+          borderRadius: '8px',
+          padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.9rem',
+          color: candidatoCompleto ? '#155724' : '#856404'
+        }}>
+          {candidatoCompleto
+            ? <>✅ <b>Candidato:</b> Todas as 22 declarações foram preenchidas!</>
+            : <>📝 <b>Candidato:</b> {declCount} de 22 declarações preenchidas.</>
+          }
+        </div>
+      )}
+
+      {!declLoading && membros.length > 0 && (
+        <div style={{
+          background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px',
+          padding: '0.75rem 1rem', marginBottom: '1rem', fontSize: '0.85rem',
+        }}>
+          <b style={{ color: '#1F4B73' }}>Membros Familiares:</b>
+          {membros.map(m => {
+            const count = membrosDecl[m.id] || 0
+            const ok = count >= 22
+            return (
+              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderBottom: '1px solid #eee' }}>
+                <span>{m.nome} <span style={{ color: '#888', fontSize: '0.8rem' }}>({m.parentesco})</span></span>
+                <span style={{ fontWeight: 600, color: ok ? '#16a34a' : '#9a6700' }}>
+                  {ok ? '✅ Completo' : `${count}/22`}
+                </span>
+              </div>
+            )
+          })}
+          {todosCompletos && (
+            <div style={{ marginTop: '0.5rem', color: '#16a34a', fontWeight: 600 }}>
+              ✅ Todos os integrantes completaram suas declarações!
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+        <button
+          type="button"
+          className={styles.btnPrimary}
+          style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+          onClick={() => {
+            const path = window.location.pathname.replace(/\/cadastro\/?$/, '/declaracoes')
+            window.location.href = path
+          }}
+        >
+          {declCount > 0 ? 'Continuar Declarações' : 'Preencher Declarações'}
+        </button>
+      </div>
+    </>
+  )
+}
+
 export function CadastroCandidato() {
   const sidebarMode = useRecoilValue(sidebarModeState)
   const setSidebarMode = useSetRecoilState(sidebarModeState)
@@ -3436,42 +3531,7 @@ export function CadastroCandidato() {
       // DECLARAÇÕES
       // ════════════════════════════════════════
       case 'declaracoes':
-        return (
-          <>
-            <h2 className={styles.sectionTitle}>Declarações para fins de processo seletivo CEBAS</h2>
-            <p style={{ fontSize: '0.95rem', color: '#333', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-              Nesta seção você preencherá as <b>22 declarações obrigatórias</b> exigidas pela Lei Complementar nº 187/2021
-              para o processo seletivo CEBAS. O preenchimento é feito em um wizard passo a passo, com salvamento
-              automático a cada etapa. Ao final, você poderá <b>baixar o PDF</b> completo com todas as declarações.
-            </p>
-            <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-              <button
-                type="button"
-                className={styles.btnPrimary}
-                style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
-                onClick={() => {
-                  const path = window.location.pathname.replace(/\/cadastro\/?$/, '/declaracoes')
-                  window.location.href = path
-                }}
-              >
-                Preencher Declarações
-              </button>
-            </div>
-            {dados.nome && (
-              <div className={styles.listItems} style={{ marginTop: '2rem' }}>
-                <div className={styles.listRow}>
-                  <span className={styles.listName}>{dados.nome}</span>
-                  {documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').length > 0
-                    ? documentos.filter(d => d.tipo === 'DECLARACAO_CEBAS').map(doc => (
-                        <button key={doc.id} type="button" className={styles.btnPrimary} style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }} onClick={() => handleViewDoc(doc.id)}>Visualizar Documento</button>
-                      ))
-                    : <span style={{ fontSize: '0.8rem', color: '#999' }}>Nenhuma declaração preenchida ainda</span>
-                  }
-                </div>
-              </div>
-            )}
-          </>
-        )
+        return <DeclaracoesSection dados={dados} />
 
       default: return null
     }
