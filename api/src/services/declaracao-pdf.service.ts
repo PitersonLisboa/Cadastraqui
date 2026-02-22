@@ -58,7 +58,7 @@ export async function gerarPdfDeclaracoes(
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    const doc = new PDFDocument({ size: 'A4', margin: 50 })
+    const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true })
 
     doc.on('data', (chunk: Buffer) => chunks.push(chunk))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
